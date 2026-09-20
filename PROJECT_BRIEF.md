@@ -1,7 +1,7 @@
 # Vernex Digital
 ## White-Label Customer Panel – Project Brief
 
-**Document Version:** 1.0  
+**Document Version:** 1.1  
 **Status:** Ready for Client Review & Acceptance  
 **Date:** 20 September 2026  
 **Prepared by:** Verxor Platform Team  
@@ -13,7 +13,7 @@
 
 Vernex Digital is a professional, Nigeria-focused white-label customer panel built on the Verxor platform.
 
-The panel allows the client’s end-users to purchase digital services through a prepaid wallet system. All retail pricing is controlled by the client (panel owner) through a dedicated Admin area. Payments are collected directly into the client’s own Paystack account. Service fulfilment is handled securely through Verxor’s wholesale API.
+The panel allows the client’s end-users to purchase digital services through a prepaid wallet system. All retail pricing is controlled by the client (panel owner) through a dedicated Admin area. Payments are collected directly into the client’s own XixaPay account. Service fulfilment is handled securely through Verxor’s wholesale API.
 
 **Public Brand Name:** Vernex Digital  
 **Installed App / Short Name:** Vernex  
@@ -107,7 +107,7 @@ Real routes with clean “Coming Soon” empty states.
 
 ### 6. Supporting Pages
 
-- **Fund** – Amount entry → Paystack (client’s keys) → Wallet credit
+- **Fund** – Amount entry → XixaPay (client’s keys) → Wallet credit
 - **History** – Unified list of all orders and transactions
 - **Profile** – Account details, security, support links, logout
 - **Landing Page** – Professional public marketing page with Login / Register CTAs
@@ -115,7 +115,27 @@ Real routes with clean “Coming Soon” empty states.
 
 ---
 
-### 7. Admin Panel (Client / Panel Owner Only)
+### 7. Payment Gateway (Customer Choice)
+
+**Primary Gateway:** XixaPay  
+Website: [https://www.xixapay.com](https://www.xixapay.com)  
+Documentation: [https://documentation.xixapay.com](https://documentation.xixapay.com)
+
+**Rules:**
+- The panel uses the **customer’s (panel owner’s) own XixaPay API keys**
+- Keys are stored securely in Admin → Settings
+- Platform (Verxor) keys are **never** hard-coded in this application
+- Fund Wallet flow:
+  1. User enters amount
+  2. Panel initializes payment via XixaPay using the client’s keys
+  3. Customer completes payment on XixaPay
+  4. Webhook confirms successful payment
+  5. NGN wallet is credited
+- Settlement, transaction fees, and payment support are the sole responsibility of the panel owner with XixaPay
+
+---
+
+### 8. Admin Panel (Client / Panel Owner Only)
 
 Accessible exclusively via the footer “Admin” link on the landing page.
 
@@ -125,14 +145,14 @@ Accessible exclusively via the footer “Admin” link on the landing page.
 - Pricing management (set retail prices / markups for all live services)
 - Orders list
 - Panel wallet / settlement view with platform
-- Settings: display name, support contacts (WhatsApp / Telegram), Paystack public & secret keys
+- Settings: display name, support contacts (WhatsApp / Telegram), **XixaPay public & secret keys**
 - Light user list
 
 All end-user prices are controlled by the Admin settings + Verxor wholesale API. No hard-coded retail prices.
 
 ---
 
-### 8. Technical Architecture Notes
+### 9. Technical Architecture Notes
 
 - Frontend: Modern React / Next.js (App Router) + TypeScript + Tailwind CSS
 - Prepaid wallet model
@@ -143,7 +163,7 @@ All end-user prices are controlled by the Admin settings + Verxor wholesale API.
 
 ---
 
-### 9. Build Phases
+### 10. Build Phases
 
 | Phase | Scope                                      |
 |-------|--------------------------------------------|
@@ -154,7 +174,7 @@ All end-user prices are controlled by the Admin settings + Verxor wholesale API.
 
 ---
 
-### 10. Explicitly Out of Scope
+### 11. Explicitly Out of Scope
 
 - Flight booking
 - Gaming top-up
@@ -163,7 +183,7 @@ All end-user prices are controlled by the Admin settings + Verxor wholesale API.
 
 ---
 
-### 11. Acceptance Criteria
+### 12. Acceptance Criteria
 
 The panel will be considered complete for client review when:
 
@@ -173,6 +193,7 @@ The panel will be considered complete for client review when:
 - Bottom navigation contains exactly the five specified items
 - Gift Card and Lucky Draw exist as proper “Coming Soon” pages
 - Admin is accessible only from the landing page footer
+- Payment gateway is XixaPay using the panel owner’s own API keys
 - The application looks professional and commercial on real mobile devices
 
 ---
