@@ -1,10 +1,8 @@
 # Vernex Digital
 
-**White-Label Customer Panel** built on the Verxor platform.
+White-label customer panel built on the Verxor platform.
 
----
-
-### Quick Start
+## Quick Start
 
 ```bash
 npm install
@@ -13,23 +11,22 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
----
+## Stack
 
-### Project Status — Phase 1 Complete
+- Next.js 15
+- React 19
+- Tailwind CSS 4
+- TypeScript
 
-- Design tokens & colour system
-- Landing page
-- Login / Register placeholders
-- Home dashboard (wallet card + 8 quick actions)
-- Bottom navigation (Home · Services · Fund · History · Profile)
-- Services list, Fund, History, Profile shells
-- Admin entry (footer link)
+## Deploy (Vercel)
 
----
+Connect this repo to Vercel. Framework preset: **Next.js**.
 
-### Documentation
+If a previous deploy failed, trigger a **Redeploy** after the latest commits (Next 15 stabilization + Facebook blue theme).
 
-Full specification: **[PROJECT_BRIEF.md](./PROJECT_BRIEF.md)**
+## Docs
+
+See [PROJECT_BRIEF.md](./PROJECT_BRIEF.md) for full product scope.
 
 ---
 
