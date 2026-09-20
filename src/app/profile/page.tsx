@@ -6,7 +6,7 @@ export default function ProfilePage() {
       </header>
       <div className="px-4 space-y-4">
         <div className="flex items-center gap-3 p-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-[12px]">
-          <div className="w-12 h-12 rounded-full bg-[#0284C7] flex items-center justify-center text-white font-semibold">
+          <div className="w-12 h-12 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-semibold">
             A
           </div>
           <div>

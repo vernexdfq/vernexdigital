@@ -5,7 +5,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex flex-col bg-white px-4">
       <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full py-12">
         <div className="mb-8">
-          <div className="w-10 h-10 rounded-lg bg-[#0284C7] flex items-center justify-center text-white font-bold mb-4">
+          <div className="w-10 h-10 rounded-lg bg-[#1877F2] flex items-center justify-center text-white font-bold mb-4">
             V
           </div>
           <h1 className="text-2xl font-bold text-[#0F172A]">Create account</h1>
@@ -18,7 +18,7 @@ export default function RegisterPage() {
             <input
               type="text"
               placeholder="Your name"
-              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm outline-none focus:border-[#0284C7]"
+              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm outline-none focus:border-[#1877F2]"
             />
           </div>
           <div>
@@ -26,7 +26,7 @@ export default function RegisterPage() {
             <input
               type="text"
               placeholder="you@example.com"
-              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm outline-none focus:border-[#0284C7]"
+              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm outline-none focus:border-[#1877F2]"
             />
           </div>
           <div>
@@ -34,12 +34,12 @@ export default function RegisterPage() {
             <input
               type="password"
               placeholder="••••••••"
-              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm outline-none focus:border-[#0284C7]"
+              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm outline-none focus:border-[#1877F2]"
             />
           </div>
           <Link
             href="/home"
-            className="flex items-center justify-center w-full h-11 bg-[#0284C7] text-white text-sm font-medium rounded-[10px] hover:bg-[#0369A1] transition-colors"
+            className="flex items-center justify-center w-full h-11 bg-[#1877F2] text-white text-sm font-medium rounded-[10px] hover:bg-[#166FE5] transition-colors"
           >
             Create Account
           </Link>
@@ -56,7 +56,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-[#64748B] mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-[#0284C7] font-medium">
+          <Link href="/login" className="text-[#1877F2] font-medium">
             Sign in
           </Link>
         </p>

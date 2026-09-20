@@ -12,20 +12,20 @@ export default function FundPage() {
             <input
               type="number"
               placeholder="5000"
-              className="w-full h-12 px-3 rounded-[10px] border border-[#E2E8F0] bg-white text-lg font-semibold outline-none focus:border-[#0284C7]"
+              className="w-full h-12 px-3 rounded-[10px] border border-[#E2E8F0] bg-white text-lg font-semibold outline-none focus:border-[#1877F2]"
             />
           </div>
           <div className="flex gap-2">
             {[1000, 2000, 5000, 10000].map((amt) => (
               <button
                 key={amt}
-                className="flex-1 h-9 text-xs font-medium rounded-[8px] border border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#0284C7]"
+                className="flex-1 h-9 text-xs font-medium rounded-[8px] border border-[#E2E8F0] bg-white text-[#0F172A] hover:border-[#1877F2]"
               >
                 ₦{amt.toLocaleString()}
               </button>
             ))}
           </div>
-          <button className="w-full h-11 bg-[#0284C7] text-white text-sm font-medium rounded-[10px] hover:bg-[#0369A1]">
+          <button className="w-full h-11 bg-[#1877F2] text-white text-sm font-medium rounded-[10px] hover:bg-[#166FE5]">
             Continue to Payment
           </button>
           <p className="text-[11px] text-center text-[#94A3B8]">

@@ -26,9 +26,9 @@ export default function ServicesPage() {
           <Link
             key={s.href}
             href={s.href}
-            className="flex items-center gap-3 p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0284C7]/40 transition-colors"
+            className="flex items-center gap-3 p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#1877F2]/40 transition-colors"
           >
-            <div className="w-10 h-10 rounded-[10px] bg-white border border-[#E2E8F0] flex items-center justify-center text-[#0284C7]">
+            <div className="w-10 h-10 rounded-[10px] bg-white border border-[#E2E8F0] flex items-center justify-center text-[#1877F2]">
               <s.icon size={20} />
             </div>
             <div className="flex-1">

@@ -32,7 +32,7 @@ export default function QuickActions() {
           <Link
             key={item.href}
             href={item.href}
-            className="flex flex-col items-center gap-2 p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#0284C7]/30 hover:bg-white transition-all active:scale-[0.97]"
+            className="flex flex-col items-center gap-2 p-3 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#1877F2]/30 hover:bg-white transition-all active:scale-[0.97]"
           >
             <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${item.color}`}>
               <item.icon size={20} strokeWidth={1.8} />
