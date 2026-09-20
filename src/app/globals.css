@@ -1,7 +1,6 @@
 @import "tailwindcss";
 
 :root {
-  /* Vernex Digital Design Tokens */
   --background: #FFFFFF;
   --card: #F8FAFC;
   --card-alt: #F1F5F9;
@@ -29,47 +28,20 @@
   --color-border: var(--border);
   --color-wallet-bg: var(--wallet-bg);
   --color-wallet-bg-end: var(--wallet-bg-end);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
 * {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--text-primary);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-  border-radius: 10px;
-  font-weight: 500;
-  transition: background 0.15s ease;
-}
-
-.btn-primary:hover {
-  background: var(--primary-hover);
-}
-
-.btn-secondary {
-  background: white;
-  color: var(--text-primary);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-weight: 500;
 }
