@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <radialGradient id="sphere" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#4BA3FF"/>
+      <stop offset="45%" stop-color="#1877F2"/>
+      <stop offset="100%" stop-color="#0A4DB8"/>
+    </radialGradient>
+    <linearGradient id="shine" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <circle cx="100" cy="100" r="96" fill="url(#sphere)"/>
+  <path d="M18 95 C50 55, 90 45, 130 55 C155 62, 175 78, 185 100 C170 72, 145 55, 115 52 C80 48, 45 62, 18 95Z" fill="white" fill-opacity="0.95"/>
+  <path d="M12 120 C40 85, 85 72, 130 80 C155 86, 175 100, 188 125 C175 95, 150 78, 118 74 C75 68, 38 85, 12 120Z" fill="white" fill-opacity="0.92"/>
+  <path d="M22 155 C55 125, 100 115, 145 128 C165 135, 178 148, 185 165 C172 140, 150 125, 120 120 C80 112, 45 128, 22 155Z" fill="white" fill-opacity="0.9"/>
+  <ellipse cx="70" cy="55" rx="40" ry="22" fill="url(#shine)"/>
+</svg>

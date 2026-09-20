@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Vernex Digital",
-  description: "Professional digital services panel — Virtual Numbers, SMM, Airtime, Data & more",
+  description: "Connect | Verify | Grow — Virtual Numbers, SMM, Airtime, Data & more",
   applicationName: "Vernex",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

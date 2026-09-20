@@ -1,5 +1,7 @@
 import WalletCard from "@/components/WalletCard";
 import QuickActions from "@/components/QuickActions";
+import PromoCarousel from "@/components/PromoCarousel";
+import VernexLogo from "@/components/VernexLogo";
 import Link from "next/link";
 
 export default function HomePage() {
@@ -8,9 +10,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="px-4 pt-6 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-semibold text-sm">
-            A
-          </div>
+          <VernexLogo size={40} className="rounded-full shadow-sm" />
           <div>
             <p className="text-sm font-semibold text-[#0F172A]">Good Afternoon</p>
             <p className="text-xs text-[#64748B]">Your Vernex Dashboard</p>
@@ -24,9 +24,12 @@ export default function HomePage() {
         </button>
       </header>
 
-      <div className="px-4 space-y-6">
+      <div className="px-4 space-y-5">
         <WalletCard />
         <QuickActions />
+
+        {/* Compact promo carousel — native, non-intrusive */}
+        <PromoCarousel />
 
         {/* Recent Activity */}
         <div>
