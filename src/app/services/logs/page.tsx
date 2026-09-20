@@ -11,9 +11,10 @@ import {
   Minus,
   Plus,
   RefreshCw,
+  ShieldCheck,
 } from "lucide-react";
 
-/* ── Demo catalog (swap for provider API later) ──────────────────── */
+/* ── Demo catalog (swap fields for provider API later) ───────────── */
 type LogProduct = {
   id: string;
   platform: string;
@@ -21,9 +22,13 @@ type LogProduct = {
   name: string;
   subtitle: string;
   description: string;
+  bullets: string[];
   tags: string[];
+  accountFormat: string;
+  howToUse: string[];
   age: string;
   stock: number;
+  sold?: number;
   price: number;
   region: string;
   delivery: string;
@@ -38,7 +43,20 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "5 yrs · Mixed",
     description:
       "Aged IG account, email access included. Softreg style. Accounts created around 2019 with natural activity history. Full login details and recovery email provided after purchase.",
+    bullets: [
+      "Email access included",
+      "Softreg / aged profile style",
+      "Natural activity history where provided",
+      "Credentials delivered after successful payment",
+    ],
     tags: ["Email access", "Aged", "Instant delivery"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
     age: "5 yrs",
     stock: 42,
     price: 4500,
@@ -53,7 +71,20 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "1–2 yrs · US",
     description:
       "Instagram accounts with 1,000–5,000 real-looking followers. Aged 1–2 years, US-based profiles. Email access included. Suitable for branding and engagement campaigns.",
+    bullets: [
+      "1K–5K followers range",
+      "US-based profiles",
+      "Email access included",
+      "Instant delivery after payment",
+    ],
     tags: ["Followers", "US", "Instant delivery"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
     age: "1–2 yrs",
     stock: 15,
     price: 8900,
@@ -68,7 +99,20 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "New · US",
     description:
       "Phone-verified Instagram accounts (PVA). Fresh registration, US numbers used for verification. Email access included. Ready for immediate use.",
+    bullets: [
+      "Phone verified (PVA)",
+      "Fresh US registration",
+      "Email access included",
+      "Instant delivery",
+    ],
     tags: ["PVA", "New", "Instant delivery"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
     age: "New",
     stock: 88,
     price: 3200,
@@ -83,7 +127,20 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "3 yrs · USA",
     description:
       "USA Facebook accounts, verified profiles aged approximately 3 years. Email access included. Suitable for pages, ads testing, and social activity.",
+    bullets: [
+      "USA region",
+      "Aged ~3 years",
+      "Email access included",
+      "Instant delivery",
+    ],
     tags: ["Verified", "USA", "Instant delivery"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
     age: "3 yrs",
     stock: 18,
     price: 6800,
@@ -98,7 +155,20 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "New · Mixed",
     description:
       "Soft-registered Facebook accounts. New profiles with email access. Mixed regions. Instant delivery after successful payment.",
+    bullets: [
+      "Softreg style",
+      "New profiles",
+      "Mixed regions",
+      "Email access included",
+    ],
     tags: ["Softreg", "New", "Instant delivery"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
     age: "New",
     stock: 120,
     price: 2100,
@@ -113,11 +183,53 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "6 mo+ · EU",
     description:
       "Facebook accounts with existing friends list. Aged 6 months or more, EU region. Email access included. Natural-looking profiles for engagement.",
+    bullets: [
+      "Existing friends list",
+      "EU region",
+      "Aged 6 months+",
+      "Email access included",
+    ],
     tags: ["Friends", "EU", "Instant delivery"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
     age: "6 mo+",
     stock: 24,
     price: 5500,
     region: "EU",
+    delivery: "Instant",
+  },
+  {
+    id: "fb-with-page",
+    platform: "Facebook",
+    code: "FB",
+    name: "Facebook With Page",
+    subtitle: "1–3 yrs · Mixed",
+    description:
+      "Facebook accounts that include an existing page. Useful when you need ready page structure without creating from a cold profile.",
+    bullets: [
+      "Account includes at least one page",
+      "Email status varies by lot",
+      "Cookies on Instant delivery",
+      "Recommended: use proxy matching registration region",
+    ],
+    tags: ["With Page", "Cookies", "Instant"],
+    accountFormat: "login:password:email:email_pass (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test (e.g. 1–10 units).",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use a proxy matching the registration region when possible.",
+      "Change password and secure recovery after first successful login.",
+    ],
+    age: "1–3 yrs",
+    stock: 48,
+    sold: 210,
+    price: 9200,
+    region: "Mixed",
     delivery: "Instant",
   },
   {
@@ -128,7 +240,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "New · US",
     description:
       "Phone-verified Gmail accounts with recovery email set. Fresh US registrations. Full credentials delivered instantly after purchase.",
+    bullets: [
+      "Phone verified",
+      "Recovery email set",
+      "US registration",
+      "Instant delivery",
+    ],
     tags: ["PVA", "Recovery", "Instant delivery"],
+    accountFormat: "email:password:recovery (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Secure the account immediately after first login.",
+    ],
     age: "New",
     stock: 210,
     price: 1800,
@@ -143,7 +267,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "4–6 yrs · US",
     description:
       "Aged Gmail accounts created between 2018 and 2020. US region. Email access and recovery details included. Strong trust score for platform registrations.",
+    bullets: [
+      "Created 2018–2020",
+      "US region",
+      "Recovery details when provided",
+      "Instant delivery",
+    ],
     tags: ["Aged", "US", "Instant delivery"],
+    accountFormat: "email:password:recovery (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Secure the account immediately after first login.",
+    ],
     age: "4–6 yrs",
     stock: 64,
     price: 3500,
@@ -158,7 +294,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "1 yr+ · Mixed",
     description:
       "Aged TikTok accounts with activity history. Mixed regions. Email access included. Suitable for content and engagement use cases.",
+    bullets: [
+      "Aged 1 year+",
+      "Mixed regions",
+      "Email access when provided",
+      "Instant delivery",
+    ],
     tags: ["Aged", "Instant delivery"],
+    accountFormat: "login:password:email (when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Use region-matched proxy when possible.",
+    ],
     age: "1 yr+",
     stock: 31,
     price: 4800,
@@ -173,7 +321,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "1 yr+ · Mixed",
     description:
       "Aged Telegram accounts linked to numbers. Mixed regions. Session or credentials delivered per provider format. Instant after payment confirmation.",
+    bullets: [
+      "Aged accounts / numbers",
+      "Mixed regions",
+      "Delivery format per provider API",
+      "Instant after confirmation",
+    ],
     tags: ["Aged", "Instant delivery"],
+    accountFormat: "As provided by supplier (session or login)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Follow provider-specific import steps if session is delivered.",
+    ],
     age: "1 yr+",
     stock: 33,
     price: 4200,
@@ -188,7 +348,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "2 yrs · US",
     description:
       "Aged Discord accounts approximately 2 years old. US region. Full access credentials included. Ready for server and community use.",
+    bullets: [
+      "Aged ~2 years",
+      "US region",
+      "Full access credentials",
+      "Instant delivery",
+    ],
     tags: ["Aged", "US", "Instant delivery"],
+    accountFormat: "email:password (token when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Secure the account after first login.",
+    ],
     age: "2 yrs",
     stock: 45,
     price: 2900,
@@ -203,7 +375,18 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "New · US",
     description:
       "Phone-verified Snapchat accounts. New US registrations. Login details delivered instantly after successful order.",
+    bullets: [
+      "Phone verified",
+      "New US registration",
+      "Instant delivery",
+    ],
     tags: ["PVA", "New", "Instant delivery"],
+    accountFormat: "username:password (email when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Secure the account after first login.",
+    ],
     age: "New",
     stock: 22,
     price: 3500,
@@ -218,7 +401,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "3 yrs · US",
     description:
       "Aged YouTube channels approximately 3 years old. US-based. Channel and login access included as provided by the API supplier.",
+    bullets: [
+      "Aged ~3 years",
+      "US-based",
+      "Channel + login as provided by supplier",
+      "Instant delivery",
+    ],
     tags: ["Aged", "US", "Instant delivery"],
+    accountFormat: "As provided by supplier API",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Secure recovery and password after first login.",
+    ],
     age: "3 yrs",
     stock: 8,
     price: 12000,
@@ -233,7 +428,19 @@ const PRODUCTS: LogProduct[] = [
     subtitle: "2 yrs · US",
     description:
       "Aged Reddit accounts about 2 years old. US region. Karma and history vary per account. Credentials delivered after purchase.",
+    bullets: [
+      "Aged ~2 years",
+      "US region",
+      "Karma/history vary per lot",
+      "Instant delivery",
+    ],
     tags: ["Aged", "US", "Instant delivery"],
+    accountFormat: "username:password (email when provided)",
+    howToUse: [
+      "Purchase only what you need for a first test.",
+      "Open credentials only after delivery is confirmed in History.",
+      "Secure the account after first login.",
+    ],
     age: "2 yrs",
     stock: 19,
     price: 4100,
@@ -277,13 +484,18 @@ export default function BuyLogsPage() {
   const [selected, setSelected] = useState<LogProduct | null>(null);
   const [qty, setQty] = useState(1);
 
-  /* Lock background scroll while sheet is open */
+  /* Lock page scroll while sheet is open */
   useEffect(() => {
     if (!selected) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = prev;
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
     };
   }, [selected]);
 
@@ -435,75 +647,124 @@ export default function BuyLogsPage() {
         )}
       </div>
 
-      {/* Product details sheet — independent scroll, locked background, sticky Buy */}
+      {/*
+        Product details sheet
+        - z-[100] sits above BottomNav (z-50)
+        - body/html overflow locked
+        - only the middle pane scrolls
+        - CTA stays sticky at bottom of sheet
+      */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex flex-col justify-end"
+          className="fixed inset-0 z-[100] flex flex-col justify-end"
           role="dialog"
           aria-modal="true"
         >
-          {/* Backdrop — blocks scroll on the page behind */}
           <button
             type="button"
-            className="absolute inset-0 bg-black/40 touch-none"
+            className="absolute inset-0 bg-black/45"
             aria-label="Close"
             onClick={closeProduct}
           />
 
-          {/* Sheet panel */}
-          <div className="relative z-10 flex flex-col bg-white rounded-t-[20px] max-h-[90vh] shadow-xl overflow-hidden">
-            {/* Sticky header */}
-            <div className="shrink-0 bg-white border-b border-[#E2E8F0] px-4 py-3 flex items-center justify-between">
-              <h3 className="text-base font-semibold text-[#0F172A]">
-                Product details
-              </h3>
+          <div
+            className="relative z-10 flex flex-col w-full max-h-[92vh] bg-white rounded-t-[20px] shadow-2xl overflow-hidden"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            {/* Header */}
+            <div className="shrink-0 flex items-start gap-3 px-4 pt-4 pb-3 border-b border-[#E2E8F0]">
+              <span
+                className={`w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center shrink-0 ${
+                  CODE_COLORS[selected.code] ?? "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {selected.code}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
+                  {selected.platform}
+                </p>
+                <h3 className="text-[15px] font-semibold text-[#0F172A] leading-snug">
+                  {selected.name}
+                </h3>
+                <p className="text-[12px] text-[#64748B] mt-0.5">
+                  {selected.age} · {selected.region}
+                  {selected.sold != null ? ` · ${selected.sold} sold` : ""}
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={closeProduct}
-                className="w-8 h-8 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B]"
+                className="w-8 h-8 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B] shrink-0"
               >
                 <X size={16} />
               </button>
             </div>
 
-            {/* Scrollable body only */}
-            <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-4 space-y-4">
-              <div className="flex items-start gap-3">
-                <span
-                  className={`w-11 h-11 rounded-full text-sm font-bold flex items-center justify-center shrink-0 ${
-                    CODE_COLORS[selected.code] ?? "bg-slate-100 text-slate-600"
-                  }`}
-                >
-                  {selected.code}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[15px] font-semibold text-[#0F172A]">
-                    {selected.name}
-                  </p>
-                  <p className="text-[12px] text-[#64748B] mt-0.5">
-                    {selected.platform} · {selected.age} · {selected.region}
-                  </p>
-                </div>
-              </div>
-
-              {/* Full provider description — never truncated */}
-              <p className="text-sm text-[#475569] leading-relaxed whitespace-pre-wrap">
+            {/* Scrollable content — this is the only area that scrolls */}
+            <div
+              className="flex-1 overflow-y-auto overscroll-y-contain px-4 py-4 space-y-4"
+              style={{ WebkitOverflowScrolling: "touch" }}
+            >
+              <p className="text-sm text-[#475569] leading-relaxed">
                 {selected.description}
               </p>
+
+              {selected.bullets.length > 0 && (
+                <ul className="space-y-2">
+                  {selected.bullets.map((b) => (
+                    <li
+                      key={b}
+                      className="flex items-start gap-2 text-sm text-[#334155]"
+                    >
+                      <span className="mt-0.5 text-[#1877F2] font-bold">✓</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 {selected.tags.map((t) => (
                   <span
                     key={t}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#F1F5F9] text-[#475569]"
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#1877F2]"
                   >
                     {t}
                   </span>
                 ))}
               </div>
 
+              <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-3">
+                <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
+                  Account format
+                </p>
+                <p className="mt-1.5 text-[13px] text-[#0F172A] font-mono leading-relaxed break-all">
+                  {selected.accountFormat}
+                </p>
+              </div>
+
+              <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-3">
+                <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
+                  How to use
+                </p>
+                <ol className="mt-2 space-y-2">
+                  {selected.howToUse.map((step, i) => (
+                    <li
+                      key={i}
+                      className="flex gap-2 text-[13px] text-[#334155] leading-snug"
+                    >
+                      <span className="shrink-0 font-semibold text-[#1877F2]">
+                        {i + 1}.
+                      </span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-2.5">
+                <div className="rounded-[12px] bg-white border border-[#E2E8F0] px-3 py-2.5">
                   <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
                     Age
                   </p>
@@ -511,7 +772,7 @@ export default function BuyLogsPage() {
                     {selected.age}
                   </p>
                 </div>
-                <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] px-3 py-2.5">
+                <div className="rounded-[12px] bg-white border border-[#E2E8F0] px-3 py-2.5">
                   <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
                     Stock
                   </p>
@@ -548,30 +809,35 @@ export default function BuyLogsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-1">
+              <p className="text-[11px] text-[#94A3B8] leading-relaxed pb-2">
+                Credentials are never shown in the catalog. Delivery happens only
+                after a successful wallet debit and provider confirmation. Full
+                description and format come from the provider API.
+              </p>
+            </div>
+
+            {/* Sticky footer — always visible, above BottomNav */}
+            <div className="shrink-0 border-t border-[#E2E8F0] bg-white px-4 pt-3 pb-3">
+              <div className="flex items-end justify-between mb-3">
                 <div>
-                  <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
-                    Total
+                  <p className="text-[11px] text-[#94A3B8]">
+                    Price each · {selected.stock} available
                   </p>
-                  <p className="text-xl font-semibold text-[#1877F2] tabular-nums">
+                  <p className="text-xl font-semibold text-[#0F172A] tabular-nums">
                     {formatNaira(total)}
                   </p>
                 </div>
-                <span className="text-[12px] text-[#16A34A] flex items-center gap-1">
+                <span className="text-[12px] text-[#16A34A] flex items-center gap-1 mb-1">
                   <Zap size={12} />
                   Instant delivery
                 </span>
               </div>
-            </div>
-
-            {/* Sticky footer — always visible Buy button */}
-            <div className="shrink-0 border-t border-[#E2E8F0] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
-                className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#166FE5] active:scale-[0.99] transition"
+                className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition"
               >
-                <ShoppingCart size={18} />
-                Buy Now · {formatNaira(total)}
+                <ShieldCheck size={18} />
+                Continue to checkout · {formatNaira(total)}
               </button>
             </div>
           </div>
