@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -277,6 +277,16 @@ export default function BuyLogsPage() {
   const [selected, setSelected] = useState<LogProduct | null>(null);
   const [qty, setQty] = useState(1);
 
+  /* Lock background scroll while sheet is open */
+  useEffect(() => {
+    if (!selected) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [selected]);
+
   const list = useMemo(() => {
     let items = PRODUCTS;
     if (filter !== "All") {
@@ -425,17 +435,25 @@ export default function BuyLogsPage() {
         )}
       </div>
 
-      {/* Product details sheet — full description, never shortened */}
+      {/* Product details sheet — independent scroll, locked background, sticky Buy */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end"
+          role="dialog"
+          aria-modal="true"
+        >
+          {/* Backdrop — blocks scroll on the page behind */}
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-black/40 touch-none"
             aria-label="Close"
             onClick={closeProduct}
           />
-          <div className="relative bg-white rounded-t-[20px] max-h-[88vh] overflow-y-auto shadow-xl">
-            <div className="sticky top-0 bg-white border-b border-[#E2E8F0] px-4 py-3 flex items-center justify-between z-10">
+
+          {/* Sheet panel */}
+          <div className="relative z-10 flex flex-col bg-white rounded-t-[20px] max-h-[90vh] shadow-xl overflow-hidden">
+            {/* Sticky header */}
+            <div className="shrink-0 bg-white border-b border-[#E2E8F0] px-4 py-3 flex items-center justify-between">
               <h3 className="text-base font-semibold text-[#0F172A]">
                 Product details
               </h3>
@@ -448,7 +466,8 @@ export default function BuyLogsPage() {
               </button>
             </div>
 
-            <div className="px-4 pt-4 pb-6 space-y-4">
+            {/* Scrollable body only */}
+            <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-4 space-y-4">
               <div className="flex items-start gap-3">
                 <span
                   className={`w-11 h-11 rounded-full text-sm font-bold flex items-center justify-center shrink-0 ${
@@ -467,7 +486,7 @@ export default function BuyLogsPage() {
                 </div>
               </div>
 
-              {/* Full provider description — do not truncate */}
+              {/* Full provider description — never truncated */}
               <p className="text-sm text-[#475569] leading-relaxed whitespace-pre-wrap">
                 {selected.description}
               </p>
@@ -543,7 +562,10 @@ export default function BuyLogsPage() {
                   Instant delivery
                 </span>
               </div>
+            </div>
 
+            {/* Sticky footer — always visible Buy button */}
+            <div className="shrink-0 border-t border-[#E2E8F0] bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <button
                 type="button"
                 className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#166FE5] active:scale-[0.99] transition"
