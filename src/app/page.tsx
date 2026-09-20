@@ -6,7 +6,7 @@ export default function LandingPage() {
       {/* Header */}
       <header className="border-b border-[#E2E8F0] px-4 py-4 flex items-center justify-between max-w-5xl mx-auto w-full">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-[#0284C7] flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-8 h-8 rounded-lg bg-[#1877F2] flex items-center justify-center text-white font-bold text-sm">
             V
           </div>
           <span className="font-semibold text-[#0F172A] text-lg">Vernex Digital</span>
@@ -20,7 +20,7 @@ export default function LandingPage() {
           </Link>
           <Link
             href="/home"
-            className="text-sm font-medium bg-[#0284C7] text-white px-4 py-2 rounded-[10px] hover:bg-[#0369A1] transition-colors"
+            className="text-sm font-medium bg-[#1877F2] text-white px-4 py-2 rounded-[10px] hover:bg-[#166FE5] transition-colors"
           >
             Open App
           </Link>
@@ -31,7 +31,7 @@ export default function LandingPage() {
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center max-w-3xl mx-auto">
         <h1 className="text-3xl sm:text-4xl font-bold text-[#0F172A] tracking-tight leading-tight">
           Digital Services.<br />
-          <span className="text-[#0284C7]">Simple & Reliable.</span>
+          <span className="text-[#1877F2]">Simple & Reliable.</span>
         </h1>
         <p className="mt-4 text-[#64748B] text-base sm:text-lg max-w-md leading-relaxed">
           Virtual numbers, social media boosts, airtime, data and more — all from one professional wallet.
@@ -39,7 +39,7 @@ export default function LandingPage() {
         <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Link
             href="/home"
-            className="inline-flex items-center justify-center h-12 px-8 bg-[#0284C7] text-white font-medium rounded-[10px] hover:bg-[#0369A1] transition-colors"
+            className="inline-flex items-center justify-center h-12 px-8 bg-[#1877F2] text-white font-medium rounded-[10px] hover:bg-[#166FE5] transition-colors"
           >
             Enter Dashboard
           </Link>

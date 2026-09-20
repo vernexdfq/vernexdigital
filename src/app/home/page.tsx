@@ -8,7 +8,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="px-4 pt-6 pb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#0284C7] flex items-center justify-center text-white font-semibold text-sm">
+          <div className="w-10 h-10 rounded-full bg-[#1877F2] flex items-center justify-center text-white font-semibold text-sm">
             A
           </div>
           <div>
@@ -34,7 +34,7 @@ export default function HomePage() {
             <h2 className="text-xs font-semibold tracking-wide text-[#64748B] uppercase">
               Recent Activity
             </h2>
-            <Link href="/history" className="text-xs font-medium text-[#0284C7]">
+            <Link href="/history" className="text-xs font-medium text-[#1877F2]">
               View all →
             </Link>
           </div>
