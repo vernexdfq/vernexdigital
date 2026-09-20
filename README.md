@@ -4,28 +4,32 @@
 
 ---
 
-### Project Status
+### Quick Start
 
-- **Brand:** Vernex Digital (installed name: Vernex)
-- **Currency:** Nigerian Naira (₦)
-- **Type:** Prepaid wallet digital services panel
-- **Audience:** End-users of the client company
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+### Project Status — Phase 1 Complete
+
+- Design tokens & colour system
+- Landing page
+- Login / Register placeholders
+- Home dashboard (wallet card + 8 quick actions)
+- Bottom navigation (Home · Services · Fund · History · Profile)
+- Services list, Fund, History, Profile shells
+- Admin entry (footer link)
 
 ---
 
 ### Documentation
 
-The complete project specification is available here:
-
-**[PROJECT_BRIEF.md](./PROJECT_BRIEF.md)**
-
-This document contains the full agreed scope, design system, page structure, admin features, and acceptance criteria.
-
----
-
-### Repository
-
-This repository is the single source of truth for the Vernex Digital customer panel.
+Full specification: **[PROJECT_BRIEF.md](./PROJECT_BRIEF.md)**
 
 ---
 
