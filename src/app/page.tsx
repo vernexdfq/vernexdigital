@@ -13,16 +13,16 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/login"
+            href="/home"
             className="text-sm font-medium text-[#64748B] hover:text-[#0F172A] transition-colors"
           >
             Login
           </Link>
           <Link
-            href="/register"
+            href="/home"
             className="text-sm font-medium bg-[#0284C7] text-white px-4 py-2 rounded-[10px] hover:bg-[#0369A1] transition-colors"
           >
-            Get Started
+            Open App
           </Link>
         </div>
       </header>
@@ -38,18 +38,22 @@ export default function LandingPage() {
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
           <Link
-            href="/register"
+            href="/home"
             className="inline-flex items-center justify-center h-12 px-8 bg-[#0284C7] text-white font-medium rounded-[10px] hover:bg-[#0369A1] transition-colors"
           >
-            Create Account
+            Enter Dashboard
           </Link>
           <Link
-            href="/login"
+            href="/home"
             className="inline-flex items-center justify-center h-12 px-8 border border-[#E2E8F0] text-[#0F172A] font-medium rounded-[10px] hover:bg-[#F8FAFC] transition-colors"
           >
-            Sign In
+            Preview App
           </Link>
         </div>
+
+        <p className="mt-4 text-xs text-[#94A3B8]">
+          Preview mode — no login required
+        </p>
 
         {/* Feature grid */}
         <div className="mt-16 grid grid-cols-2 sm:grid-cols-4 gap-4 w-full">
