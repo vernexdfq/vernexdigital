@@ -1,46 +1,72 @@
 import Link from "next/link";
-import {
-  Phone, Rocket, FileText, PhoneCall, Wifi, Smartphone, Gift, Sparkles,
-} from "lucide-react";
+import { ArrowRight, Plane, ShoppingBag } from "lucide-react";
 
 const services = [
-  { href: "/services/virtual-number", label: "Virtual Number", desc: "OTP & temporary numbers", icon: Phone },
-  { href: "/services/boost", label: "Boost Account", desc: "SMM growth services", icon: Rocket },
-  { href: "/services/logs", label: "Buy Logs", desc: "Verified accounts marketplace", icon: FileText },
-  { href: "/services/rent-number", label: "Rent Number", desc: "Long-term numbers with calls & SMS", icon: PhoneCall },
-  { href: "/services/data", label: "Data", desc: "Mobile data bundles", icon: Wifi },
-  { href: "/services/airtime", label: "Airtime", desc: "Instant airtime top-up", icon: Smartphone },
-  { href: "/services/gift-card", label: "Gift Card", desc: "Coming soon", icon: Gift },
-  { href: "/services/lucky-draw", label: "Lucky Draw", desc: "Coming soon", icon: Sparkles },
+  {
+    href: "/services/flights",
+    label: "Flight Booking",
+    desc: "Search and book flights for your next trip.",
+    icon: Plane,
+  },
+  {
+    href: "/services/shopping",
+    label: "Shopping",
+    desc: "Shop for products and manage your purchases in one place.",
+    icon: ShoppingBag,
+  },
 ];
 
 export default function ServicesPage() {
   return (
     <div className="min-h-screen bg-white pb-24">
-      <header className="px-4 pt-6 pb-4">
-        <h1 className="text-xl font-bold text-[#0F172A]">Services</h1>
-        <p className="text-sm text-[#64748B] mt-0.5">Choose a service to continue</p>
+      <header className="px-4 pt-7 pb-5">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1877F2]">
+          Vernex Digital
+        </p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#0F172A]">
+          Services
+        </h1>
+        <p className="mt-1 text-sm text-[#64748B]">
+          Choose a service to continue
+        </p>
       </header>
-      <div className="px-4 space-y-2">
-        {services.map((s) => (
-          <Link
-            key={s.href}
-            href={s.href}
-            className="flex items-center gap-3 p-4 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] hover:border-[#1877F2]/40 transition-colors"
-          >
-            <div className="w-10 h-10 rounded-[10px] bg-white border border-[#E2E8F0] flex items-center justify-center text-[#1877F2]">
-              <s.icon size={20} />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-[#0F172A]">{s.label}</p>
-              <p className="text-xs text-[#64748B]">{s.desc}</p>
-            </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="2">
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </Link>
-        ))}
-      </div>
+
+      <main className="px-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {services.map((service) => {
+            const Icon = service.icon;
+
+            return (
+              <Link
+                key={service.href}
+                href={service.href}
+                className="group flex min-h-[190px] flex-col justify-between rounded-[14px] border border-[#DCE3EC] bg-white p-6 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1877F2]/40 hover:shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
+              >
+                <div>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-[12px] bg-[#EFF6FF] text-[#1877F2]">
+                    <Icon size={28} strokeWidth={2} />
+                  </div>
+
+                  <h2 className="mt-6 text-xl font-bold tracking-tight text-[#0F172A]">
+                    {service.label}
+                  </h2>
+                  <p className="mt-2 max-w-sm text-sm leading-relaxed text-[#64748B]">
+                    {service.desc}
+                  </p>
+                </div>
+
+                <div className="mt-7 flex items-center gap-2 text-sm font-semibold text-[#1877F2]">
+                  Explore service
+                  <ArrowRight
+                    size={17}
+                    className="transition-transform group-hover:translate-x-1"
+                  />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </main>
     </div>
   );
 }
