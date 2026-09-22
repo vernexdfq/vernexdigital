@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   Plane,
   ShoppingBag,
   Smartphone,
@@ -35,111 +37,161 @@ const adSlides = [
     subtitle: "Grab yours — latest Apple flagship ready to ship",
     cta: "Shop Phones",
     href: "/services/shopping",
-    icon: Smartphone,
-    gradient: "from-[#1877F2] to-[#0A5DC4]",
+    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
   },
   {
     title: "Your first laptop upgrade",
     subtitle: "Powerful machines for work, school & creative flow",
     cta: "Shop Laptops",
     href: "/services/shopping",
-    icon: Laptop,
-    gradient: "from-[#0F766E] to-[#115E59]",
+    image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
   },
   {
     title: "AirPods & earbuds drop",
     subtitle: "Crystal clear sound · noise cancel · all-day battery",
     cta: "Shop Audio",
     href: "/services/shopping",
-    icon: Headphones,
-    gradient: "from-[#7C3AED] to-[#5B21B6]",
+    image: "https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
   },
   {
     title: "Smartwatches that keep up",
     subtitle: "Fitness, calls & notifications on your wrist",
     cta: "Shop Wearables",
     href: "/services/shopping",
-    icon: Watch,
-    gradient: "from-[#BE185D] to-[#9D174D]",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
   },
   {
     title: "Your next flight is on the way",
     subtitle: "Book anywhere you want to go — competitive fares",
     cta: "Book Flight",
     href: "/services/flights",
-    icon: Plane,
-    gradient: "from-[#0369A1] to-[#0C4A6E]",
+    image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
   },
   {
     title: "Gadgets & accessories",
     subtitle: "Phones, chargers, cases, power banks & more",
     cta: "Explore Shop",
     href: "/services/shopping",
-    icon: ShoppingBag,
-    gradient: "from-[#B45309] to-[#92400E]",
+    image: "https://images.unsplash.com/photo-1491933382434-500287f9b54b?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
   },
 ];
 
 function ServicesPromoCarousel() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef<number | null>(null);
+  const moved = useRef(false);
 
-  const next = useCallback(() => {
-    setIndex((i) => (i + 1) % adSlides.length);
+  const go = useCallback((nextIndex: number) => {
+    setIndex((nextIndex + adSlides.length) % adSlides.length);
   }, []);
 
-  useEffect(() => {
-    if (paused) return;
-    timerRef.current = setInterval(next, INTERVAL_MS);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [paused, next]);
+  const next = useCallback(() => go(index + 1), [go, index]);
+  const prev = useCallback(() => go(index - 1), [go, index]);
 
-  const slide = adSlides[index];
-  const Icon = slide.icon;
+  useEffect(() => {
+    if (paused || dragging) return;
+    const timer = window.setInterval(next, INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [dragging, next, paused]);
+
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    startX.current = event.clientX;
+    moved.current = false;
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (startX.current === null) return;
+    if (Math.abs(event.clientX - startX.current) > 10) moved.current = true;
+  }
+
+  function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (startX.current === null) return;
+    const distance = event.clientX - startX.current;
+    startX.current = null;
+    setDragging(false);
+    if (Math.abs(distance) > 45) {
+      if (distance < 0) next();
+      else prev();
+    }
+  }
+
+  function onClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+    if (moved.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      moved.current = false;
+    }
+  }
 
   return (
     <div
-      className="relative overflow-hidden rounded-[14px]"
+      className="relative overflow-hidden rounded-[18px] border border-[#E2E8F0] bg-[#0B1F4D] shadow-[0_12px_30px_rgba(15,23,42,0.10)] touch-pan-y select-none"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
-      onTouchStart={() => setPaused(true)}
-      onTouchEnd={() => setPaused(false)}
+      onClickCapture={onClickCapture}
     >
-      <Link
-        href={slide.href}
-        className={`block bg-gradient-to-r ${slide.gradient} text-white p-5 min-h-[132px] transition-opacity duration-500`}
+      <div
+        className="flex will-change-transform"
+        style={{
+          transform: `translate3d(-${index * 100}%, 0, 0)`,
+          transition: dragging ? "none" : "transform 520ms cubic-bezier(0.22, 1, 0.36, 1)",
+        }}
       >
-        <div className="flex items-start gap-4">
-          <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center shrink-0">
-            <Icon size={24} strokeWidth={1.8} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-[15px] font-bold leading-snug">{slide.title}</h3>
-            <p className="mt-1 text-[12px] text-white/85 leading-relaxed line-clamp-2">
-              {slide.subtitle}
-            </p>
-            <span className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold bg-white/20 hover:bg-white/30 rounded-full px-3 py-1 transition-colors">
-              {slide.cta}
-              <ArrowRight size={13} />
-            </span>
-          </div>
-        </div>
-      </Link>
+        {adSlides.map((slide) => (
+          <Link
+            key={slide.title}
+            href={slide.href}
+            className="relative block w-full min-w-full min-h-[176px] overflow-hidden bg-[#0B1F4D] text-white sm:min-h-[196px]"
+            draggable={false}
+          >
+            <div
+              className="absolute inset-0 bg-cover bg-no-repeat"
+              style={{
+                backgroundImage: `url(${slide.image})`,
+                backgroundPosition: slide.position,
+              }}
+              aria-hidden="true"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(5,13,31,0.92)_0%,rgba(5,13,31,0.70)_48%,rgba(5,13,31,0.16)_100%)]" />
+            <div className="relative z-10 flex min-h-[176px] items-end p-4 sm:min-h-[196px] sm:p-5">
+              <div className="max-w-[80%] sm:max-w-[64%]">
+                <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/70">Featured</span>
+                <h3 className="mt-2 text-[18px] font-bold leading-[1.1] tracking-tight sm:text-[21px]">{slide.title}</h3>
+                <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-white/80 sm:text-xs">{slide.subtitle}</p>
+                <span className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3.5 text-[11px] font-semibold text-[#0B1F4D] shadow-sm">
+                  {slide.cta}
+                  <ArrowRight size={13} />
+                </span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
 
-      <div className="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1.5">
-        {adSlides.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={`Go to slide ${i + 1}`}
-            onClick={() => setIndex(i)}
-            className={`h-1.5 rounded-full transition-all ${
-              i === index ? "w-4 bg-white" : "w-1.5 bg-white/40"
-            }`}
-          />
+      <button type="button" aria-label="Previous featured advertisement" onClick={(event) => { event.stopPropagation(); prev(); }} className="absolute left-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 sm:flex">
+        <ChevronLeft size={17} />
+      </button>
+      <button type="button" aria-label="Next featured advertisement" onClick={(event) => { event.stopPropagation(); next(); }} className="absolute right-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 sm:flex">
+        <ChevronRight size={17} />
+      </button>
+
+      <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/20 px-2 py-1 backdrop-blur-sm">
+        {adSlides.map((slide, i) => (
+          <button key={slide.title} type="button" aria-label={`Show featured advertisement ${i + 1}`} onClick={(event) => { event.stopPropagation(); go(i); }} className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/45"}`} />
         ))}
       </div>
     </div>
