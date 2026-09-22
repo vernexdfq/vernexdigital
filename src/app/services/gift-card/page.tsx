@@ -361,46 +361,72 @@ export default function GiftCardPage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#1877F2]">Vernex Digital</p>
             <h1 className="text-xl font-bold text-[#0F172A]">Sell Gift Cards</h1>
           </div>
-          <button type="button" onClick={() => setView("addbank")} className="h-9 px-3 rounded-full bg-[#1877F2] text-white text-xs font-semibold">Add Bank</button>
-        </div>
-        <div className="mt-3 relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search gift cards" className="w-full h-11 pl-9 pr-3 rounded-full bg-white border border-[#E2E8F0] text-sm" />
+          <button type="button" onClick={() => setView("addbank")} className="h-9 px-4 rounded-full bg-[#1877F2] text-white text-sm font-semibold">
+            Add Bank
+          </button>
         </div>
       </header>
 
+      <div className="px-4 mt-2">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search gift cards"
+            className="w-full h-11 pl-9 pr-3 rounded-full bg-white border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#1877F2]"
+          />
+        </div>
+      </div>
+
       {tab === "home" && (
-        <div className="px-4 pt-2 grid grid-cols-2 gap-3 pb-4">
+        <div className="px-4 mt-4 grid grid-cols-2 gap-3 pb-8">
           {filteredCards.map((c) => (
-            <button key={c.id} type="button" onClick={() => openSell(c)} className="bg-white rounded-[14px] border border-[#E2E8F0] p-3 text-left shadow-sm active:scale-[0.98] transition">
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => openSell(c)}
+              className="bg-white rounded-[14px] border border-[#E2E8F0] p-4 text-left active:scale-[0.98] transition"
+            >
               <Logo domain={c.domain} name={c.name} color={c.color} size={40} />
-              <p className="mt-2 text-sm font-semibold text-[#0F172A] leading-snug">{c.name}</p>
-              <p className="mt-0.5 text-[11px] text-[#1877F2] font-medium tabular-nums">1$ = {naira(c.rate)}</p>
+              <p className="mt-2.5 text-sm font-semibold text-[#0F172A] leading-tight">{c.name}</p>
+              <p className="mt-1 text-xs text-[#1877F2] font-medium tabular-nums">1$ = {naira(c.rate)}</p>
             </button>
           ))}
         </div>
       )}
 
       {tab === "history" && (
-        <div className="px-4 pt-3 pb-4">
-          <div className="flex gap-2 mb-3 overflow-x-auto">
+        <div className="px-4 mt-4 pb-8">
+          <div className="flex gap-2 overflow-x-auto pb-3">
             {(["ALL", "PENDING", "SUCCESS", "REJECTED"] as HistFilter[]).map((f) => (
-              <button key={f} type="button" onClick={() => setHistFilter(f)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium ${histFilter === f ? "bg-[#1877F2] text-white" : "bg-white border border-[#E2E8F0] text-[#64748B]"}`}>{f}</button>
+              <button
+                key={f}
+                type="button"
+                onClick={() => setHistFilter(f)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-medium ${
+                  histFilter === f ? "bg-[#1877F2] text-white" : "bg-white border border-[#E2E8F0] text-[#64748B]"
+                }`}
+              >
+                {f === "ALL" ? "All" : f.charAt(0) + f.slice(1).toLowerCase()}
+              </button>
             ))}
           </div>
           {filteredOrders.length === 0 ? (
             <p className="text-center text-sm text-[#94A3B8] py-16">No orders yet</p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {filteredOrders.map((o) => (
-                <div key={o.id} className="bg-white rounded-[12px] border border-[#E2E8F0] p-3 flex items-center justify-between">
+                <div key={o.id} className="bg-white rounded-[12px] border border-[#E2E8F0] p-4 flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[#0F172A]">{o.card}</p>
-                    <p className="text-[11px] text-[#94A3B8]">{o.id} · {o.when}</p>
+                    <p className="text-[11px] text-[#94A3B8] mt-0.5">{o.when} · {o.id}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-[#1877F2] tabular-nums">{naira(o.settlement)}</p>
-                    <p className={`text-[10px] font-medium ${o.status === "SUCCESS" ? "text-emerald-600" : o.status === "REJECTED" ? "text-red-500" : "text-amber-600"}`}>{o.status}</p>
+                    <p className="text-sm font-bold text-[#1877F2] tabular-nums">{naira(o.settlement)}</p>
+                    <p className={`text-[10px] font-semibold mt-0.5 ${
+                      o.status === "SUCCESS" ? "text-emerald-600" : o.status === "REJECTED" ? "text-red-500" : "text-amber-600"
+                    }`}>{o.status}</p>
                   </div>
                 </div>
               ))}
@@ -410,10 +436,10 @@ export default function GiftCardPage() {
       )}
 
       {tab === "withdraw" && (
-        <div className="px-4 pt-3 pb-24">
+        <div className="px-4 mt-4 pb-24">
           {savedBanks.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-sm text-[#94A3B8] mb-4">No bank account saved</p>
+              <p className="text-sm text-[#64748B] mb-4">No bank account added yet</p>
               <button type="button" onClick={() => setView("addbank")} className="h-10 px-5 rounded-full bg-[#1877F2] text-white text-sm font-semibold">Add Bank</button>
             </div>
           ) : (
@@ -435,16 +461,30 @@ export default function GiftCardPage() {
         </div>
       )}
 
+      {/* Bottom nav: ONLY 3 items — blue sparkle (Sell) first, History, Withdraw. No left home/Sell icon. */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#E2E8F0] safe-area-pb">
-        <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-4">
-          <button type="button" onClick={() => setTab("home")} className="w-14 h-14 -mt-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center shadow-[0_8px_20px_rgba(24,119,242,0.35)]" aria-label="Sell">
+        <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-6">
+          <button
+            type="button"
+            onClick={() => setTab("home")}
+            className="w-14 h-14 -mt-5 rounded-full bg-[#1877F2] text-white flex items-center justify-center shadow-[0_8px_20px_rgba(24,119,242,0.35)]"
+            aria-label="Sell"
+          >
             <Sparkles size={24} />
           </button>
-          <button type="button" onClick={() => setTab("history")} className={`flex flex-col items-center gap-0.5 min-w-[72px] ${tab === "history" ? "text-[#1877F2]" : "text-[#64748B]"}`}>
+          <button
+            type="button"
+            onClick={() => setTab("history")}
+            className={`flex flex-col items-center gap-0.5 min-w-[72px] ${tab === "history" ? "text-[#1877F2]" : "text-[#64748B]"}`}
+          >
             <HistoryIcon size={22} strokeWidth={tab === "history" ? 2.2 : 1.8} />
             <span className="text-[10px] font-medium">History</span>
           </button>
-          <button type="button" onClick={() => setTab("withdraw")} className={`flex flex-col items-center gap-0.5 min-w-[72px] ${tab === "withdraw" ? "text-[#1877F2]" : "text-[#64748B]"}`}>
+          <button
+            type="button"
+            onClick={() => setTab("withdraw")}
+            className={`flex flex-col items-center gap-0.5 min-w-[72px] ${tab === "withdraw" ? "text-[#1877F2]" : "text-[#64748B]"}`}
+          >
             <Wallet size={22} strokeWidth={tab === "withdraw" ? 2.2 : 1.8} />
             <span className="text-[10px] font-medium">Withdraw</span>
           </button>
