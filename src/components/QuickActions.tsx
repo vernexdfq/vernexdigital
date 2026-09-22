@@ -7,7 +7,7 @@ import {
   Wifi,
   Smartphone,
   Gift,
-  Sparkles,
+  CreditCard,
 } from "lucide-react";
 
 const actions = [
@@ -18,7 +18,7 @@ const actions = [
   { href: "/services/data", label: "Data", icon: Wifi, color: "bg-indigo-50 text-indigo-600" },
   { href: "/services/airtime", label: "Airtime", icon: Smartphone, color: "bg-blue-50 text-blue-600" },
   { href: "/services/gift-card", label: "Gift Card", icon: Gift, color: "bg-pink-50 text-pink-600" },
-  { href: "/services/lucky-draw", label: "Lucky Draw", icon: Sparkles, color: "bg-slate-100 text-slate-500" },
+  { href: "/services/virtual-card", label: "Virtual Card", icon: CreditCard, color: "bg-emerald-50 text-emerald-600" },
 ];
 
 export default function QuickActions() {

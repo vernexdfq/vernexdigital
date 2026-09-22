@@ -10,7 +10,7 @@ import {
   Wifi,
   Smartphone,
   Gift,
-  Sparkles,
+  CreditCard,
   ChevronRight,
 } from "lucide-react";
 
@@ -68,18 +68,18 @@ const slides = [
   {
     href: "/services/gift-card",
     title: "Gift Cards",
-    subtitle: "Premium cards — launching soon",
-    cta: "Coming Soon",
+    subtitle: "Sell premium cards · Fast Naira settlement",
+    cta: "Sell Now",
     icon: Gift,
     gradient: "from-[#BE185D] to-[#9D174D]",
   },
   {
-    href: "/services/lucky-draw",
-    title: "WIN AMAZING PRIZES 🎁",
-    subtitle: "Enter the Vernex Lucky Draw — free entry for users",
-    cta: "Enter Now",
-    icon: Sparkles,
-    gradient: "from-[#1877F2] via-[#2563EB] to-[#F59E0B]",
+    href: "/services/virtual-card",
+    title: "Virtual Dollar Card",
+    subtitle: "Get your USD card to verify accounts & pay online today",
+    cta: "Get Card",
+    icon: CreditCard,
+    gradient: "from-[#0F766E] via-[#0D9488] to-[#1877F2]",
     special: true,
   },
 ];
@@ -142,7 +142,6 @@ export default function PromoCarousel() {
           href={slide.href}
           className={`block relative w-full min-h-[112px] bg-gradient-to-r ${slide.gradient} text-white px-4 py-3.5`}
         >
-          {/* soft pattern */}
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.12]"
             style={{
@@ -177,7 +176,6 @@ export default function PromoCarousel() {
         </Link>
       </div>
 
-      {/* dots */}
       <div className="flex justify-center items-center gap-1.5 mt-2.5">
         {slides.map((_, i) => (
           <button
