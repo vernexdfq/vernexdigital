@@ -310,6 +310,7 @@ export default function GiftCardPage() {
       </div>
     );
   }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#F0F7FF] to-white pb-24 overflow-y-auto">
