@@ -1,193 +1,205 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Phone,
-  Rocket,
-  FileText,
-  PhoneCall,
-  Wifi,
-  Smartphone,
-  Gift,
-  CreditCard,
-  ChevronRight,
-} from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
 
-const INTERVAL_MS = 3000;
+const INTERVAL_MS = 4500;
 
 const slides = [
   {
-    href: "/services/virtual-number",
-    title: "Virtual Numbers",
-    subtitle: "Get OTP numbers in seconds — WhatsApp, Facebook & more",
-    cta: "Order Now",
-    icon: Phone,
-    gradient: "from-[#1877F2] to-[#0A5DC4]",
+    href: "/services/shopping",
+    eyebrow: "New in shop",
+    title: "Upgrade your everyday tech",
+    subtitle: "Phones, laptops and accessories — selected products, delivered to you.",
+    cta: "Shop now",
+    image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=1200&q=85",
+    position: "center",
   },
   {
-    href: "/services/boost",
-    title: "Boost Account",
-    subtitle: "Grow followers, likes & views on every platform",
-    cta: "Boost Now",
-    icon: Rocket,
-    gradient: "from-[#6D28D9] to-[#4C1D95]",
+    href: "/services/shopping",
+    eyebrow: "Work smarter",
+    title: "A better laptop starts here",
+    subtitle: "Find dependable machines for work, school and creative projects.",
+    cta: "Browse laptops",
+    image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1200&q=85",
+    position: "center",
   },
   {
-    href: "/services/logs",
-    title: "Buy Logs",
-    subtitle: "Verified log packs ready for instant delivery",
-    cta: "Browse Logs",
-    icon: FileText,
-    gradient: "from-[#B45309] to-[#92400E]",
+    href: "/services/shopping",
+    eyebrow: "Audio drop",
+    title: "Bring better sound with you",
+    subtitle: "Wireless earbuds and audio essentials for your daily routine.",
+    cta: "Shop audio",
+    image: "https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?auto=format&fit=crop&w=1200&q=85",
+    position: "center",
   },
   {
-    href: "/services/rent-number",
-    title: "Rent a Number",
-    subtitle: "Call, SMS & manage numbers from one hub",
-    cta: "Open Hub",
-    icon: PhoneCall,
-    gradient: "from-[#0E7490] to-[#155E75]",
+    href: "/services/flights",
+    eyebrow: "Travel",
+    title: "Your next trip starts here",
+    subtitle: "Search flights and keep your travel plans moving from one place.",
+    cta: "Book a flight",
+    image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=85",
+    position: "center",
   },
   {
-    href: "/services/data",
-    title: "Data Bundles",
-    subtitle: "All networks · Instant delivery · Best rates",
-    cta: "Buy Data",
-    icon: Wifi,
-    gradient: "from-[#4338CA] to-[#312E81]",
-  },
-  {
-    href: "/services/airtime",
-    title: "Airtime Top-up",
-    subtitle: "Recharge any number in a single tap",
-    cta: "Buy Airtime",
-    icon: Smartphone,
-    gradient: "from-[#1D4ED8] to-[#1E3A8A]",
-  },
-  {
-    href: "/services/gift-card",
-    title: "Gift Cards",
-    subtitle: "Sell premium cards · Fast Naira settlement",
-    cta: "Sell Now",
-    icon: Gift,
-    gradient: "from-[#BE185D] to-[#9D174D]",
-  },
-  {
-    href: "/services/virtual-card",
-    title: "Virtual Dollar Card",
-    subtitle: "Get your USD card to verify accounts & pay online today",
-    cta: "Get Card",
-    icon: CreditCard,
-    gradient: "from-[#0F766E] via-[#0D9488] to-[#1877F2]",
-    special: true,
+    href: "/services/shopping",
+    eyebrow: "Everyday essentials",
+    title: "The accessories you actually use",
+    subtitle: "Chargers, watches, power and practical tech for everyday life.",
+    cta: "Explore shop",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1200&q=85",
+    position: "center",
   },
 ];
 
 export default function PromoCarousel() {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const touchStartX = useRef(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef<number | null>(null);
+  const moved = useRef(false);
 
-  const go = useCallback((i: number) => {
-    const n = slides.length;
-    setIndex(((i % n) + n) % n);
+  const go = useCallback((nextIndex: number) => {
+    setIndex((nextIndex + slides.length) % slides.length);
   }, []);
 
   const next = useCallback(() => go(index + 1), [go, index]);
   const prev = useCallback(() => go(index - 1), [go, index]);
 
   useEffect(() => {
-    if (paused) return;
-    timer.current = setInterval(() => {
-      setIndex((i) => (i + 1) % slides.length);
-    }, INTERVAL_MS);
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
-  }, [paused, index]);
+    if (paused || dragging) return;
+    const timer = window.setInterval(next, INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [dragging, next, paused]);
 
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-    setPaused(true);
+  function onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    startX.current = event.clientX;
+    moved.current = false;
+    setDragging(true);
+    event.currentTarget.setPointerCapture(event.pointerId);
   }
 
-  function onTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 40) {
-      if (dx < 0) next();
+  function onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (startX.current === null) return;
+    if (Math.abs(event.clientX - startX.current) > 10) moved.current = true;
+  }
+
+  function onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    if (startX.current === null) return;
+    const distance = event.clientX - startX.current;
+    startX.current = null;
+    setDragging(false);
+
+    if (Math.abs(distance) > 45) {
+      if (distance < 0) next();
       else prev();
     }
-    setPaused(false);
   }
 
-  const slide = slides[index];
-  const Icon = slide.icon;
+  function onClickCapture(event: React.MouseEvent<HTMLDivElement>) {
+    if (moved.current) {
+      event.preventDefault();
+      event.stopPropagation();
+      moved.current = false;
+    }
+  }
 
   return (
-    <section>
-      <p className="text-[10px] font-semibold tracking-[0.12em] text-[#94A3B8] uppercase mb-2.5">
-        Connect | Verify | Grow
-      </p>
-
+    <section aria-label="Featured offers">
       <div
-        className="relative overflow-hidden rounded-[12px]"
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
+        className="relative overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-[#111827] shadow-[0_10px_30px_rgba(15,23,42,0.10)] touch-pan-y select-none"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
+        onClickCapture={onClickCapture}
       >
-        <Link
-          href={slide.href}
-          className={`block relative w-full min-h-[112px] bg-gradient-to-r ${slide.gradient} text-white px-4 py-3.5`}
+        <div
+          className="flex will-change-transform"
+          style={{
+            transform: `translate3d(-${index * 100}%, 0, 0)`,
+            transition: dragging ? "none" : "transform 520ms cubic-bezier(0.22, 1, 0.36, 1)",
+          }}
         >
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.12]"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 90% 20%, white 0%, transparent 45%), radial-gradient(circle at 10% 90%, white 0%, transparent 40%)",
-            }}
-          />
+          {slides.map((slide) => (
+            <Link
+              key={slide.title}
+              href={slide.href}
+              className="relative block w-full min-w-full min-h-[158px] overflow-hidden bg-slate-900 text-white"
+              draggable={false}
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-no-repeat"
+                style={{
+                  backgroundImage: `url(${slide.image})`,
+                  backgroundPosition: slide.position,
+                }}
+                aria-hidden="true"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(7,12,24,0.94)_0%,rgba(7,12,24,0.78)_42%,rgba(7,12,24,0.18)_100%)]" />
 
-          <div className="relative flex items-center gap-3">
-            <div className="w-11 h-11 rounded-[12px] bg-white/15 border border-white/20 flex items-center justify-center shrink-0 backdrop-blur-sm">
-              <Icon size={22} strokeWidth={1.8} />
-            </div>
+              <div className="relative z-10 flex min-h-[158px] items-end p-4 sm:p-5">
+                <div className="max-w-[72%] sm:max-w-[58%]">
+                  <span className="inline-flex rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-white/90 backdrop-blur-sm">
+                    {slide.eyebrow}
+                  </span>
+                  <h3 className="mt-2 text-[17px] font-bold leading-[1.12] tracking-tight sm:text-lg">
+                    {slide.title}
+                  </h3>
+                  <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-white/75 sm:text-xs">
+                    {slide.subtitle}
+                  </p>
+                  <span className="mt-3 inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3.5 text-[11px] font-semibold text-[#111827] shadow-sm">
+                    {slide.cta}
+                    <ArrowUpRight size={13} />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
 
-            <div className="flex-1 min-w-0">
-              <p
-                className={`font-bold leading-tight truncate ${
-                  slide.special ? "text-[15px]" : "text-sm"
-                }`}
-              >
-                {slide.title}
-              </p>
-              <p className="text-[11px] text-white/85 mt-0.5 line-clamp-2 leading-snug">
-                {slide.subtitle}
-              </p>
-            </div>
+        <button
+          type="button"
+          aria-label="Previous advertisement"
+          onClick={(event) => {
+            event.stopPropagation();
+            prev();
+          }}
+          className="absolute left-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 sm:flex"
+        >
+          <ChevronLeft size={17} />
+        </button>
+        <button
+          type="button"
+          aria-label="Next advertisement"
+          onClick={(event) => {
+            event.stopPropagation();
+            next();
+          }}
+          className="absolute right-2 top-1/2 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/25 text-white backdrop-blur-sm transition hover:bg-black/40 sm:flex"
+        >
+          <ChevronRight size={17} />
+        </button>
 
-            <span className="shrink-0 inline-flex items-center gap-0.5 h-8 px-3 rounded-full bg-white text-[11px] font-semibold text-[#0F172A] shadow-sm">
-              {slide.cta}
-              <ChevronRight size={14} />
-            </span>
-          </div>
-        </Link>
-      </div>
-
-      <div className="flex justify-center items-center gap-1.5 mt-2.5">
-        {slides.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={`Go to slide ${i + 1}`}
-            onClick={() => go(i)}
-            className={`h-1.5 rounded-full transition-all ${
-              i === index ? "w-4 bg-[#1877F2]" : "w-1.5 bg-[#CBD5E1]"
-            }`}
-          />
-        ))}
+        <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/20 px-2 py-1 backdrop-blur-sm">
+          {slides.map((slide, i) => (
+            <button
+              key={slide.title}
+              type="button"
+              aria-label={`Show advertisement ${i + 1}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                go(i);
+              }}
+              className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/45"}`}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
