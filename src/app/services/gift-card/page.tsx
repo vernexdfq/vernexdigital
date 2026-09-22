@@ -1,29 +1,47 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Search, X, ChevronRight, Plus, Home, History as HistoryIcon, Wallet, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  Search,
+  X,
+  ChevronRight,
+  Plus,
+  Home,
+  History as HistoryIcon,
+  Wallet,
+  Sparkles,
+} from "lucide-react";
 
-type GiftCard = { id: string; name: string; logo: string; rate: number; physical?: boolean; egift?: boolean };
+type GiftCard = {
+  id: string;
+  name: string;
+  domain: string;
+  rate: number;
+  color: string;
+  physical?: boolean;
+  egift?: boolean;
+};
 
 const CARDS: GiftCard[] = [
-  { id: "apple", name: "iTunes (Apple)", logo: "https://logo.clearbit.com/apple.com", rate: 1334.45, physical: true, egift: true },
-  { id: "razer", name: "Razer", logo: "https://logo.clearbit.com/razer.com", rate: 1170.21, physical: true, egift: true },
-  { id: "steam", name: "Steam", logo: "https://logo.clearbit.com/steampowered.com", rate: 1334.45, physical: true, egift: true },
-  { id: "xbox", name: "Xbox", logo: "https://logo.clearbit.com/xbox.com", rate: 1262.6, physical: true, egift: true },
-  { id: "green-razer", name: "Green Razer", logo: "https://logo.clearbit.com/razer.com", rate: 1170.21, physical: true, egift: true },
-  { id: "sephora", name: "Sephora", logo: "https://logo.clearbit.com/sephora.com", rate: 1088.09, physical: true, egift: true },
-  { id: "footlocker", name: "Footlocker", logo: "https://logo.clearbit.com/footlocker.com", rate: 1129.15, physical: true, egift: true },
-  { id: "macys", name: "Macys", logo: "https://logo.clearbit.com/macys.com", rate: 1108.62, physical: true, egift: true },
-  { id: "nordstrom", name: "Nordstrom", logo: "https://logo.clearbit.com/nordstrom.com", rate: 954.65, physical: true, egift: true },
-  { id: "playstation", name: "PlayStation", logo: "https://logo.clearbit.com/playstation.com", rate: 882.79, physical: true, egift: true },
-  { id: "cvs", name: "CVS Pharmacy", logo: "https://logo.clearbit.com/cvs.com", rate: 1118.89, physical: true, egift: true },
-  { id: "dollar-general", name: "Dollar General", logo: "https://logo.clearbit.com/dollargeneral.com", rate: 1118.89, physical: true, egift: true },
-  { id: "google", name: "Google Play", logo: "https://logo.clearbit.com/play.google.com", rate: 964.91, egift: true },
-  { id: "roblox", name: "Roblox", logo: "https://logo.clearbit.com/roblox.com", rate: 821.2, physical: true, egift: true },
-  { id: "gamestop", name: "Gamestop", logo: "https://logo.clearbit.com/gamestop.com", rate: 1026.5, physical: true, egift: true },
-  { id: "paysafe", name: "Paysafe Card", logo: "https://logo.clearbit.com/paysafecard.com", rate: 1449.42, physical: true, egift: true },
-  { id: "one4all", name: "One4All", logo: "https://logo.clearbit.com/one4all.com", rate: 1067.56, physical: true, egift: true },
-  { id: "amazon", name: "Amazon", logo: "https://logo.clearbit.com/amazon.com", rate: 1040, physical: true, egift: true },
+  { id: "apple", name: "iTunes (Apple)", domain: "apple.com", rate: 1334.45, color: "#555555", physical: true, egift: true },
+  { id: "razer", name: "Razer", domain: "razer.com", rate: 1170.21, color: "#44D62C", physical: true, egift: true },
+  { id: "steam", name: "Steam", domain: "steampowered.com", rate: 1334.45, color: "#1B2838", physical: true, egift: true },
+  { id: "xbox", name: "Xbox", domain: "xbox.com", rate: 1262.6, color: "#107C10", physical: true, egift: true },
+  { id: "green-razer", name: "Green Razer", domain: "razer.com", rate: 1170.21, color: "#00A651", physical: true, egift: true },
+  { id: "sephora", name: "Sephora", domain: "sephora.com", rate: 1088.09, color: "#000000", physical: true, egift: true },
+  { id: "footlocker", name: "Footlocker", domain: "footlocker.com", rate: 1129.15, color: "#E31837", physical: true, egift: true },
+  { id: "macys", name: "Macys", domain: "macys.com", rate: 1108.62, color: "#E21A2C", physical: true, egift: true },
+  { id: "nordstrom", name: "Nordstrom", domain: "nordstrom.com", rate: 954.65, color: "#000000", physical: true, egift: true },
+  { id: "playstation", name: "PlayStation", domain: "playstation.com", rate: 882.79, color: "#003791", physical: true, egift: true },
+  { id: "cvs", name: "CVS Pharmacy", domain: "cvs.com", rate: 1118.89, color: "#CC0000", physical: true, egift: true },
+  { id: "dollar-general", name: "Dollar General", domain: "dollargeneral.com", rate: 1118.89, color: "#FFCC00", physical: true, egift: true },
+  { id: "google", name: "Google Play", domain: "play.google.com", rate: 964.91, color: "#34A853", egift: true },
+  { id: "roblox", name: "Roblox", domain: "roblox.com", rate: 821.2, color: "#E2231A", physical: true, egift: true },
+  { id: "gamestop", name: "Gamestop", domain: "gamestop.com", rate: 1026.5, color: "#000000", physical: true, egift: true },
+  { id: "paysafe", name: "Paysafe Card", domain: "paysafecard.com", rate: 1449.42, color: "#00A0E3", physical: true, egift: true },
+  { id: "one4all", name: "One4All", domain: "one4all.com", rate: 1067.56, color: "#E30613", physical: true, egift: true },
+  { id: "amazon", name: "Amazon", domain: "amazon.com", rate: 1040, color: "#FF9900", physical: true, egift: true },
 ];
 
 const BANKS = [
@@ -68,15 +86,29 @@ function naira(n: number) {
   return "\u20a6" + n.toLocaleString("en-NG", { maximumFractionDigits: 2 });
 }
 
-function Logo({ src, name, size = 40 }: { src: string; name: string; size?: number }) {
+function logoUrl(domain: string) {
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+}
+
+function Logo({
+  domain,
+  name,
+  color,
+  size = 40,
+}: {
+  domain: string;
+  name: string;
+  color: string;
+  size?: number;
+}) {
   const [fail, setFail] = useState(false);
   if (fail) {
     return (
       <div
         className="rounded-full flex items-center justify-center font-bold text-white shrink-0"
-        style={{ width: size, height: size, background: "#1877F2", fontSize: size * 0.35 }}
+        style={{ width: size, height: size, background: color, fontSize: size * 0.38 }}
       >
-        {name.charAt(0)}
+        {name.charAt(0).toUpperCase()}
       </div>
     );
   }
@@ -85,7 +117,16 @@ function Logo({ src, name, size = 40 }: { src: string; name: string; size?: numb
       className="rounded-full overflow-hidden bg-white border border-[#E2E8F0] shrink-0 flex items-center justify-center"
       style={{ width: size, height: size }}
     >
-      <img src={src} alt={name} className="w-full h-full object-contain p-1" onError={() => setFail(true)} />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={logoUrl(domain)}
+        alt={name}
+        width={size}
+        height={size}
+        className="w-full h-full object-contain p-1.5"
+        onError={() => setFail(true)}
+        referrerPolicy="no-referrer"
+      />
     </div>
   );
 }
@@ -183,7 +224,7 @@ export default function GiftCardPage() {
 
   if (view === "sell" && selected) {
     return (
-      <div className="min-h-screen bg-[#F0F7FF] pb-8">
+      <div className="min-h-screen bg-[#F0F7FF] pb-28 overflow-y-auto">
         <header className="sticky top-0 z-30 bg-gradient-to-b from-[#E8F1FF] to-[#F0F7FF] px-4 pt-3 pb-2">
           <div className="flex items-center gap-3">
             <button
@@ -196,13 +237,13 @@ export default function GiftCardPage() {
             <h1 className="text-lg font-semibold text-[#0F172A]">Sell Gift Cards</h1>
           </div>
         </header>
-        <div className="px-4 space-y-3">
+        <div className="px-4 space-y-3 pb-8">
           <button
             type="button"
             onClick={() => setView("list")}
             className="w-full bg-white rounded-[14px] border border-[#E2E8F0] px-4 py-3.5 flex items-center gap-3"
           >
-            <Logo src={selected.logo} name={selected.name} size={36} />
+            <Logo domain={selected.domain} name={selected.name} color={selected.color} size={36} />
             <span className="flex-1 text-left text-sm font-semibold text-[#0F172A]">{selected.name}</span>
             <ChevronRight size={18} className="text-[#94A3B8]" />
           </button>
@@ -320,7 +361,7 @@ export default function GiftCardPage() {
           >
             + Send More Cards
           </button>
-          <div className="flex items-center justify-between pt-2 pb-4">
+          <div className="flex items-center justify-between pt-2 pb-6">
             <div>
               <p className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase">Earn</p>
               <p className="text-lg font-bold text-[#1877F2] tabular-nums">{naira(earn)}</p>
@@ -341,7 +382,7 @@ export default function GiftCardPage() {
 
   if (view === "addbank") {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] pb-24">
+      <div className="min-h-screen bg-[#F8FAFC] pb-28 overflow-y-auto">
         <header className="sticky top-0 z-30 bg-white border-b border-[#E2E8F0] px-4 h-14 flex items-center gap-3">
           <button
             type="button"
@@ -383,18 +424,11 @@ export default function GiftCardPage() {
         </div>
         {bankOpen && (
           <div className="fixed inset-0 z-50 flex flex-col justify-end">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setBankOpen(false)}
-            />
+            <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setBankOpen(false)} />
             <div className="relative bg-white rounded-t-[20px] max-h-[70vh] flex flex-col">
               <div className="px-4 pt-4 pb-2">
                 <div className="relative">
-                  <Search
-                    size={16}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                  />
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
                   <input
                     value={bankQ}
                     onChange={(e) => setBankQ(e.target.value)}
@@ -431,11 +465,7 @@ export default function GiftCardPage() {
         )}
         {confirmBank && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center px-6">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setConfirmBank(false)}
-            />
+            <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setConfirmBank(false)} />
             <div className="relative bg-white rounded-[16px] p-5 w-full max-w-sm shadow-xl">
               <p className="text-base font-semibold text-[#0F172A] mb-2">Prompt</p>
               <p className="text-sm text-[#475569]">
@@ -471,8 +501,7 @@ export default function GiftCardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#E8F1FF] via-[#F0F7FF] to-white pb-24">
-      {/* Live ticker */}
+    <div className="min-h-screen bg-gradient-to-b from-[#E8F1FF] via-[#F0F7FF] to-white pb-24 overflow-y-auto">
       <div className="px-4 pt-3">
         <div className="bg-white/80 border border-[#BFDBFE] rounded-full px-4 py-2 flex items-center gap-2 overflow-hidden">
           <span className="text-[11px] font-semibold text-[#1877F2] shrink-0">LIVE</span>
@@ -510,7 +539,7 @@ export default function GiftCardPage() {
       </header>
 
       {tab === "home" && (
-        <div className="px-4 pt-2 grid grid-cols-2 gap-3">
+        <div className="px-4 pt-2 grid grid-cols-2 gap-3 pb-4">
           {filteredCards.map((c) => (
             <button
               key={c.id}
@@ -518,7 +547,7 @@ export default function GiftCardPage() {
               onClick={() => openSell(c)}
               className="bg-white rounded-[14px] border border-[#E2E8F0] p-3 text-left shadow-sm active:scale-[0.98] transition"
             >
-              <Logo src={c.logo} name={c.name} size={40} />
+              <Logo domain={c.domain} name={c.name} color={c.color} size={40} />
               <p className="mt-2 text-sm font-semibold text-[#0F172A] leading-snug">{c.name}</p>
               <p className="mt-0.5 text-[11px] text-[#1877F2] font-medium tabular-nums">
                 1$ = {naira(c.rate)}
@@ -529,7 +558,7 @@ export default function GiftCardPage() {
       )}
 
       {tab === "history" && (
-        <div className="px-4 pt-3">
+        <div className="px-4 pt-3 pb-4">
           <div className="flex gap-2 mb-3 overflow-x-auto">
             {(["ALL", "PENDING", "SUCCESS", "REJECTED"] as HistFilter[]).map((f) => (
               <button
@@ -573,7 +602,7 @@ export default function GiftCardPage() {
       )}
 
       {tab === "withdraw" && (
-        <div className="px-4 pt-3">
+        <div className="px-4 pt-3 pb-4">
           <p className="text-sm font-semibold text-[#0F172A] mb-2">Saved Banks</p>
           {savedBanks.length === 0 ? (
             <div className="bg-white rounded-[12px] border border-[#E2E8F0] p-6 text-center">
