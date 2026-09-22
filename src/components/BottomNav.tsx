@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 import { Home, Grid3X3, Wallet, History, User } from "lucide-react";
 
 const items = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/services", label: "Services", icon: Grid3X3 },
-  { href: "/fund", label: "Fund", icon: Wallet },
-  { href: "/history", label: "History", icon: History },
-  { href: "/profile", label: "Profile", icon: User },
+  { href: "/home", label: "Home", icon: Home, exact: false },
+  // Services only active on the hub page itself — not on /services/*
+  // so Quick Actions open service pages without highlighting Services.
+  { href: "/services", label: "Services", icon: Grid3X3, exact: true },
+  { href: "/fund", label: "Fund", icon: Wallet, exact: false },
+  { href: "/history", label: "History", icon: History, exact: false },
+  { href: "/profile", label: "Profile", icon: User, exact: false },
 ];
 
 export default function BottomNav() {
@@ -18,8 +20,10 @@ export default function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#E2E8F0] safe-area-pb">
       <div className="max-w-lg mx-auto flex items-center justify-around h-16 px-2">
-        {items.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/");
+        {items.map(({ href, label, icon: Icon, exact }) => {
+          const active = exact
+            ? pathname === href
+            : pathname === href || pathname.startsWith(href + "/");
           return (
             <Link
               key={href}
