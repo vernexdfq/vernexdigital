@@ -53,7 +53,7 @@ export default function PrivacyPage() {
   const [open, setOpen] = useState<string | null>("01");
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-28">
+    <div className="min-h-screen bg-[#F4F7FB] pb-40">
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-[#E2E8F0] px-4 h-14 flex items-center gap-3">
         <Link href="/profile" className="text-[#0F172A] flex items-center gap-1 text-sm font-medium">
           <ArrowLeft size={20} />
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
         <h1 className="text-base font-semibold text-[#0F172A]">Privacy Policy</h1>
       </header>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-4 space-y-4 pb-8">
         <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-br from-[#0B1F4D] via-[#123A7A] to-[#1877F2] p-5 text-white">
           <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-emerald-300 mb-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />

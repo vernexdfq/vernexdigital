@@ -74,7 +74,7 @@ export default function FeedbackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-28">
+    <div className="min-h-screen bg-[#F4F7FB] pb-40">
       <header className="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-[#E2E8F0] px-4 h-14 flex items-center gap-3">
         <Link href="/profile" className="text-[#0F172A] flex items-center gap-1 text-sm font-medium">
           <ArrowLeft size={20} />
@@ -83,7 +83,7 @@ export default function FeedbackPage() {
         <h1 className="text-base font-semibold text-[#0F172A]">Feedback</h1>
       </header>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="px-4 pt-4 space-y-4 pb-8">
         <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-br from-[#0B1F4D] via-[#123A7A] to-[#1877F2] p-5 text-white">
           <p className="text-lg font-semibold">We&apos;re listening 👋</p>
           <p className="mt-1 text-sm text-white/80 leading-relaxed">

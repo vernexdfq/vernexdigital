@@ -78,8 +78,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-28">
-      <div className="px-4 pt-5">
+    <div className="min-h-screen bg-[#F4F7FB] pb-40">
+      <div className="px-4 pt-5 pb-8">
         <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-br from-[#0B1F4D] via-[#123A7A] to-[#1877F2] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_80%_20%,#60A5FA,transparent_50%)]" />
           <div className="relative flex items-center gap-4">
@@ -173,7 +173,7 @@ export default function ProfilePage() {
 
         <button
           type="button"
-          className="mt-8 w-full h-12 rounded-full bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(24,119,242,0.25)]"
+          className="mt-8 mb-4 w-full h-12 rounded-full bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(24,119,242,0.25)]"
         >
           <LogOut size={18} />
           Log Out
