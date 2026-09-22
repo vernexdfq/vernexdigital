@@ -8,10 +8,6 @@ import {
   ChevronRight,
   Plane,
   ShoppingBag,
-  Smartphone,
-  Laptop,
-  Headphones,
-  Watch,
 } from "lucide-react";
 
 const services = [
