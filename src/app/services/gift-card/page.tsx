@@ -9,15 +9,6 @@ import {
   History as HistoryIcon,
   Wallet,
   Sparkles,
-  List,
-  PieChart,
-  Rocket,
-  Phone,
-  RotateCcw,
-  CreditCard,
-  Upload,
-  ShoppingBag,
-  Calendar,
 } from "lucide-react";
 
 type GiftCard = {
@@ -66,32 +57,9 @@ const TRADES = [
   { user: "2****P", card: "iTunes USD 350*2", naira: 689808 },
 ];
 
-/** Demo transactions matching primex.ng/use style — removed automatically when Supabase key is present */
-const DEMO_TXNS = [
-  { id: "d1", title: "Boosting: Instagram", amount: -386.96, status: "Success", when: "Jul 16, 2026 · 1:18am", kind: "boost" as const },
-  { id: "d2", title: "Boosting: Facebook", amount: -246.38, status: "Success", when: "Jul 16, 2026 · 12:48am", kind: "boost" as const },
-  { id: "d3", title: "Boosting: Twitter", amount: -226.98, status: "Success", when: "Jul 16, 2026 · 12:31am", kind: "boost" as const },
-  { id: "d4", title: "Refund: Boosting order", amount: 191.10, status: "Success", when: "Jul 16, 2026 · 12:02am", kind: "refund" as const },
-  { id: "d5", title: "Boosting: YouTube", amount: -191.10, status: "Success", when: "Jul 16, 2026 · 12:02am", kind: "boost" as const },
-  { id: "d6", title: "Boosting: YouTube", amount: -191.10, status: "Success", when: "Jul 15, 2026 · 11:58pm", kind: "boost" as const },
-  { id: "d7", title: "Refund: Boosting order", amount: 191.10, status: "Success", when: "Jul 15, 2026 · 11:58pm", kind: "refund" as const },
-  { id: "d8", title: "Boosting: YouTube", amount: -191.10, status: "Success", when: "Jul 15, 2026 · 11:57pm", kind: "boost" as const },
-  { id: "d9", title: "Virtual Number (US)", amount: -2160.00, status: "Success", when: "Jul 15, 2026 · 11:13pm", kind: "virtual" as const },
-  { id: "d10", title: "Boosting: Spotify", amount: -500.26, status: "Success", when: "Jul 15, 2026 · 12:13am", kind: "boost" as const },
-  { id: "d11", title: "Boosting: Audiomack", amount: -567.00, status: "Success", when: "Jul 15, 2026 · 12:05am", kind: "boost" as const },
-  { id: "d12", title: "Boosting: Audiomack", amount: -397.22, status: "Success", when: "Jul 15, 2026 · 12:02am", kind: "boost" as const },
-  { id: "d13", title: "Refund — Cancelled", amount: 3475.00, status: "Success", when: "Jul 14, 2026 · 1:02pm", kind: "refund" as const },
-  { id: "d14", title: "Virtual Number (All)", amount: -3475.00, status: "Success", when: "Jul 14, 2026 · 1:00pm", kind: "virtual" as const },
-  { id: "d15", title: "Gift Card Sale — iTunes", amount: 133445.00, status: "Success", when: "Jul 14, 2026 · 12:40pm", kind: "gift" as const },
-];
-
-const PAGE_SIZE = 8;
-
 type Tab = "home" | "history" | "withdraw";
 type HistFilter = "ALL" | "PENDING" | "SUCCESS" | "REJECTED";
 type Entry = { face: string; qty: string; code: string };
-type TxnKind = "boost" | "virtual" | "refund" | "gift";
-type HistMode = "list" | "stats";
 
 function naira(n: number) {
   return "\u20a6" + n.toLocaleString("en-NG", { maximumFractionDigits: 2 });
@@ -126,10 +94,6 @@ export default function GiftCardPage() {
   const [entries, setEntries] = useState<Entry[]>([{ face: "", qty: "1", code: "" }]);
   const [histFilter, setHistFilter] = useState<HistFilter>("ALL");
   const [orders, setOrders] = useState<{ id: string; card: string; settlement: number; status: HistFilter; when: string }[]>([]);
-  const [histMode, setHistMode] = useState<HistMode>("list");
-  const [histSearch, setHistSearch] = useState("");
-  const [histPage, setHistPage] = useState(1);
-  const [hasSupabase, setHasSupabase] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
   const [bankQ, setBankQ] = useState("");
   const [bank, setBank] = useState<(typeof BANKS)[0] | null>(null);
@@ -144,15 +108,6 @@ export default function GiftCardPage() {
   useEffect(() => {
     const t = setInterval(() => setTickerIdx((i) => (i + 1) % TRADES.length), 3200);
     return () => clearInterval(t);
-  }, []);
-
-  // Auto-remove demo history once a real Supabase key is configured
-  useEffect(() => {
-    const key =
-      (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) ||
-      (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-      (typeof window !== "undefined" && (window as unknown as { __SUPABASE_URL__?: string }).__SUPABASE_URL__);
-    setHasSupabase(Boolean(key && String(key).length > 8));
   }, []);
 
   useEffect(() => {
@@ -182,34 +137,6 @@ export default function GiftCardPage() {
   const totalFace = entries.reduce((s, e) => s + (Number(e.face) || 0) * (Number(e.qty) || 0), 0);
   const earn = Math.round(totalFace * rate * 100) / 100;
   const filteredOrders = orders.filter((o) => histFilter === "ALL" || o.status === histFilter);
-
-  // Combine real gift-card orders + demo (demo only when no Supabase)
-  const allHistory = useMemo(() => {
-    const real = orders.map((o) => ({
-      id: o.id,
-      title: o.card.startsWith("Gift") ? o.card : `Gift Card Sale — ${o.card}`,
-      amount: o.settlement,
-      status: o.status === "SUCCESS" ? "Success" : o.status === "PENDING" ? "Pending" : o.status === "REJECTED" ? "Rejected" : o.status,
-      when: o.when,
-      kind: "gift" as TxnKind,
-    }));
-    const demo = hasSupabase ? [] : DEMO_TXNS;
-    return [...real, ...demo];
-  }, [orders, hasSupabase]);
-
-  const searchedHistory = useMemo(() => {
-    const q = histSearch.trim().toLowerCase();
-    let list = allHistory;
-    if (q) list = list.filter((x) => x.title.toLowerCase().includes(q) || x.status.toLowerCase().includes(q));
-    if (histFilter === "PENDING") list = list.filter((x) => x.status === "Pending");
-    else if (histFilter === "SUCCESS") list = list.filter((x) => x.status === "Success");
-    else if (histFilter === "REJECTED") list = list.filter((x) => x.status === "Rejected");
-    return list;
-  }, [allHistory, histSearch, histFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(searchedHistory.length / PAGE_SIZE));
-  const pageItems = searchedHistory.slice((histPage - 1) * PAGE_SIZE, histPage * PAGE_SIZE);
-
   const trade = TRADES[tickerIdx];
 
   function openSell(c: GiftCard) {
@@ -396,91 +323,28 @@ export default function GiftCardPage() {
         </div>
       )}
       {tab === "history" && (
-        <div className="px-4 mt-2 pb-24">
-          <div className="flex bg-[#F1F5F9] rounded-full p-1 mb-3">
-            <button type="button" onClick={() => setHistMode("list")} className={`flex-1 h-10 rounded-full flex items-center justify-center gap-1.5 text-sm font-medium transition ${histMode === "list" ? "bg-white text-[#1877F2] shadow-sm" : "text-[#64748B]"}`}>
-              <List size={18} />
-            </button>
-            <button type="button" onClick={() => setHistMode("stats")} className={`flex-1 h-10 rounded-full flex items-center justify-center gap-1.5 text-sm font-medium transition ${histMode === "stats" ? "bg-white text-[#1877F2] shadow-sm" : "text-[#64748B]"}`}>
-              <PieChart size={18} />
-            </button>
+        <div className="px-4 mt-4 pb-24">
+          <div className="flex gap-2 overflow-x-auto pb-3">
+            {(["ALL", "PENDING", "SUCCESS", "REJECTED"] as HistFilter[]).map((f) => (
+              <button key={f} type="button" onClick={() => setHistFilter(f)} className={`h-8 px-3 rounded-full text-[11px] font-semibold shrink-0 ${histFilter === f ? "bg-[#1877F2] text-white" : "bg-white border border-[#E2E8F0] text-[#64748B]"}`}>{f}</button>
+            ))}
           </div>
-          {histMode === "list" && (
-            <>
-              <div className="relative mb-3">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-                <input value={histSearch} onChange={(e) => { setHistSearch(e.target.value); setHistPage(1); }} placeholder="Search transactions..." className="w-full h-11 pl-9 pr-3 rounded-full bg-white border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#1877F2]" />
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-3">
-                {(["ALL", "PENDING", "SUCCESS", "REJECTED"] as HistFilter[]).map((f) => (
-                  <button key={f} type="button" onClick={() => { setHistFilter(f); setHistPage(1); }} className={`h-8 px-3 rounded-full text-[11px] font-semibold shrink-0 ${histFilter === f ? "bg-[#1877F2] text-white" : "bg-white border border-[#E2E8F0] text-[#64748B]"}`}>{f}</button>
-                ))}
-              </div>
-              <p className="text-[11px] font-semibold tracking-wide text-[#94A3B8] uppercase mb-2">All Activity</p>
-              {pageItems.length === 0 ? (
-                <p className="text-center text-sm text-[#94A3B8] py-16">{hasSupabase ? "No transactions yet" : "No matching transactions"}</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {pageItems.map((tx) => {
-                    const isCredit = tx.amount > 0;
-                    const Icon = tx.kind === "virtual" ? Phone : tx.kind === "refund" ? RotateCcw : tx.kind === "gift" ? CreditCard : Rocket;
-                    const iconBg = tx.kind === "virtual" ? "bg-amber-50 text-amber-600" : tx.kind === "refund" ? "bg-emerald-50 text-emerald-600" : tx.kind === "gift" ? "bg-blue-50 text-blue-600" : "bg-purple-50 text-purple-600";
-                    return (
-                      <div key={tx.id} className="bg-white rounded-[14px] border border-[#E2E8F0] p-3.5 flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-[12px] flex items-center justify-center shrink-0 ${iconBg}`}><Icon size={18} /></div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-[#0F172A] truncate">{tx.title}</p>
-                          <p className="text-[11px] text-[#64748B]">{tx.when}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className={`text-sm font-semibold tabular-nums ${isCredit ? "text-emerald-600" : "text-red-500"}`}>{isCredit ? "+" : ""}{naira(Math.abs(tx.amount))}</p>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />{tx.status}</span>
-                        </div>
-                      </div>
-                    );
-                  })}
+          {filteredOrders.length === 0 ? (
+            <p className="text-center text-sm text-[#94A3B8] py-16">No orders yet</p>
+          ) : (
+            <div className="space-y-2.5">
+              {filteredOrders.map((o) => (
+                <div key={o.id} className="bg-white rounded-[12px] border border-[#E2E8F0] p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-[#0F172A]">{o.card}</p>
+                    <p className="text-[11px] text-[#64748B]">{o.when} · {o.id}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-[#1877F2]">{naira(o.settlement)}</p>
+                    <p className="text-[10px] font-medium text-[#64748B]">{o.status}</p>
+                  </div>
                 </div>
-              )}
-              {searchedHistory.length > PAGE_SIZE && (
-                <div className="flex items-center justify-between mt-4 gap-2">
-                  <button type="button" disabled={histPage <= 1} onClick={() => setHistPage((p) => Math.max(1, p - 1))} className="h-9 px-3 rounded-full border border-[#E2E8F0] text-sm text-[#64748B] disabled:opacity-40">‹ Previous</button>
-                  <span className="text-sm text-[#64748B]">Page {histPage} of {totalPages}</span>
-                  <button type="button" disabled={histPage >= totalPages} onClick={() => setHistPage((p) => Math.min(totalPages, p + 1))} className="h-9 px-3 rounded-full border border-[#E2E8F0] text-sm text-[#1877F2] disabled:opacity-40">Next ›</button>
-                </div>
-              )}
-            </>
-          )}
-          {histMode === "stats" && (
-            <div className="space-y-3">
-              <div className="rounded-[16px] p-4 text-white" style={{ background: "linear-gradient(135deg,#0B1B3A 0%,#1a3a6b 50%,#0B1B3A 100%)" }}>
-                <div className="flex items-center gap-2 mb-2"><CreditCard size={18} className="opacity-80" /><p className="text-[11px] font-semibold tracking-wide uppercase opacity-80">All-Time Funding</p></div>
-                <p className="text-2xl font-bold tabular-nums">{hasSupabase ? naira(0) : naira(110960.69)}</p>
-                <p className="text-[11px] opacity-70 mt-1">Total deposits ever made</p>
-              </div>
-              <div className="rounded-[16px] p-4 text-white" style={{ background: "linear-gradient(135deg,#0B2A2A 0%,#0d4a4a 50%,#0B2A2A 100%)" }}>
-                <div className="flex items-center gap-2 mb-2"><div className="w-4 h-4 rounded bg-white/20" /><p className="text-[11px] font-semibold tracking-wide uppercase opacity-80">This Month's Top-Ups</p></div>
-                <p className="text-2xl font-bold tabular-nums">{naira(0)}</p>
-                <p className="text-[11px] opacity-70 mt-1">September 2026</p>
-              </div>
-              <div className="rounded-[16px] p-4 text-white" style={{ background: "linear-gradient(135deg,#2A0B2A 0%,#4a0d4a 50%,#2A0B2A 100%)" }}>
-                <div className="flex items-center gap-2 mb-2"><Upload size={16} className="opacity-80" /><p className="text-[11px] font-semibold tracking-wide uppercase opacity-80">This Month's Spending</p></div>
-                <p className="text-2xl font-bold tabular-nums">{naira(0)}</p>
-                <p className="text-[11px] opacity-70 mt-1">September 2026</p>
-              </div>
-              <div className="rounded-[16px] p-4 text-white" style={{ background: "linear-gradient(135deg,#0B1B3A 0%,#1a2a5b 50%,#0B1B3A 100%)" }}>
-                <div className="flex items-center gap-2 mb-2"><ShoppingBag size={16} className="opacity-80" /><p className="text-[11px] font-semibold tracking-wide uppercase opacity-80">Total Purchases</p></div>
-                <p className="text-2xl font-bold tabular-nums">0</p>
-                <p className="text-[11px] opacity-70 mt-1">September 2026</p>
-              </div>
-              <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4 mt-2">
-                <div className="flex items-center gap-2 mb-3"><Calendar size={16} className="text-[#1877F2]" /><p className="text-sm font-semibold text-[#0F172A]">September 2026 Summary</p></div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5"><span className="text-[12px] text-[#64748B]">Total Transactions</span><span className="text-sm font-semibold text-[#0F172A]">{hasSupabase ? 0 : searchedHistory.length}</span></div>
-                  <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5 border-l-2 border-emerald-500"><span className="text-[12px] text-[#64748B]">Total Top-Ups</span><span className="text-sm font-semibold text-[#0F172A]">{naira(0)}</span></div>
-                  <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5 border-l-2 border-red-400"><span className="text-[12px] text-[#64748B]">Total Spent</span><span className="text-sm font-semibold text-[#0F172A]">{naira(0)}</span></div>
-                  <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5"><span className="text-[12px] text-[#64748B]">Purchase Count</span><span className="text-sm font-semibold text-[#0F172A]">0</span></div>
-                </div>
-              </div>
+              ))}
             </div>
           )}
         </div>
