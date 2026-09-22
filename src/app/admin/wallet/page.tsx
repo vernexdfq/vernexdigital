@@ -120,12 +120,12 @@ export default function AdminWalletPage() {
               <p className="text-xs text-amber-50">Low balance warning — fund soon to avoid failed orders.</p>
             </div>
           )}
-          <button
-            type="button"
-            className="mt-4 h-10 px-4 rounded-full bg-white text-[#0F172A] text-sm font-semibold"
+          <Link
+            href="/admin/wallet/fund"
+            className="mt-4 inline-flex h-10 items-center justify-center px-4 rounded-full bg-white text-[#0F172A] text-sm font-semibold"
           >
             Fund wholesale wallet
-          </button>
+          </Link>
         </section>
 
         {/* Global markup */}
@@ -257,7 +257,7 @@ export default function AdminWalletPage() {
         </div>
 
         <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-          Currency for customers: NGN. Child Panel billing is separate from API key pricing.
+          Currency for customers: NGN. Child Panel billing is separate from API key pricing. Demo balances clear when Flutterwave / Verxor APIs are connected.
         </p>
 
         <button
