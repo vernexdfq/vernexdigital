@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -9,6 +9,10 @@ import {
   Image as ImageIcon,
   X,
   Check,
+  HardDrive,
+  Upload,
+  Loader2,
+  Cloud,
 } from "lucide-react";
 
 type ProductStatus = "draft" | "published" | "out";
@@ -27,6 +31,7 @@ type Product = {
 };
 
 const CATEGORIES = ["Phones", "Laptops", "Audio", "Tablets", "Accessories"];
+const DRIVE_KEY = "vernex_admin_drive_connected";
 
 const SEED: Product[] = [
   {
@@ -91,8 +96,21 @@ export default function AdminProductsPage() {
     null
   );
   const [form, setForm] = useState(emptyForm());
-  const [imageUrl, setImageUrl] = useState("");
   const [savedFlash, setSavedFlash] = useState(false);
+
+  const [driveConnected, setDriveConnected] = useState(false);
+  const [showDriveModal, setShowDriveModal] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      setDriveConnected(localStorage.getItem(DRIVE_KEY) === "1");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const list = useMemo(() => {
     return products.filter((p) => {
@@ -106,7 +124,6 @@ export default function AdminProductsPage() {
 
   function openAdd() {
     setForm(emptyForm());
-    setImageUrl("");
     setEditor({ mode: "add", product: null });
   }
 
@@ -122,18 +139,64 @@ export default function AdminProductsPage() {
       images: [...p.images],
       status: p.status,
     });
-    setImageUrl("");
     setEditor({ mode: "edit", product: p });
   }
 
-  function addImage() {
-    if (!imageUrl.trim() || form.images.length >= 4) return;
-    setForm((f) => ({ ...f, images: [...f.images, imageUrl.trim()] }));
-    setImageUrl("");
+  function onAddImagesClick() {
+    if (!driveConnected) {
+      setShowDriveModal(true);
+      return;
+    }
+    fileRef.current?.click();
+  }
+
+  function connectDrive() {
+    setConnecting(true);
+    // When Google OAuth is live:
+    // window.location = `/api/admin/drive/oauth` or open Google consent
+    // For now: simulate successful connect so the upload UX works in demo
+    setTimeout(() => {
+      try {
+        localStorage.setItem(DRIVE_KEY, "1");
+      } catch {
+        // ignore
+      }
+      setDriveConnected(true);
+      setConnecting(false);
+      setShowDriveModal(false);
+      // Open picker right after connect
+      setTimeout(() => fileRef.current?.click(), 200);
+    }, 900);
+  }
+
+  async function onFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+
+    // Production path:
+    // 1. Upload each file to the seller's Google Drive via Drive API (folder: Vernex Products)
+    // 2. Make file readable via link
+    // 3. Store only the Drive file URL / id in our DB — never the binary on our servers
+    // Demo path: local object URLs for preview so the flow is visible today
+    const added: string[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      // Simulate upload latency to Drive
+      await new Promise((r) => setTimeout(r, 350));
+      const url = URL.createObjectURL(file);
+      added.push(url);
+    }
+
+    setForm((f) => ({ ...f, images: [...f.images, ...added] }));
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   function removeImage(i: number) {
-    setForm((f) => ({ ...f, images: f.images.filter((_, idx) => idx !== i) }));
+    setForm((f) => {
+      const next = f.images.filter((_, idx) => idx !== i);
+      return { ...f, images: next };
+    });
   }
 
   function save(as: ProductStatus) {
@@ -144,10 +207,7 @@ export default function AdminProductsPage() {
         prev.map((p) => (p.id === editor.product!.id ? { ...p, ...payload } : p))
       );
     } else {
-      setProducts((prev) => [
-        { id: `P${Date.now()}`, ...payload },
-        ...prev,
-      ]);
+      setProducts((prev) => [{ id: `P${Date.now()}`, ...payload }, ...prev]);
     }
     setEditor(null);
     setSavedFlash(true);
@@ -166,6 +226,15 @@ export default function AdminProductsPage() {
 
   function removeProduct(id: string) {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function disconnectDrive() {
+    try {
+      localStorage.removeItem(DRIVE_KEY);
+    } catch {
+      // ignore
+    }
+    setDriveConnected(false);
   }
 
   const statusChip = (s: ProductStatus) => {
@@ -201,6 +270,39 @@ export default function AdminProductsPage() {
       </header>
 
       <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
+        {/* Drive status strip */}
+        <div
+          className={`rounded-[12px] border px-3.5 py-3 flex items-start gap-3 ${
+            driveConnected
+              ? "bg-emerald-50 border-emerald-100"
+              : "bg-[#EFF6FF] border-[#BFDBFE]"
+          }`}
+        >
+          <HardDrive
+            size={18}
+            className={`shrink-0 mt-0.5 ${driveConnected ? "text-emerald-600" : "text-[#1877F2]"}`}
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-[#0F172A]">
+              {driveConnected ? "Google Drive connected" : "Photos backup to Google Drive"}
+            </p>
+            <p className="text-[11px] text-[#64748B] mt-0.5 leading-relaxed">
+              {driveConnected
+                ? "Uploads from your phone go to your Drive. Vernex only stores links — zero image storage cost on our servers."
+                : "First time you add images, you’ll connect Drive. All product photos live on your account, not ours."}
+            </p>
+          </div>
+          {driveConnected && (
+            <button
+              type="button"
+              onClick={disconnectDrive}
+              className="text-[10px] font-semibold text-[#64748B] shrink-0"
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+
         {savedFlash && (
           <div className="flex items-center gap-2 rounded-[12px] bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm text-emerald-700">
             <Check size={16} /> Product saved
@@ -253,6 +355,7 @@ export default function AdminProductsPage() {
                   </div>
                   <p className="text-xs text-[#64748B] mt-0.5">
                     {p.category} · {p.specs}
+                    {p.images.length > 1 ? ` · ${p.images.length} photos` : ""}
                   </p>
                   <p className="text-sm font-semibold text-[#1877F2] mt-1">{naira(p.price)}</p>
                 </div>
@@ -286,11 +389,17 @@ export default function AdminProductsPage() {
             <p className="text-center text-sm text-[#94A3B8] py-12">No products yet. Tap Add to create one.</p>
           )}
         </div>
-
-        <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-          Images: paste Drive share links or public image URLs (max 4). Storage stays on your Drive — we only keep metadata.
-        </p>
       </div>
+
+      {/* Hidden multi-file picker — phone gallery / camera */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => onFilesSelected(e.target.files)}
+      />
 
       {/* Editor modal */}
       {editor && (
@@ -384,41 +493,58 @@ export default function AdminProductsPage() {
                 </select>
               </Field>
 
-              <Field label={`Images (${form.images.length}/4) — Drive / public URL`}>
-                <div className="flex gap-2">
-                  <input
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://drive.google.com/..."
-                    className="flex-1 h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
-                  />
+              {/* Images — phone upload → seller Drive */}
+              <div>
+                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide">
+                  Images ({form.images.length}) · backed up to your Drive
+                </span>
+                <div className="mt-1.5 space-y-2">
                   <button
                     type="button"
-                    onClick={addImage}
-                    disabled={form.images.length >= 4}
-                    className="h-11 px-3 rounded-[12px] bg-[#EFF6FF] text-[#1877F2] text-xs font-semibold disabled:opacity-40"
+                    onClick={onAddImagesClick}
+                    disabled={uploading}
+                    className="w-full h-12 rounded-[12px] border-2 border-dashed border-[#BFDBFE] bg-[#EFF6FF]/50 text-[#1877F2] text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60"
                   >
-                    Add
+                    {uploading ? (
+                      <>
+                        <Loader2 size={18} className="animate-spin" />
+                        Uploading to Drive…
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={18} />
+                        {driveConnected ? "Add photos from phone" : "Connect Drive & add photos"}
+                      </>
+                    )}
                   </button>
-                </div>
-                {form.images.length > 0 && (
-                  <div className="mt-2 flex gap-2 flex-wrap">
-                    {form.images.map((src, i) => (
-                      <div key={i} className="relative w-14 h-14 rounded-lg overflow-hidden bg-[#F1F5F9]">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={src} alt="" className="w-full h-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(i)}
-                          className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+
+                  <p className="text-[11px] text-[#94A3B8] leading-relaxed">
+                    Tap to pick any number of photos from your gallery or camera. Files are stored on{" "}
+                    <span className="font-medium text-[#64748B]">your Google Drive</span> — Vernex only keeps the links.
+                  </p>
+
+                  {form.images.length > 0 && (
+                    <div className="flex gap-2 flex-wrap pt-1">
+                      {form.images.map((src, i) => (
+                        <div
+                          key={i}
+                          className="relative w-16 h-16 rounded-lg overflow-hidden bg-[#F1F5F9] border border-[#E2E8F0]"
                         >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Field>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={src} alt="" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(i)}
+                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <div className="grid grid-cols-2 gap-2.5 pt-2">
                 <button
@@ -437,6 +563,74 @@ export default function AdminProductsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Connect Google Drive modal */}
+      {showDriveModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowDriveModal(false)}
+            aria-label="Close"
+          />
+          <div className="relative w-full max-w-md bg-white rounded-t-[20px] sm:rounded-[20px] p-6 pb-8">
+            <div className="flex justify-center">
+              <div className="w-14 h-14 rounded-2xl bg-[#EFF6FF] flex items-center justify-center text-[#1877F2]">
+                <Cloud size={28} />
+              </div>
+            </div>
+            <h3 className="mt-4 text-center text-lg font-bold text-[#0F172A]">
+              Backup photos to Google Drive
+            </h3>
+            <p className="mt-2 text-center text-sm text-[#64748B] leading-relaxed">
+              Connect once. Every product photo you upload from your phone is saved to{" "}
+              <span className="font-semibold text-[#0F172A]">your Drive</span>. Our site only stores the link — we never hold the image files, so it costs you no storage on Vernex.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm text-[#334155]">
+              <li className="flex gap-2">
+                <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                Upload directly from gallery or camera
+              </li>
+              <li className="flex gap-2">
+                <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                As many images as you need per product
+              </li>
+              <li className="flex gap-2">
+                <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                Storage & backup stay on your Google account
+              </li>
+            </ul>
+            <button
+              type="button"
+              onClick={connectDrive}
+              disabled={connecting}
+              className="mt-5 w-full h-12 rounded-full bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-70"
+            >
+              {connecting ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Connecting…
+                </>
+              ) : (
+                <>
+                  <HardDrive size={18} />
+                  Connect Google Drive
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDriveModal(false)}
+              className="mt-2 w-full h-11 rounded-full text-sm font-semibold text-[#64748B]"
+            >
+              Not now
+            </button>
+            <p className="mt-2 text-center text-[10px] text-[#94A3B8]">
+              Demo connect for preview. Live Google OAuth wires when API keys are set.
+            </p>
           </div>
         </div>
       )}
