@@ -111,6 +111,7 @@ function NetworkLogo({
 }
 
 export default function AirtimePage() {
+  // Default to MTN so the page never looks blank on entry
   const [phone, setPhone] = useState("");
   const [networkId, setNetworkId] = useState<NetworkId>("mtn");
   const [netOpen, setNetOpen] = useState(false);
@@ -126,7 +127,7 @@ export default function AirtimePage() {
     if (detected) setNetworkId(detected);
   }, [phone]);
 
-  const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? null;
+  const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? NETWORKS[0];
   const numericAmount = Number(amount.replace(/,/g, "")) || 0;
   const isValidPhone = phone.replace(/\D/g, "").length >= 10;
   const isValidAmount =
@@ -192,16 +193,10 @@ export default function AirtimePage() {
               onClick={() => setNetOpen(true)}
               className="flex items-center gap-1.5 h-11 px-2.5 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] shrink-0 active:scale-[0.98] transition"
             >
-              {activeNetwork ? (
-                <>
-                  <NetworkLogo networkId={activeNetwork.id} size="sm" />
-                  <span className="text-xs font-semibold text-[#0F172A]">
-                    {activeNetwork.name}
-                  </span>
-                </>
-              ) : (
-                <span className="text-xs text-[#94A3B8] px-1">Network</span>
-              )}
+              <NetworkLogo networkId={activeNetwork.id} size="sm" />
+              <span className="text-xs font-semibold text-[#0F172A]">
+                {activeNetwork.name}
+              </span>
               <ChevronDown size={14} className="text-[#94A3B8]" />
             </button>
 
@@ -242,10 +237,10 @@ export default function AirtimePage() {
               Please enter a valid phone number
             </p>
           )}
-          {networkId && phone.length >= 4 && !phoneError && (
+          {phone.length >= 4 && !phoneError && (
             <p className="mt-2 text-[11px] text-[#16A34A] flex items-center gap-1">
               <CheckCircle2 size={12} />
-              Detected {activeNetwork?.name} network
+              Detected {activeNetwork.name} network
             </p>
           )}
         </div>
@@ -407,10 +402,8 @@ export default function AirtimePage() {
               <div className="flex justify-between text-sm">
                 <span className="text-[#64748B]">Network</span>
                 <span className="font-medium text-[#0F172A] flex items-center gap-1.5">
-                  {activeNetwork && (
-                    <NetworkLogo networkId={activeNetwork.id} size="sm" />
-                  )}
-                  {activeNetwork?.name}
+                  <NetworkLogo networkId={activeNetwork.id} size="sm" />
+                  {activeNetwork.name}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
