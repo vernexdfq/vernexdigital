@@ -243,7 +243,7 @@ export default function GiftCardPage() {
         </header>
         <div className="px-4 pt-5 space-y-4">
           <button type="button" onClick={() => setBankOpen(true)} className="w-full h-12 px-4 rounded-[12px] bg-white border border-[#E2E8F0] flex items-center justify-between text-sm">
-            <span className={bank ? "font-medium text-[#0F172A]" : "text-[#1877F2]">{bank ? bank.name : "Select Your Bank"}</span>
+            <span className={bank ? "font-medium text-[#0F172A]" : "text-[#1877F2]"}>{bank ? bank.name : "Select Your Bank"}</span>
             <ChevronRight size={16} className="text-[#94A3B8] rotate-90" />
           </button>
           <input value={acct} onChange={(e) => setAcct(e.target.value.replace(/\D/g, "").slice(0, 13))} placeholder="Account Number (8-13 Digits)" inputMode="numeric" className="w-full h-12 px-4 rounded-[12px] bg-white border border-[#E2E8F0] text-sm" />
