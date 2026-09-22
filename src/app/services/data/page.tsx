@@ -152,6 +152,7 @@ function NetworkBadge({ networkId, size = "md" }: { networkId: NetworkId; size?:
 }
 
 export default function DataPage() {
+  // Default to MTN so plans appear immediately — page never looks blank
   const [phone, setPhone] = useState("");
   const [networkId, setNetworkId] = useState<NetworkId>("mtn");
   const [netOpen, setNetOpen] = useState(false);
@@ -165,15 +166,13 @@ export default function DataPage() {
     if (detected) setNetworkId(detected);
   }, [phone]);
 
-  const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? null;
+  const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? NETWORKS[0];
 
   const filteredPlans = useMemo(() => {
-    if (!networkId) return [];
     return PLANS.filter((p) => p.networkId === networkId && p.tab === tab);
   }, [networkId, tab]);
 
   const featuredPlan = useMemo(() => {
-    if (!networkId) return null;
     return (
       PLANS.find((p) => p.networkId === networkId && p.featured) ||
       PLANS.find((p) => p.networkId === networkId && p.tab === "Best Offers")
@@ -183,10 +182,6 @@ export default function DataPage() {
   function handleBuy(plan: Plan) {
     if (!phone || phone.replace(/\D/g, "").length < 10) {
       alert("Please enter a valid phone number");
-      return;
-    }
-    if (!networkId) {
-      alert("Please select a network");
       return;
     }
     setSelectedPlan(plan);
@@ -221,14 +216,8 @@ export default function DataPage() {
               onClick={() => setNetOpen(true)}
               className="flex items-center gap-1.5 h-11 px-2.5 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] shrink-0 active:scale-[0.98] transition"
             >
-              {activeNetwork ? (
-                <>
-                  <NetworkBadge networkId={activeNetwork.id} size="sm" />
-                  <span className="text-xs font-semibold text-[#0F172A]">{activeNetwork.name}</span>
-                </>
-              ) : (
-                <span className="text-xs text-[#94A3B8] px-1">Network</span>
-              )}
+              <NetworkBadge networkId={activeNetwork.id} size="sm" />
+              <span className="text-xs font-semibold text-[#0F172A]">{activeNetwork.name}</span>
               <ChevronDown size={14} className="text-[#94A3B8]" />
             </button>
 
@@ -258,10 +247,10 @@ export default function DataPage() {
               )}
             </div>
           </div>
-          {networkId && phone.length >= 4 && (
+          {phone.length >= 4 && (
             <p className="mt-2 text-[11px] text-[#16A34A] flex items-center gap-1">
               <CheckCircle2 size={12} />
-              Detected {activeNetwork?.name} network
+              Detected {activeNetwork.name} network
             </p>
           )}
         </div>
@@ -309,13 +298,7 @@ export default function DataPage() {
           </div>
         </div>
 
-        {!networkId ? (
-          <div className="rounded-[14px] bg-white border border-[#E2E8F0] py-14 text-center">
-            <Wifi size={32} className="mx-auto text-[#CBD5E1]" />
-            <p className="mt-3 text-sm font-medium text-[#64748B]">Enter a number or select network</p>
-            <p className="mt-1 text-xs text-[#94A3B8]">Plans will appear for the selected network</p>
-          </div>
-        ) : filteredPlans.length === 0 ? (
+        {filteredPlans.length === 0 ? (
           <div className="rounded-[14px] bg-white border border-[#E2E8F0] py-12 text-center">
             <p className="text-sm text-[#94A3B8]">No plans in this category</p>
           </div>
@@ -401,7 +384,7 @@ export default function DataPage() {
             <div className="mt-4 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-[#64748B]">Network</span>
-                <span className="font-medium text-[#0F172A]">{activeNetwork?.name}</span>
+                <span className="font-medium text-[#0F172A]">{activeNetwork.name}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[#64748B]">Plan</span>
