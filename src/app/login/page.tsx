@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Mail,
@@ -10,22 +11,101 @@ import {
   EyeOff,
   ArrowRight,
   MessageCircle,
+  Loader2,
 } from "lucide-react";
 import VernexLogo from "@/components/VernexLogo";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<"password" | "pin">("password");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const supabase = createBrowserClient();
+
+      if (mode === "password") {
+        if (!email.trim() || !password) {
+          setError("Enter your email and password");
+          setLoading(false);
+          return;
+        }
+
+        const { data, error: signError } = await supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        });
+
+        if (signError) {
+          setError(signError.message || "Invalid email or password");
+          setLoading(false);
+          return;
+        }
+
+        if (!data.session) {
+          setError("Could not start session. Try again.");
+          setLoading(false);
+          return;
+        }
+
+        router.replace("/home");
+        return;
+      }
+
+      // PIN login
+      if (!email.trim() || pin.length !== 4) {
+        setError("Enter your email and 4-digit PIN");
+        setLoading(false);
+        return;
+      }
+
+      const res = await fetch("/api/auth/pin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), pin }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        setError(json.error || "Invalid email or PIN");
+        setLoading(false);
+        return;
+      }
+
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        email: json.email,
+        token_hash: json.token_hash,
+        type: "email",
+      });
+
+      if (otpError) {
+        setError(otpError.message || "Could not complete PIN login");
+        setLoading(false);
+        return;
+      }
+
+      router.replace("/home");
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#EBF3FF_0%,#F8FBFF_40%,#FFFFFF_100%)]">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(24,119,242,0.12),transparent_55%)]" />
 
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-10 pt-10 sm:px-6">
-        {/* Brand */}
         <div className="mb-7 flex flex-col items-center text-center">
           <div className="mb-3 flex items-center gap-2.5">
             <VernexLogo size={40} className="rounded-[10px]" />
@@ -40,7 +120,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Card */}
         <div className="rounded-[22px] border border-[#DCE9FC] bg-white/95 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-6">
           <h1 className="text-[26px] font-bold tracking-[-0.03em] text-[#0B1F4D]">
             Welcome back
@@ -49,7 +128,6 @@ export default function LoginPage() {
             Sign in to manage your services and wallet.
           </p>
 
-          {/* Tabs */}
           <div className="mt-5 flex rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <Link
               href="/login"
@@ -65,15 +143,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          {/* Form */}
-          <form
-            className="mt-6 space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              // Preview: just go home until Supabase is wired
-              window.location.href = "/home";
-            }}
-          >
+          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
                 Email address
@@ -88,12 +158,13 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
+                  autoComplete="email"
+                  required
                   className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
                 />
               </div>
             </div>
 
-            {/* Password / PIN toggle */}
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
@@ -102,16 +173,14 @@ export default function LoginPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setMode(mode === "password" ? "pin" : "password")}
+                    onClick={() => {
+                      setMode(mode === "password" ? "pin" : "password");
+                      setError("");
+                    }}
                     className="text-[11px] font-semibold text-[#1877F2]"
                   >
                     Use {mode === "password" ? "PIN" : "password"}
                   </button>
-                  {mode === "password" && (
-                    <Link href="#" className="text-[11px] font-semibold text-[#1877F2]">
-                      Forgot?
-                    </Link>
-                  )}
                 </div>
               </div>
 
@@ -126,6 +195,8 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required={mode === "password"}
                     className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-11 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
                   />
                   <button
@@ -152,18 +223,36 @@ export default function LoginPage() {
                       setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
                     }
                     placeholder="Enter 4-digit PIN"
+                    autoComplete="one-time-code"
+                    required={mode === "pin"}
                     className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] tracking-[0.3em] text-[#0F172A] outline-none transition placeholder:tracking-normal placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
                   />
                 </div>
               )}
             </div>
 
+            {error && (
+              <p className="rounded-[10px] bg-red-50 px-3 py-2 text-[13px] font-medium text-red-600">
+                {error}
+              </p>
+            )}
+
             <button
               type="submit"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition hover:bg-[#166FE5] active:scale-[0.98]"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition hover:bg-[#166FE5] active:scale-[0.98] disabled:opacity-70"
             >
-              Sign in
-              <ArrowRight size={16} />
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Signing in…
+                </>
+              ) : (
+                <>
+                  Sign in
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
 
@@ -175,17 +264,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Preview */}
-        <div className="mt-4">
-          <Link
-            href="/home"
-            className="flex h-11 w-full items-center justify-center rounded-full border border-[#D9E2EF] bg-white text-[13px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
-          >
-            Continue without login (Preview)
-          </Link>
-        </div>
-
-        {/* Support */}
         <div className="mt-5 rounded-[16px] border border-[#DCE9FC] bg-white/80 p-4 text-center">
           <p className="text-[12px] text-[#64748B]">
             Need help signing in or creating an account?
