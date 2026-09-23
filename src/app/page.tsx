@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Smartphone,
   Wifi,
+  Zap,
+  Lock,
 } from "lucide-react";
 import VernexLogo from "@/components/VernexLogo";
 
@@ -75,21 +77,41 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_22%,rgba(24,119,242,0.12),transparent_32%),radial-gradient(circle_at_12%_72%,rgba(24,119,242,0.06),transparent_28%)]" />
           <div className="relative mx-auto grid min-h-[650px] w-full max-w-6xl items-center gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[0.93fr_1.07fr] lg:gap-10 lg:py-24">
             <div className="max-w-xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#DCE9FC] bg-[#F5F9FF] px-3 py-1.5 text-[11px] font-semibold text-[#1877F2]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#1877F2]" />
-                One account. One wallet. More possibilities.
+              {/* Sliding Connect / Verify / Grow — cycles like a live status ticker */}
+              <div className="mb-5 flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1877F2] opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#1877F2]" />
+                </span>
+                <div className="h-7 overflow-hidden">
+                  <div className="vernex-word-slider flex flex-col">
+                    {["Connect", "Verify", "Grow", "Connect"].map((word, i) => (
+                      <span
+                        key={`${word}-${i}`}
+                        className="flex h-7 items-center text-[15px] font-bold tracking-[-0.02em] text-[#1877F2] sm:text-[17px]"
+                      >
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <h1 className="mt-6 max-w-[620px] text-[44px] font-bold leading-[0.98] tracking-[-0.055em] text-[#0B1F4D] sm:text-[60px] lg:text-[68px]">
-                Connect.
-                <br />
-                Verify.
-                <br />
-                <span className="text-[#1877F2]">Grow.</span>
+              {/* Trusted platform badge — matches reference style */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-[#DCE9FC] bg-[#F0F6FF] px-3.5 py-1.5 text-[12px] font-semibold text-[#0B1F4D] shadow-sm">
+                <ShieldCheck size={14} className="text-[#1877F2]" strokeWidth={2.4} />
+                Trusted Digital Verification Platform
+              </div>
+
+              <h1 className="mt-5 max-w-[640px] text-[36px] font-bold leading-[1.08] tracking-[-0.04em] text-[#0B1F4D] sm:text-[48px] lg:text-[52px]">
+                Secure SMS{" "}
+                <span className="text-[#1877F2]">Verification</span>
+                {" & "}
+                <span className="text-[#1877F2]">Digital Services</span>
               </h1>
 
-              <p className="mt-6 max-w-[510px] text-[15px] leading-7 text-[#64748B] sm:text-[17px]">
-                Vernex brings digital services, verification tools, connectivity, shopping and more into one simple mobile-first experience.
+              <p className="mt-5 max-w-[520px] text-[15px] leading-7 text-[#64748B] sm:text-[16px]">
+                Get instant virtual numbers, airtime, data, and secure digital services in one smooth Vernexdigital wallet. Fast delivery, reliable access, and built for modern users.
               </p>
 
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -109,11 +131,19 @@ export default function LandingPage() {
                 </a>
               </div>
 
-              <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-[11px] font-medium text-[#64748B]">
-                {["Mobile-first", "Wallet powered", "Built for everyday use"].map((item) => (
-                  <span key={item} className="inline-flex items-center gap-1.5">
-                    <Check size={13} className="text-[#1877F2]" strokeWidth={2.5} />
-                    {item}
+              <div className="mt-8 flex flex-wrap items-center gap-2.5">
+                {[
+                  { label: "Instant Delivery", Icon: Zap },
+                  { label: "200+ Countries", Icon: Globe2 },
+                  { label: "Secure Wallet", Icon: Lock },
+                  { label: "Mobile-first", Icon: Smartphone },
+                ].map(({ label, Icon }) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#334155] shadow-sm"
+                  >
+                    <Icon size={13} className="text-[#1877F2]" strokeWidth={2.4} />
+                    {label}
                   </span>
                 ))}
               </div>
@@ -329,66 +359,23 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="flex h-20 w-20 items-center justify-center rounded-[22px] bg-white p-3 shadow-[0_18px_40px_rgba(0,0,0,0.20)]">
-              <VernexLogo size={54} />
+              <VernexLogo size={56} />
             </div>
           </div>
         </section>
-
-        <section className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-22">
-          <div className="relative overflow-hidden rounded-[24px] border border-[#D8E7FB] bg-[#F3F8FF] px-6 py-12 text-center sm:px-12">
-            <div className="absolute -right-20 -top-24 h-60 w-60 rounded-full bg-[#1877F2]/10 blur-3xl" />
-            <div className="absolute -bottom-28 -left-16 h-60 w-60 rounded-full bg-[#1877F2]/8 blur-3xl" />
-            <div className="relative">
-              <VernexLogo size={48} className="mx-auto" />
-              <h2 className="mt-5 text-[28px] font-bold tracking-[-0.04em] text-[#0B1F4D] sm:text-[38px]">
-                Connect. Verify. Grow.
-              </h2>
-              <p className="mx-auto mt-3 max-w-lg text-[13px] leading-6 text-[#64748B] sm:text-[15px]">
-                Start with Vernex and keep your digital services together in one clean, mobile-first experience.
-              </p>
-              <Link
-                href="/register"
-                className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-[11px] bg-[#1877F2] px-7 text-[14px] font-semibold text-white shadow-[0_12px_28px_rgba(24,119,242,0.20)] transition hover:bg-[#166FE5]"
-              >
-                Get Started
-                <ArrowRight size={16} />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              url: "https://vernexdigital.com",
-              name: "Vernex",
-              description: "Vernex is a mobile-first digital services platform for virtual numbers, verification, social growth, rental numbers, airtime, data, gift cards, shopping and flight booking.",
-              potentialAction: {
-                "@type": "SearchAction",
-                target: "/services",
-                "query-input": "required name=search_term_string"
-              }
-            })
-          }}
-        />
       </main>
 
       <footer className="border-t border-[#E8EEF7] bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <div className="flex items-center gap-2.5">
-            <VernexLogo size={30} />
-            <div>
-              <p className="text-[13px] font-bold text-[#0F172A]">Vernex</p>
-              <p className="text-[10px] text-[#94A3B8]">Connect. Verify. Grow.</p>
-            </div>
+            <VernexLogo size={28} />
+            <span className="text-[14px] font-bold tracking-[-0.02em]">Vernex</span>
           </div>
-          <div className="flex items-center gap-5 text-[11px] font-medium text-[#64748B]">
-            <Link href="/services" className="hover:text-[#0F172A]">Services</Link>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#64748B]">
+            <a href="#how-it-works" className="hover:text-[#0F172A]">How it works</a>
+            <a href="#services" className="hover:text-[#0F172A]">Services</a>
             <Link href="/login" className="hover:text-[#0F172A]">Log in</Link>
-            <Link href="/register" className="hover:text-[#0F172A]">Get Started</Link>
+            <Link href="/register" className="font-semibold text-[#1877F2]">Get Started</Link>
           </div>
           <div className="flex items-center gap-4">
             <p className="text-[10px] text-[#94A3B8]">© {new Date().getFullYear()} Vernex</p>
