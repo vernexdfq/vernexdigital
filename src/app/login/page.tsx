@@ -62,7 +62,6 @@ export default function LoginPage() {
         return;
       }
 
-      // PIN login
       if (!email.trim() || pin.length !== 4) {
         setError("Enter your email and 4-digit PIN");
         setLoading(false);
@@ -269,7 +268,7 @@ export default function LoginPage() {
             Need help signing in or creating an account?
           </p>
           <a
-            href="https://wa.me/234"
+            href="https://wa.me/2349164159443"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-2.5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#B7D4F8] bg-[#F0F6FF] px-4 text-[12px] font-semibold text-[#1877F2] transition hover:bg-[#E5F0FF]"
