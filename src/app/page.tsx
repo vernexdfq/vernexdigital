@@ -330,7 +330,16 @@ export default function LandingPage() {
             <Link href="/login" className="hover:text-[#0F172A]">Log in</Link>
             <Link href="/register" className="hover:text-[#0F172A]">Get Started</Link>
           </div>
-          <p className="text-[10px] text-[#94A3B8]">© {new Date().getFullYear()} Vernex</p>
+          <div className="flex items-center gap-4">
+            <p className="text-[10px] text-[#94A3B8]">© {new Date().getFullYear()} Vernex</p>
+            <Link
+              href="/admin"
+              className="text-[8px] font-medium text-[#CBD5E1] transition hover:text-[#94A3B8]"
+              aria-label="Admin"
+            >
+              admin
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
