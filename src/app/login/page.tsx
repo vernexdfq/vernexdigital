@@ -1,57 +1,205 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import {
+  Mail,
+  Lock,
+  Hash,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  MessageCircle,
+} from "lucide-react";
+import VernexLogo from "@/components/VernexLogo";
 
 export default function LoginPage() {
+  const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState<"password" | "pin">("password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
+
   return (
-    <div className="min-h-screen flex flex-col bg-white px-4">
-      <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full py-12">
-        <div className="mb-8">
-          <div className="w-10 h-10 rounded-lg bg-[#1877F2] flex items-center justify-center text-white font-bold mb-4">
-            V
+    <div className="relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#EBF3FF_0%,#F8FBFF_40%,#FFFFFF_100%)]">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(24,119,242,0.12),transparent_55%)]" />
+
+      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-10 pt-10 sm:px-6">
+        {/* Brand */}
+        <div className="mb-7 flex flex-col items-center text-center">
+          <div className="mb-3 flex items-center gap-2.5">
+            <VernexLogo size={40} className="rounded-[10px]" />
+            <div className="text-left">
+              <p className="text-[17px] font-bold tracking-[-0.03em] text-[#0B1F4D]">
+                Vernex
+              </p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">
+                Digital Services
+              </p>
+            </div>
           </div>
-          <h1 className="text-2xl font-bold text-[#0F172A]">Welcome back</h1>
-          <p className="text-sm text-[#64748B] mt-1">Sign in to your Vernex account</p>
         </div>
 
-        <form className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-[#64748B] mb-1.5">Email or Phone</label>
-            <input
-              type="text"
-              placeholder="you@example.com"
-              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm text-[#0F172A] outline-none focus:border-[#1877F2] focus:ring-1 focus:ring-[#1877F2]/20"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-[#64748B] mb-1.5">Password</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              className="w-full h-11 px-3 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm text-[#0F172A] outline-none focus:border-[#1877F2] focus:ring-1 focus:ring-[#1877F2]/20"
-            />
-          </div>
-          <Link
-            href="/home"
-            className="flex items-center justify-center w-full h-11 bg-[#1877F2] text-white text-sm font-medium rounded-[10px] hover:bg-[#166FE5] transition-colors"
-          >
-            Sign In
-          </Link>
-        </form>
+        {/* Card */}
+        <div className="rounded-[22px] border border-[#DCE9FC] bg-white/95 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-6">
+          <h1 className="text-[26px] font-bold tracking-[-0.03em] text-[#0B1F4D]">
+            Welcome back
+          </h1>
+          <p className="mt-1 text-[13px] text-[#64748B]">
+            Sign in to manage your services and wallet.
+          </p>
 
-        <div className="mt-6">
+          {/* Tabs */}
+          <div className="mt-5 flex rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
+            <Link
+              href="/login"
+              className="flex-1 rounded-full bg-[#1877F2] py-2.5 text-center text-[13px] font-semibold text-white shadow-sm"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/register"
+              className="flex-1 rounded-full py-2.5 text-center text-[13px] font-semibold text-[#64748B] transition hover:text-[#0F172A]"
+            >
+              Create account
+            </Link>
+          </div>
+
+          {/* Form */}
+          <form
+            className="mt-6 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              // Preview: just go home until Supabase is wired
+              window.location.href = "/home";
+            }}
+          >
+            <div>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                />
+              </div>
+            </div>
+
+            {/* Password / PIN toggle */}
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
+                  {mode === "password" ? "Password" : "4-digit PIN"}
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMode(mode === "password" ? "pin" : "password")}
+                    className="text-[11px] font-semibold text-[#1877F2]"
+                  >
+                    Use {mode === "password" ? "PIN" : "password"}
+                  </button>
+                  {mode === "password" && (
+                    <Link href="#" className="text-[11px] font-semibold text-[#1877F2]">
+                      Forgot?
+                    </Link>
+                  )}
+                </div>
+              </div>
+
+              {mode === "password" ? (
+                <div className="relative">
+                  <Lock
+                    size={16}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-11 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                    aria-label="Toggle password"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <Hash
+                    size={16}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                  />
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={pin}
+                    onChange={(e) =>
+                      setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
+                    placeholder="Enter 4-digit PIN"
+                    className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] tracking-[0.3em] text-[#0F172A] outline-none transition placeholder:tracking-normal placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  />
+                </div>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition hover:bg-[#166FE5] active:scale-[0.98]"
+            >
+              Sign in
+              <ArrowRight size={16} />
+            </button>
+          </form>
+
+          <p className="mt-5 text-center text-[13px] text-[#64748B]">
+            New to Vernex?{" "}
+            <Link href="/register" className="font-semibold text-[#1877F2]">
+              Create an account
+            </Link>
+          </p>
+        </div>
+
+        {/* Preview */}
+        <div className="mt-4">
           <Link
             href="/home"
-            className="flex items-center justify-center w-full h-11 border border-[#E2E8F0] text-[#0F172A] text-sm font-medium rounded-[10px] hover:bg-[#F8FAFC] transition-colors"
+            className="flex h-11 w-full items-center justify-center rounded-full border border-[#D9E2EF] bg-white text-[13px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
           >
             Continue without login (Preview)
           </Link>
         </div>
 
-        <p className="text-center text-sm text-[#64748B] mt-6">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-[#1877F2] font-medium">
-            Create one
-          </Link>
-        </p>
+        {/* Support */}
+        <div className="mt-5 rounded-[16px] border border-[#DCE9FC] bg-white/80 p-4 text-center">
+          <p className="text-[12px] text-[#64748B]">
+            Need help signing in or creating an account?
+          </p>
+          <a
+            href="https://wa.me/234"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2.5 inline-flex h-10 items-center justify-center gap-2 rounded-full border border-[#B7D4F8] bg-[#F0F6FF] px-4 text-[12px] font-semibold text-[#1877F2] transition hover:bg-[#E5F0FF]"
+          >
+            <MessageCircle size={14} />
+            Contact support on WhatsApp
+          </a>
+        </div>
       </div>
     </div>
   );
