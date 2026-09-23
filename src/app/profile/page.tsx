@@ -43,7 +43,12 @@ export default function ProfilePage() {
     next: "",
     confirm: "",
   });
-  const [show, setShow] = useState({ password: false, pin: false, current: false, next: false });
+  const [show, setShow] = useState({
+    password: false,
+    pin: false,
+    current: false,
+    next: false,
+  });
   const [pinMsg, setPinMsg] = useState("");
   const [pwdMsg, setPwdMsg] = useState("");
 
@@ -69,7 +74,11 @@ export default function ProfilePage() {
   }
 
   function submitPin() {
-    if (!pinForm.password || pinForm.pin.length < 4 || pinForm.pin !== pinForm.confirm) {
+    if (
+      !pinForm.password ||
+      pinForm.pin.length < 4 ||
+      pinForm.pin !== pinForm.confirm
+    ) {
       setPinMsg("Check password and PIN (min 4 digits, must match).");
       return;
     }
@@ -82,8 +91,14 @@ export default function ProfilePage() {
   }
 
   function submitPwd() {
-    if (!pwdForm.current || pwdForm.next.length < 6 || pwdForm.next !== pwdForm.confirm) {
-      setPwdMsg("Enter current password and a new password (min 6 chars, must match).");
+    if (
+      !pwdForm.current ||
+      pwdForm.next.length < 6 ||
+      pwdForm.next !== pwdForm.confirm
+    ) {
+      setPwdMsg(
+        "Enter current password and a new password (min 6 chars, must match)."
+      );
       return;
     }
     setPwdMsg("Password updated successfully.");
@@ -95,7 +110,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-36">
+    <div className="min-h-screen bg-[#F4F7FB] pb-24">
       <div className="px-4 pt-5 pb-8">
         <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-br from-[#0B1F4D] via-[#123A7A] to-[#1877F2] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_80%_20%,#60A5FA,transparent_50%)]" />
@@ -104,8 +119,12 @@ export default function ProfilePage() {
               {DEMO_USER.initials}
             </div>
             <div>
-              <p className="text-lg font-semibold leading-tight">{DEMO_USER.fullName}</p>
-              <p className="text-xs text-white/70 mt-0.5">Member since {DEMO_USER.memberSince}</p>
+              <p className="text-lg font-semibold leading-tight">
+                {DEMO_USER.fullName}
+              </p>
+              <p className="text-xs text-white/70 mt-0.5">
+                Member since {DEMO_USER.memberSince}
+              </p>
             </div>
           </div>
         </div>
@@ -114,16 +133,35 @@ export default function ProfilePage() {
           Account Information
         </p>
         <div className="bg-white rounded-[16px] border border-[#E2E8F0] overflow-hidden divide-y divide-[#F1F5F9]">
-          <InfoRow icon={<User size={16} className="text-[#1877F2]" />} label="Full Name" value={DEMO_USER.fullName} bg="bg-[#EFF6FF]" />
-          <InfoRow icon={<Mail size={16} className="text-[#1877F2]" />} label="Email" value={DEMO_USER.email} bg="bg-[#EFF6FF]" />
-          <InfoRow icon={<Phone size={16} className="text-[#1877F2]" />} label="Phone" value={DEMO_USER.phone} bg="bg-[#EFF6FF]" />
+          <InfoRow
+            icon={<User size={16} className="text-[#1877F2]" />}
+            label="Full Name"
+            value={DEMO_USER.fullName}
+            bg="bg-[#EFF6FF]"
+          />
+          <InfoRow
+            icon={<Mail size={16} className="text-[#1877F2]" />}
+            label="Email"
+            value={DEMO_USER.email}
+            bg="bg-[#EFF6FF]"
+          />
+          <InfoRow
+            icon={<Phone size={16} className="text-[#1877F2]" />}
+            label="Phone"
+            value={DEMO_USER.phone}
+            bg="bg-[#EFF6FF]"
+          />
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="w-9 h-9 rounded-xl bg-[#EFF6FF] flex items-center justify-center shrink-0">
               <Gift size={16} className="text-[#1877F2]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">Referral Code</p>
-              <p className="text-sm font-semibold text-[#0F172A] tracking-wider">{DEMO_USER.referral}</p>
+              <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
+                Referral Code
+              </p>
+              <p className="text-sm font-semibold text-[#0F172A] tracking-wider">
+                {DEMO_USER.referral}
+              </p>
             </div>
             <button
               type="button"
@@ -188,18 +226,17 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        <div className="h-24" />
-      </div>
-
-      <div className="fixed bottom-16 left-0 right-0 z-40 px-4 pb-3 pt-2 bg-gradient-to-t from-[#F4F7FB] via-[#F4F7FB] to-transparent">
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="w-full h-14 rounded-full bg-[#1877F2] text-white text-base font-bold flex items-center justify-center gap-2.5 shadow-[0_10px_28px_rgba(24,119,242,0.4)] active:scale-[0.98] transition"
-        >
-          <LogOut size={20} strokeWidth={2.4} />
-          Log Out
-        </button>
+        {/* Log Out — scrolls with content, red */}
+        <div className="mt-8 mb-2">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full h-14 rounded-full bg-[#EF4444] text-white text-base font-bold flex items-center justify-center gap-2.5 shadow-[0_10px_28px_rgba(239,68,68,0.35)] active:scale-[0.98] transition hover:bg-[#DC2626]"
+          >
+            <LogOut size={20} strokeWidth={2.4} />
+            Log Out
+          </button>
+        </div>
       </div>
 
       {pinOpen && (
@@ -213,7 +250,10 @@ export default function ProfilePage() {
             value={pinForm.password}
             onChange={(v) => setPinForm((p) => ({ ...p, password: v }))}
             right={
-              <button type="button" onClick={() => setShow((s) => ({ ...s, password: !s.password }))}>
+              <button
+                type="button"
+                onClick={() => setShow((s) => ({ ...s, password: !s.password }))}
+              >
                 {show.password ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             }
@@ -222,10 +262,18 @@ export default function ProfilePage() {
             label="New PIN"
             type={show.pin ? "text" : "password"}
             value={pinForm.pin}
-            onChange={(v) => setPinForm((p) => ({ ...p, pin: v.replace(/\D/g, "").slice(0, 6) }))}
+            onChange={(v) =>
+              setPinForm((p) => ({
+                ...p,
+                pin: v.replace(/\D/g, "").slice(0, 6),
+              }))
+            }
             inputMode="numeric"
             right={
-              <button type="button" onClick={() => setShow((s) => ({ ...s, pin: !s.pin }))}>
+              <button
+                type="button"
+                onClick={() => setShow((s) => ({ ...s, pin: !s.pin }))}
+              >
                 {show.pin ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             }
@@ -234,11 +282,20 @@ export default function ProfilePage() {
             label="Confirm PIN"
             type="password"
             value={pinForm.confirm}
-            onChange={(v) => setPinForm((p) => ({ ...p, confirm: v.replace(/\D/g, "").slice(0, 6) }))}
+            onChange={(v) =>
+              setPinForm((p) => ({
+                ...p,
+                confirm: v.replace(/\D/g, "").slice(0, 6),
+              }))
+            }
             inputMode="numeric"
           />
           {pinMsg && (
-            <p className={`text-sm mb-3 ${pinMsg.includes("success") ? "text-emerald-600" : "text-red-500"}`}>
+            <p
+              className={`text-sm mb-3 ${
+                pinMsg.includes("success") ? "text-emerald-600" : "text-red-500"
+              }`}
+            >
               {pinMsg}
             </p>
           )}
@@ -255,8 +312,8 @@ export default function ProfilePage() {
       {pwdOpen && (
         <Sheet onClose={() => setPwdOpen(false)} title="Change Password">
           <p className="text-sm text-[#64748B] mb-4">
-            Enter your current password, then choose a new one. If you forgot your password, use the login
-            reset flow instead.
+            Enter your current password, then choose a new one. If you forgot
+            your password, use the login reset flow instead.
           </p>
           <Field
             label="Current Password"
@@ -264,7 +321,10 @@ export default function ProfilePage() {
             value={pwdForm.current}
             onChange={(v) => setPwdForm((p) => ({ ...p, current: v }))}
             right={
-              <button type="button" onClick={() => setShow((s) => ({ ...s, current: !s.current }))}>
+              <button
+                type="button"
+                onClick={() => setShow((s) => ({ ...s, current: !s.current }))}
+              >
                 {show.current ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             }
@@ -275,7 +335,10 @@ export default function ProfilePage() {
             value={pwdForm.next}
             onChange={(v) => setPwdForm((p) => ({ ...p, next: v }))}
             right={
-              <button type="button" onClick={() => setShow((s) => ({ ...s, next: !s.next }))}>
+              <button
+                type="button"
+                onClick={() => setShow((s) => ({ ...s, next: !s.next }))}
+              >
                 {show.next ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             }
@@ -287,7 +350,11 @@ export default function ProfilePage() {
             onChange={(v) => setPwdForm((p) => ({ ...p, confirm: v }))}
           />
           {pwdMsg && (
-            <p className={`text-sm mb-3 ${pwdMsg.includes("success") ? "text-emerald-600" : "text-red-500"}`}>
+            <p
+              className={`text-sm mb-3 ${
+                pwdMsg.includes("success") ? "text-emerald-600" : "text-red-500"
+              }`}
+            >
               {pwdMsg}
             </p>
           )}
@@ -317,9 +384,15 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3.5">
-      <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}>{icon}</div>
+      <div
+        className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}
+      >
+        {icon}
+      </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">{label}</p>
+        <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
+          {label}
+        </p>
         <p className="text-sm font-medium text-[#0F172A] truncate">{value}</p>
       </div>
     </div>
@@ -339,8 +412,14 @@ function MenuRow({
 }) {
   const inner = (
     <div className="w-full bg-white rounded-[14px] border border-[#E2E8F0] px-4 py-3.5 flex items-center gap-3">
-      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>{icon}</div>
-      <span className="flex-1 text-sm font-medium text-[#0F172A] text-left">{label}</span>
+      <div
+        className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}
+      >
+        {icon}
+      </div>
+      <span className="flex-1 text-sm font-medium text-[#0F172A] text-left">
+        {label}
+      </span>
       <ChevronRight size={18} className="text-[#94A3B8]" />
     </div>
   );
@@ -365,11 +444,20 @@ function Sheet({
 }) {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col justify-end">
-      <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Close" />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        aria-label="Close"
+      />
       <div className="relative bg-white rounded-t-[20px] px-5 pt-4 pb-8 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-semibold text-[#0F172A]">{title}</h2>
-          <button type="button" onClick={onClose} className="w-9 h-9 flex items-center justify-center text-[#64748B]">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center text-[#64748B]"
+          >
             <X size={20} />
           </button>
         </div>
@@ -405,7 +493,11 @@ function Field({
           inputMode={inputMode}
           className="w-full h-12 px-3 pr-10 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-sm text-[#0F172A]"
         />
-        {right && <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]">{right}</div>}
+        {right && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+            {right}
+          </div>
+        )}
       </div>
     </div>
   );
