@@ -17,8 +17,8 @@ export const metadata: Metadata = {
   description: "Connect. Verify. Grow. Digital services, verification, connectivity and more in one mobile-first experience.",
   applicationName: "Vernex",
   icons: {
-    icon: "/logo.svg",
-    apple: "/logo.svg",
+    icon: "/vernex-icon.jpg",
+    apple: "/vernex-icon.jpg",
   },
 };
 
