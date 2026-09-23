@@ -239,15 +239,15 @@ export default function AdminSettingsPage() {
           </button>
         </section>
 
-        {/* Plan */}
+        {/* Panel plan */}
         <section className="bg-white border border-[#E2E8F0] rounded-[14px] p-4 space-y-2">
           <p className="text-sm font-semibold text-[#0F172A]">D. Panel plan</p>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[#64748B]">Current plan</span>
+            <span className="text-sm text-[#64748B]">Plan</span>
             <span className="text-sm font-semibold text-[#1877F2]">Child Panel</span>
           </div>
           <p className="text-xs text-[#64748B] leading-relaxed pt-1">
-            Child Panel pricing is not the same as API pricing. Renewal and billing are handled with Verxor.
+            API, pricing and renewal are handled with Verxor.
           </p>
         </section>
       </div>
