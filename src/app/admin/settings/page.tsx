@@ -2,20 +2,27 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Copy, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Check, Copy, Eye, EyeOff, Loader2 } from "lucide-react";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 export default function AdminSettingsPage() {
   const [panelName, setPanelName] = useState("Vernex Digital");
   const [primaryColor, setPrimaryColor] = useState("#1877F2");
-  const [supportWhatsApp, setSupportWhatsApp] = useState("");
-  const [supportTelegram, setSupportTelegram] = useState("");
+  const [supportWhatsApp, setSupportWhatsApp] = useState(
+    "https://whatsapp.com/channel/0029VbFHDLYKgsO15Un2I118"
+  );
+  const [supportTelegram, setSupportTelegram] = useState("https://t.me/VernexDigital");
   const [supportEmail, setSupportEmail] = useState("support@vernexdigital.com");
   const [paystackPublic, setPaystackPublic] = useState("");
   const [paystackSecret, setPaystackSecret] = useState("");
   const [showSecret, setShowSecret] = useState(false);
   const [testMode, setTestMode] = useState(true);
+  const [adminEmail, setAdminEmail] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+  const [showAdminPwd, setShowAdminPwd] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
+  const [securityError, setSecurityError] = useState("");
+  const [securityLoading, setSecurityLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const webhookUrl = "https://ital.vercel.app/api/webhooks/paystack";
@@ -29,6 +36,56 @@ export default function AdminSettingsPage() {
     navigator.clipboard?.writeText(webhookUrl).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function saveSecurity() {
+    setSecurityError("");
+    setSecurityLoading(true);
+    try {
+      if (!adminEmail.trim().includes("@")) {
+        setSecurityError("Enter a valid admin email");
+        setSecurityLoading(false);
+        return;
+      }
+      if (adminPassword.length < 8) {
+        setSecurityError("Password must be at least 8 characters");
+        setSecurityLoading(false);
+        return;
+      }
+
+      const supabase = createBrowserClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const res = await fetch("/api/admin/set-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
+        },
+        body: JSON.stringify({
+          email: adminEmail.trim().toLowerCase(),
+          password: adminPassword,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        setSecurityError(json.error || "Could not save password");
+        setSecurityLoading(false);
+        return;
+      }
+
+      setAdminPassword("");
+      flash("security");
+      setSecurityLoading(false);
+    } catch {
+      setSecurityError("Something went wrong");
+      setSecurityLoading(false);
+    }
   }
 
   return (
@@ -52,7 +109,7 @@ export default function AdminSettingsPage() {
             )}
           </div>
           <p className="text-xs text-[#64748B]">
-            Customers only see your brand on the white-label front end — not Verxor.
+            Customers only see your brand on the white-label front end.
           </p>
 
           <label className="block">
@@ -94,7 +151,7 @@ export default function AdminSettingsPage() {
             <input
               value={supportWhatsApp}
               onChange={(e) => setSupportWhatsApp(e.target.value)}
-              placeholder="https://wa.me/234…"
+              placeholder="https://wa.me/234… or channel link"
               className="mt-1.5 w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
             />
           </label>
@@ -176,10 +233,14 @@ export default function AdminSettingsPage() {
             <button
               type="button"
               onClick={() => setTestMode((v) => !v)}
-              className={`w-11 h-6 rounded-full transition-colors ${testMode ? "bg-[#1877F2]" : "bg-[#CBD5E1]"}`}
+              className={`w-11 h-6 rounded-full transition-colors ${
+                testMode ? "bg-[#1877F2]" : "bg-[#CBD5E1]"
+              }`}
             >
               <span
-                className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${testMode ? "translate-x-5" : "translate-x-0.5"}`}
+                className={`block w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  testMode ? "translate-x-5" : "translate-x-0.5"
+                }`}
               />
             </button>
           </div>
@@ -218,28 +279,63 @@ export default function AdminSettingsPage() {
             )}
           </div>
           <p className="text-xs text-[#64748B]">
-            Admin password is required once the backend is live. Currently open during build.
+            Set the admin email and password used on <strong>/admin/login</strong>. If you
+            forget the password, use “Forgot password?” there — a reset link is sent to this
+            email.
           </p>
+
           <label className="block">
-            <span className="text-[11px] font-semibold text-[#64748B] uppercase">Admin password</span>
+            <span className="text-[11px] font-semibold text-[#64748B] uppercase">Admin email</span>
             <input
-              type="password"
-              value={adminPassword}
-              onChange={(e) => setAdminPassword(e.target.value)}
-              placeholder="Set for production"
+              type="email"
+              value={adminEmail}
+              onChange={(e) => setAdminEmail(e.target.value)}
+              placeholder="you@vernexdigital.com"
               className="mt-1.5 w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
             />
           </label>
+
+          <label className="block">
+            <span className="text-[11px] font-semibold text-[#64748B] uppercase">Admin password</span>
+            <div className="mt-1.5 relative">
+              <input
+                type={showAdminPwd ? "text" : "password"}
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="Min 8 characters"
+                className="w-full h-11 pl-3 pr-10 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowAdminPwd((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+              >
+                {showAdminPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </label>
+
+          {securityError && (
+            <p className="text-[13px] font-medium text-red-600">{securityError}</p>
+          )}
+
           <button
             type="button"
-            onClick={() => flash("security")}
-            className="w-full h-11 rounded-full border border-[#E2E8F0] text-sm font-semibold text-[#0F172A]"
+            onClick={saveSecurity}
+            disabled={securityLoading}
+            className="w-full h-11 rounded-full bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-70"
           >
-            Save security
+            {securityLoading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Save security"
+            )}
           </button>
         </section>
 
-        {/* Panel plan */}
         <section className="bg-white border border-[#E2E8F0] rounded-[14px] p-4 space-y-2">
           <p className="text-sm font-semibold text-[#0F172A]">D. Panel plan</p>
           <div className="flex items-center justify-between">
