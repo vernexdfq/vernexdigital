@@ -14,7 +14,18 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Vernex",
-  description: "Connect. Verify. Grow. Digital services, verification, connectivity and more in one mobile-first experience.",
+  description: "Vernex is a mobile-first digital services platform for virtual numbers, verification, social growth, rental numbers, airtime, data, gift cards, shopping and flight booking. Connect. Verify. Grow.",
+  keywords: ["Vernex", "virtual numbers", "OTP verification", "social media boost", "rental numbers", "airtime", "data", "gift cards", "shopping", "flight booking", "digital services"],
+  metadataBase: new URL("https://vernexdigital.com"),
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "Vernex — Connect. Verify. Grow.",
+    description: "Virtual numbers, verification, social growth, connectivity, gift cards, shopping and flight booking in one mobile-first platform.",
+    type: "website",
+    siteName: "Vernex",
+    url: "https://vernexdigital.com",
+  },
+  robots: { index: true, follow: true },
   applicationName: "Vernex",
   icons: {
     icon: "/vernex-icon.jpg",
