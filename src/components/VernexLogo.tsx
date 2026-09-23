@@ -7,7 +7,7 @@ export default function VernexLogo({
 }) {
   return (
     <img
-      src="/logo.svg"
+      src="/vernex-icon.jpg"
       alt="Vernex"
       width={size}
       height={size}
