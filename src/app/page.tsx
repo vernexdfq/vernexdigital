@@ -365,10 +365,9 @@ export default function LandingPage() {
               "@type": "WebSite",
               name: "Vernex",
               description: "Vernex is a mobile-first digital services platform for virtual numbers, verification, social growth, rental numbers, airtime, data, gift cards, shopping and flight booking.",
-              url: "https://vernexdigital.com",
               potentialAction: {
                 "@type": "SearchAction",
-                target: "https://vernexdigital.com/services",
+                target: "/services",
                 "query-input": "required name=search_term_string"
               }
             })
