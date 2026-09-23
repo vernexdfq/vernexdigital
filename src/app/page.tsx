@@ -363,6 +363,7 @@ export default function LandingPage() {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
+              url: "https://vernexdigital.com",
               name: "Vernex",
               description: "Vernex is a mobile-first digital services platform for virtual numbers, verification, social growth, rental numbers, airtime, data, gift cards, shopping and flight booking.",
               potentialAction: {
