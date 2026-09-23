@@ -5,11 +5,9 @@ import {
   ChevronRight,
   Gift,
   Globe2,
-  Plane,
   Rocket,
   ShieldCheck,
   Smartphone,
-  WalletCards,
   Wifi,
 } from "lucide-react";
 import VernexLogo from "@/components/VernexLogo";
@@ -211,7 +209,7 @@ export default function LandingPage() {
         </section>
 
         <section id="services" className="border-b border-[#E8EEF7] bg-[#F8FAFC]">
-          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-18">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-[72px]">
             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div className="max-w-xl">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1877F2]">Built around you</p>
@@ -234,7 +232,7 @@ export default function LandingPage() {
                   <Link
                     key={service.title}
                     href={service.href}
-                    className="group rounded-[16px] border border-[#E1E8F2] bg-white p-4.5 transition hover:-translate-y-0.5 hover:border-[#BFD7FA] hover:shadow-[0_14px_30px_rgba(15,23,42,0.07)]"
+                    className="group rounded-[16px] border border-[#E1E8F2] bg-white p-[18px] transition hover:-translate-y-0.5 hover:border-[#BFD7FA] hover:shadow-[0_14px_30px_rgba(15,23,42,0.07)]"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-[#EFF6FF] text-[#1877F2]">
@@ -251,7 +249,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="how-it-works" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-22">
+        <section id="how-it-works" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-[88px]">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1877F2]">How it works</p>
