@@ -74,21 +74,25 @@ export default function LandingPage() {
 
       <main>
         <section className="relative overflow-hidden border-b border-[#E8EEF7]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_76%_22%,rgba(24,119,242,0.12),transparent_32%),radial-gradient(circle_at_12%_72%,rgba(24,119,242,0.06),transparent_28%)]" />
-          <div className="relative mx-auto grid min-h-[650px] w-full max-w-6xl items-center gap-12 px-5 py-14 sm:px-8 sm:py-20 lg:grid-cols-[0.93fr_1.07fr] lg:gap-10 lg:py-24">
-            <div className="max-w-xl">
-              {/* Sliding Connect / Verify / Grow — cycles like a live status ticker */}
-              <div className="mb-5 flex items-center gap-2">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1877F2] opacity-60" />
+          {/* Soft blue wash — tight, professional, no huge empty band */}
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,#F0F6FF_0%,#FFFFFF_55%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(24,119,242,0.10),transparent_55%)]" />
+
+          <div className="relative mx-auto w-full max-w-6xl px-5 pt-6 pb-10 sm:px-8 sm:pt-8 sm:pb-14 lg:grid lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-10 lg:pt-10 lg:pb-16">
+            {/* Copy column — tight vertical rhythm like TNXVERIFY */}
+            <div className="mx-auto max-w-lg text-center lg:mx-0 lg:max-w-xl lg:text-left">
+              {/* Sliding Connect / Verify / Grow — compact, no dead space above */}
+              <div className="mb-3 flex items-center justify-center gap-2 lg:justify-start">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#1877F2] opacity-55" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#1877F2]" />
                 </span>
-                <div className="h-7 overflow-hidden">
+                <div className="h-6 overflow-hidden">
                   <div className="vernex-word-slider flex flex-col">
                     {["Connect", "Verify", "Grow", "Connect"].map((word, i) => (
                       <span
                         key={`${word}-${i}`}
-                        className="flex h-7 items-center text-[15px] font-bold tracking-[-0.02em] text-[#1877F2] sm:text-[17px]"
+                        className="flex h-6 items-center text-[14px] font-bold tracking-[-0.01em] text-[#1877F2] sm:text-[15px]"
                       >
                         {word}
                       </span>
@@ -97,41 +101,42 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Trusted platform badge — matches reference style */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-[#DCE9FC] bg-[#F0F6FF] px-3.5 py-1.5 text-[12px] font-semibold text-[#0B1F4D] shadow-sm">
-                <ShieldCheck size={14} className="text-[#1877F2]" strokeWidth={2.4} />
+              {/* Trusted badge — soft pill, centered on mobile */}
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-[#C7DBF8] bg-white/90 px-3.5 py-1.5 text-[11px] font-semibold text-[#0B1F4D] shadow-[0_2px_8px_rgba(24,119,242,0.08)] backdrop-blur-sm">
+                <ShieldCheck size={13} className="text-[#1877F2]" strokeWidth={2.5} />
                 Trusted Digital Verification Platform
               </div>
 
-              <h1 className="mt-5 max-w-[640px] text-[36px] font-bold leading-[1.08] tracking-[-0.04em] text-[#0B1F4D] sm:text-[48px] lg:text-[52px]">
+              <h1 className="mt-4 text-[34px] font-bold leading-[1.12] tracking-[-0.04em] text-[#0B1F4D] sm:text-[44px] lg:text-[48px]">
                 Secure SMS{" "}
                 <span className="text-[#1877F2]">Verification</span>
+                <br className="hidden sm:block" />
                 {" & "}
                 <span className="text-[#1877F2]">Digital Services</span>
               </h1>
 
-              <p className="mt-5 max-w-[520px] text-[15px] leading-7 text-[#64748B] sm:text-[16px]">
+              <p className="mx-auto mt-3.5 max-w-[420px] text-[14px] leading-6 text-[#64748B] sm:text-[15px] lg:mx-0 lg:max-w-[480px]">
                 Get instant virtual numbers, airtime, data, and secure digital services in one smooth Vernexdigital wallet. Fast delivery, reliable access, and built for modern users.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-2.5 sm:mx-auto sm:max-w-sm lg:mx-0 lg:max-w-none lg:flex-row">
                 <Link
                   href="/register"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[11px] bg-[#1877F2] px-6 text-[14px] font-semibold text-white shadow-[0_12px_28px_rgba(24,119,242,0.22)] transition hover:-translate-y-0.5 hover:bg-[#166FE5]"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] px-6 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition hover:bg-[#166FE5] active:scale-[0.98] lg:w-auto"
                 >
                   Get Started
                   <ArrowRight size={16} />
                 </Link>
                 <a
                   href="#how-it-works"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[11px] border border-[#D9E2EF] bg-white px-6 text-[14px] font-semibold text-[#334155] transition hover:border-[#B9C8DC] hover:bg-[#F8FAFC]"
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full border border-[#D9E2EF] bg-white px-6 text-[14px] font-semibold text-[#334155] transition hover:border-[#B9C8DC] hover:bg-[#F8FAFC] active:scale-[0.98] lg:w-auto"
                 >
                   How It Works
                   <ChevronRight size={16} />
                 </a>
               </div>
 
-              <div className="mt-8 flex flex-wrap items-center gap-2.5">
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2 lg:justify-start">
                 {[
                   { label: "Instant Delivery", Icon: Zap },
                   { label: "200+ Countries", Icon: Globe2 },
@@ -142,14 +147,14 @@ export default function LandingPage() {
                     key={label}
                     className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#334155] shadow-sm"
                   >
-                    <Icon size={13} className="text-[#1877F2]" strokeWidth={2.4} />
+                    <Icon size={12} className="text-[#1877F2]" strokeWidth={2.4} />
                     {label}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="relative mx-auto flex w-full max-w-[560px] justify-center lg:justify-end">
+            <div className="relative mx-auto mt-10 flex w-full max-w-[560px] justify-center lg:mt-0 lg:justify-end">
               <div className="absolute -right-12 top-8 h-56 w-56 rounded-full bg-[#1877F2]/10 blur-3xl" />
               <div className="absolute -left-10 bottom-4 h-44 w-44 rounded-full bg-[#BFD9FF]/35 blur-3xl" />
 
