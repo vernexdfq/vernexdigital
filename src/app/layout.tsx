@@ -21,7 +21,10 @@ export const metadata: Metadata = {
     description: "Virtual numbers, verification, social growth, connectivity, gift cards, shopping and flight booking in one mobile-first platform.",
     type: "website",
     siteName: "Vernex",
+    url: "https://vernexdigital.com",
   },
+  metadataBase: new URL("https://vernexdigital.com"),
+  alternates: { canonical: "/" },
   robots: { index: true, follow: true },
   applicationName: "Vernex",
   icons: {
