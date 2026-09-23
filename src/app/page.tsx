@@ -249,6 +249,48 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section id="about-vernex" className="border-b border-[#E8EEF7] bg-white">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-[72px]">
+            <div className="grid gap-10 lg:grid-cols-[0.72fr_1.28fr] lg:gap-20">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#1877F2]">About Vernex</p>
+                <h2 className="mt-2 text-[28px] font-bold leading-tight tracking-[-0.04em] text-[#0B1F4D] sm:text-[36px]">
+                  One platform for everyday digital services.
+                </h2>
+              </div>
+              <div className="space-y-4 text-[13px] leading-6 text-[#64748B] sm:text-[15px]">
+                <p>
+                  <strong className="font-semibold text-[#0F172A]">Vernex</strong> is a mobile-first digital services platform that brings useful online services into one account and wallet. It is designed to make digital access simpler for customers who want to connect, verify, grow and manage everyday services from one place.
+                </p>
+                <p>
+                  Vernex offers <strong className="font-semibold text-[#0F172A]">virtual numbers and verification services, social-media growth services, rented communication numbers, airtime and data, gift-card services, shopping and flight-booking services</strong>, with additional digital services available through the platform.
+                </p>
+                <p>
+                  Customers can create an account, fund their wallet, select a supported service, place an order and track activity through the Vernex web app. Vernex is built as a progressive web app, so it can provide an app-like experience on supported phones without requiring a traditional native app download.
+                </p>
+              </div>
+            </div>
+
+            <div id="services-overview" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Virtual Numbers", "Access supported phone numbers for verification and digital services."],
+                ["Social Boost", "Services for supported social platforms, including followers, likes and views."],
+                ["Rental Numbers", "Rent communication numbers and manage supported calling or messaging services."],
+                ["Airtime & Data", "Recharge supported numbers and purchase mobile data bundles."],
+                ["Gift Cards", "Buy or sell supported gift cards with the available settlement options."],
+                ["Shopping", "Browse supported products and everyday digital or physical goods."],
+                ["Flight Booking", "Find and book supported flights through the Vernex platform."],
+                ["Accounts & Logs", "Browse supported account or log products where available."],
+              ].map(([title, text]) => (
+                <div key={title} className="border border-[#E1E8F2] bg-[#F8FAFC] p-4 rounded-[14px]">
+                  <h3 className="text-[13px] font-bold text-[#0F172A]">{title}</h3>
+                  <p className="mt-1.5 text-[11px] leading-5 text-[#64748B]">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section id="how-it-works" className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-[88px]">
           <div className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
             <div>
@@ -314,6 +356,24 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Vernex",
+              description: "Vernex is a mobile-first digital services platform for virtual numbers, verification, social growth, rental numbers, airtime, data, gift cards, shopping and flight booking.",
+              url: "https://vernexdigital.com",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: "https://vernexdigital.com/services",
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
       </main>
 
       <footer className="border-t border-[#E8EEF7] bg-white">
