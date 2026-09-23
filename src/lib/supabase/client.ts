@@ -1,10 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+let browserClient: SupabaseClient | null = null;
 
 /**
- * Browser / client-side Supabase client.
- * Uses only the publishable (anon) key.
+ * Browser / client-side Supabase client (publishable key only).
+ * Singleton so the session is shared across the app.
  */
 export function createBrowserClient() {
+  if (browserClient) return browserClient;
+
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -14,5 +18,13 @@ export function createBrowserClient() {
     );
   }
 
-  return createClient(url, key);
+  browserClient = createClient(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
+
+  return browserClient;
 }
