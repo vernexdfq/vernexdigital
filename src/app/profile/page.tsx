@@ -53,15 +53,19 @@ export default function ProfilePage() {
     setTimeout(() => setCopied(false), 1800);
   }
 
-  function handleLogout() {
-    // Clear any local session/demo flags when real auth is added
+  async function handleLogout() {
+    try {
+      const { createBrowserClient } = await import("@/lib/supabase/client");
+      const supabase = createBrowserClient();
+      await supabase.auth.signOut();
+    } catch {}
     try {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("vernex_session");
+        localStorage.clear();
         sessionStorage.clear();
       }
     } catch {}
-    router.push("/");
+    router.replace("/");
   }
 
   function submitPin() {
@@ -184,11 +188,9 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        {/* Spacer so content clears the sticky logout + bottom nav */}
         <div className="h-24" />
       </div>
 
-      {/* Sticky Log Out — always visible above bottom nav */}
       <div className="fixed bottom-16 left-0 right-0 z-40 px-4 pb-3 pt-2 bg-gradient-to-t from-[#F4F7FB] via-[#F4F7FB] to-transparent">
         <button
           type="button"
