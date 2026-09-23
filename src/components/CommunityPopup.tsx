@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { Megaphone, MessageCircle, Send, X } from "lucide-react";
 
-/** Replace with real Vernex links when you send them */
-const TELEGRAM_URL = "https://t.me/VernexOfficial";
-const WHATSAPP_URL = "https://wa.me/2348000000000";
+const TELEGRAM_URL = "https://t.me/VernexDigital";
+const WHATSAPP_URL =
+  "https://whatsapp.com/channel/0029VbFHDLYKgsO15Un2I118";
 
 const STORAGE_KEY = "vernex-community-prompt-day";
 
