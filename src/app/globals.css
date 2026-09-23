@@ -39,3 +39,16 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Sliding Connect / Verify / Grow rotator */
+@keyframes vernex-word-slide {
+  0%, 20% { transform: translateY(0%); }
+  25%, 45% { transform: translateY(-25%); }
+  50%, 70% { transform: translateY(-50%); }
+  75%, 95% { transform: translateY(-75%); }
+  100% { transform: translateY(-100%); }
+}
+
+.vernex-word-slider {
+  animation: vernex-word-slide 7.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
