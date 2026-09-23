@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Users,
   Wallet,
@@ -11,7 +12,9 @@ import {
   Shield,
   Package,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
+import { createBrowserClient } from "@/lib/supabase/client";
 
 const cards = [
   {
@@ -53,6 +56,19 @@ const cards = [
 ];
 
 export default function AdminPage() {
+  const router = useRouter();
+
+  async function handleLogout() {
+    try {
+      const supabase = createBrowserClient();
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      sessionStorage.removeItem("vernex_admin");
+    } catch {}
+    router.replace("/admin/login");
+  }
+
   return (
     <div className="min-h-screen bg-[#F4F7FB] pb-10">
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-[#E2E8F0] px-4 h-14 flex items-center justify-between">
@@ -65,21 +81,27 @@ export default function AdminPage() {
             <h1 className="text-base font-semibold text-[#0F172A]">Admin Panel</h1>
           </div>
         </div>
-        <span className="text-[11px] font-medium text-amber-700 bg-amber-50 border border-amber-100 px-2.5 py-1 rounded-full">
-          Open during build
-        </span>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="text-[11px] font-semibold text-[#64748B] flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-[#E2E8F0] bg-white"
+        >
+          <LogOut size={13} />
+          Log out
+        </button>
       </header>
 
       <div className="px-4 py-5 max-w-lg mx-auto">
-        <div className="mb-5 p-4 rounded-[14px] bg-[#1877F2]/5 border border-[#1877F2]/20">
-          <p className="text-sm font-semibold text-[#0F172A]">Child Panel · Build phase</p>
+        <div className="mb-5 p-4 rounded-[14px] bg-emerald-50 border border-emerald-100">
+          <p className="text-sm font-semibold text-[#0F172A]">Admin access secured</p>
           <p className="text-xs text-[#64748B] mt-1 leading-relaxed">
-            Password lock is disabled until the backend is connected. Admin will be protected after env variables are set.
-            Child Panel pricing is not the same as API pricing.
+            Only accounts marked as admin can open this panel. Set or change the admin password in Settings → Security.
           </p>
         </div>
 
-        <p className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase mb-3">Main menu</p>
+        <p className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase mb-3">
+          Main menu
+        </p>
 
         <div className="grid gap-2.5">
           {cards.map((c) => (
