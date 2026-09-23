@@ -1,0 +1,17 @@
+{
+  "name": "Vernex",
+  "short_name": "Vernex",
+  "description": "Connect. Verify. Grow.",
+  "start_url": "/home",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#1877F2",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "200x200",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
