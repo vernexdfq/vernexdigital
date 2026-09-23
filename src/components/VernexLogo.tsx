@@ -8,7 +8,7 @@ export default function VernexLogo({
   return (
     <img
       src="/logo.svg"
-      alt="Vernex Digital"
+      alt="Vernex"
       width={size}
       height={size}
       className={`shrink-0 ${className}`}
