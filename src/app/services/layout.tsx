@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import BottomNav from "@/components/BottomNav";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function ServicesLayout({
   children,
@@ -12,9 +13,9 @@ export default function ServicesLayout({
   const hideMainNav = pathname?.startsWith("/services/gift-card");
 
   return (
-    <>
+    <AuthGuard>
       {children}
       {!hideMainNav && <BottomNav />}
-    </>
+    </AuthGuard>
   );
 }
