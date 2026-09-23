@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   User,
   Mail,
@@ -32,6 +33,7 @@ const DEMO_USER = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -49,6 +51,17 @@ export default function ProfilePage() {
     navigator.clipboard?.writeText(DEMO_USER.referral).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
+  }
+
+  function handleLogout() {
+    // Clear any local session/demo flags when real auth is added
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("vernex_session");
+        sessionStorage.clear();
+      }
+    } catch {}
+    router.push("/");
   }
 
   function submitPin() {
@@ -78,7 +91,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-40">
+    <div className="min-h-screen bg-[#F4F7FB] pb-36">
       <div className="px-4 pt-5 pb-8">
         <div className="relative overflow-hidden rounded-[18px] bg-gradient-to-br from-[#0B1F4D] via-[#123A7A] to-[#1877F2] p-5 text-white shadow-lg">
           <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_80%_20%,#60A5FA,transparent_50%)]" />
@@ -171,11 +184,18 @@ export default function ProfilePage() {
           </Link>
         </div>
 
+        {/* Spacer so content clears the sticky logout + bottom nav */}
+        <div className="h-24" />
+      </div>
+
+      {/* Sticky Log Out — always visible above bottom nav */}
+      <div className="fixed bottom-16 left-0 right-0 z-40 px-4 pb-3 pt-2 bg-gradient-to-t from-[#F4F7FB] via-[#F4F7FB] to-transparent">
         <button
           type="button"
-          className="mt-8 mb-4 w-full h-12 rounded-full bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(24,119,242,0.25)]"
+          onClick={handleLogout}
+          className="w-full h-14 rounded-full bg-[#1877F2] text-white text-base font-bold flex items-center justify-center gap-2.5 shadow-[0_10px_28px_rgba(24,119,242,0.4)] active:scale-[0.98] transition"
         >
-          <LogOut size={18} />
+          <LogOut size={20} strokeWidth={2.4} />
           Log Out
         </button>
       </div>
