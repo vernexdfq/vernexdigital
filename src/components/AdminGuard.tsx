@@ -7,6 +7,7 @@ import { createBrowserClient } from "@/lib/supabase/client";
 /**
  * Protects /admin/* (except /admin/login).
  * Requires a logged-in user with profiles.is_admin = true.
+ * If no admin exists yet, allows access so you can set the first password in Settings.
  */
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -14,54 +15,59 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Login page is public
     if (pathname?.startsWith("/admin/login")) {
       setReady(true);
       return;
     }
 
     let cancelled = false;
-    const supabase = createBrowserClient();
 
     async function check() {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
+      try {
+        const statusRes = await fetch("/api/admin/status");
+        const status = await statusRes.json();
 
-      if (!data.session?.user) {
-        router.replace("/admin/login");
-        return;
+        if (cancelled) return;
+
+        // First-time setup: no admin yet → allow panel so password can be set
+        if (!status.hasAdmins) {
+          setReady(true);
+          return;
+        }
+
+        const supabase = createBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+
+        if (!data.session?.user) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (!profile?.is_admin) {
+          await supabase.auth.signOut();
+          router.replace("/admin/login");
+          return;
+        }
+
+        setReady(true);
+      } catch {
+        if (!cancelled) router.replace("/admin/login");
       }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", data.session.user.id)
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      if (!profile?.is_admin) {
-        await supabase.auth.signOut();
-        router.replace("/admin/login");
-        return;
-      }
-
-      setReady(true);
     }
 
     check();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session && !pathname?.startsWith("/admin/login")) {
-        router.replace("/admin/login");
-      }
-    });
-
     return () => {
       cancelled = true;
-      subscription.unsubscribe();
     };
   }, [router, pathname]);
 
