@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vernex Digital",
-  description: "Connect | Verify | Grow — Virtual Numbers, SMM, Airtime, Data & more",
+  title: "Vernex",
+  description: "Connect. Verify. Grow. Digital services, verification, connectivity and more in one mobile-first experience.",
   applicationName: "Vernex",
   icons: {
     icon: "/logo.svg",
