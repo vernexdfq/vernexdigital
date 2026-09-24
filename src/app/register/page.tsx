@@ -19,6 +19,12 @@ import {
 import VernexLogo from "@/components/VernexLogo";
 import { createBrowserClient } from "@/lib/supabase/client";
 
+const fieldClass =
+  "h-12 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-11 pr-3 text-[14px] leading-none text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15";
+
+const iconClass =
+  "pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94A3B8]";
+
 export default function RegisterPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -117,61 +123,59 @@ export default function RegisterPage() {
     <div className="relative min-h-screen overflow-x-hidden bg-[linear-gradient(180deg,#EBF3FF_0%,#F8FBFF_40%,#FFFFFF_100%)]">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(24,119,242,0.12),transparent_55%)]" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-5 pb-10 pt-8 sm:px-6">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-2.5 flex items-center gap-2.5">
-            <VernexLogo size={40} className="rounded-[10px]" />
-            <div className="text-left">
-              <p className="text-[17px] font-bold tracking-[-0.03em] text-[#0B1F4D]">
-                Vernex
-              </p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#64748B]">
-                Digital Services
-              </p>
-            </div>
+      <div className="relative mx-auto flex w-full max-w-[420px] flex-col px-5 pb-12 pt-8">
+        {/* Brand — perfectly centered */}
+        <div className="mb-6 flex items-center justify-center gap-2.5">
+          <VernexLogo size={40} className="shrink-0 rounded-[10px]" />
+          <div className="text-left">
+            <p className="text-[17px] font-bold leading-tight tracking-[-0.03em] text-[#0B1F4D]">
+              Vernex
+            </p>
+            <p className="text-[10px] font-semibold uppercase leading-tight tracking-[0.14em] text-[#64748B]">
+              Digital Services
+            </p>
           </div>
         </div>
 
-        <div className="rounded-[22px] border border-[#DCE9FC] bg-white/95 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:p-6">
-          <h1 className="text-[26px] font-bold tracking-[-0.03em] text-[#0B1F4D]">
+        {/* Card */}
+        <div className="w-full rounded-[20px] border border-[#DCE9FC] bg-white p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-6">
+          <h1 className="text-[24px] font-bold leading-tight tracking-[-0.03em] text-[#0B1F4D]">
             Create your account
           </h1>
-          <p className="mt-1 text-[13px] text-[#64748B]">
+          <p className="mt-1.5 text-[13px] leading-snug text-[#64748B]">
             Start using Vernex digital services in seconds.
           </p>
 
-          <div className="mt-5 flex rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
+          {/* Equal-width segmented control */}
+          <div className="mt-5 grid h-11 grid-cols-2 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <Link
               href="/login"
-              className="flex-1 rounded-full py-2.5 text-center text-[13px] font-semibold text-[#64748B] transition hover:text-[#0F172A]"
+              className="flex h-full items-center justify-center rounded-full text-[13px] font-semibold text-[#64748B] transition hover:text-[#0F172A]"
             >
               Sign in
             </Link>
             <Link
               href="/register"
-              className="flex-1 rounded-full bg-[#1877F2] py-2.5 text-center text-[13px] font-semibold text-white shadow-sm"
+              className="flex h-full items-center justify-center rounded-full bg-[#1877F2] text-[13px] font-semibold text-white shadow-sm"
             >
               Create account
             </Link>
           </div>
 
-          <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <form className="mt-5 flex flex-col gap-4" onSubmit={handleSubmit}>
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
                 Full name
               </label>
               <div className="relative">
-                <User
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
+                <User size={16} className={iconClass} />
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Your name"
                   required
-                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  className={fieldClass}
                 />
               </div>
             </div>
@@ -181,10 +185,7 @@ export default function RegisterPage() {
                 Phone number (11 digits)
               </label>
               <div className="relative">
-                <Phone
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
+                <Phone size={16} className={iconClass} />
                 <input
                   type="tel"
                   inputMode="numeric"
@@ -194,9 +195,9 @@ export default function RegisterPage() {
                   }
                   placeholder="e.g. 08012345678"
                   required
-                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-14 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  className={`${fieldClass} pr-12`}
                 />
-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-medium text-[#94A3B8]">
+                <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] font-medium tabular-nums text-[#94A3B8]">
                   {phoneDigits.length}/11
                 </span>
               </div>
@@ -207,18 +208,15 @@ export default function RegisterPage() {
                 Email address
               </label>
               <div className="relative">
-                <Mail
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
+                <Mail size={16} className={iconClass} />
                 <input
-                  type="email"
+                  type="email"".
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   autoComplete="email"
                   required
-                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  className={fieldClass}
                 />
               </div>
             </div>
@@ -228,10 +226,7 @@ export default function RegisterPage() {
                 Password
               </label>
               <div className="relative">
-                <Lock
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
+                <Lock size={16} className={iconClass} />
                 <input
                   type={showPassword ? "text" : "password"}
                   value={password}
@@ -240,7 +235,7 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   required
                   minLength={8}
-                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-11 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  className={`${fieldClass} pr-11`}
                 />
                 <button
                   type="button"
@@ -258,10 +253,7 @@ export default function RegisterPage() {
                 4-digit transaction PIN
               </label>
               <div className="relative">
-                <Hash
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
+                <Hash size={16} className={iconClass} />
                 <input
                   type={showPin ? "text" : "password"}
                   inputMode="numeric"
@@ -272,7 +264,7 @@ export default function RegisterPage() {
                   }
                   placeholder="Enter 4-digit PIN"
                   required
-                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-11 text-[14px] tracking-[0.3em] text-[#0F172A] outline-none transition placeholder:tracking-normal placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  className={`${fieldClass} pr-11 tracking-[0.3em] placeholder:tracking-normal`}
                 />
                 <button
                   type="button"
@@ -283,35 +275,34 @@ export default function RegisterPage() {
                   {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <p className="mt-1.5 text-[11px] text-[#94A3B8]">
+              <p className="mt-1.5 text-[11px] leading-snug text-[#94A3B8]">
                 Used to sign in and authorise transactions — keep it secret
               </p>
             </div>
 
             <div>
-              <div className="mb-1.5 flex items-center justify-between">
+              <div className="mb-1.5 flex h-4 items-center justify-between">
                 <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
                   Referral code
                 </label>
-                <span className="text-[10px] font-medium text-[#94A3B8]">Optional</span>
+                <span className="text-[10px] font-medium text-[#94A3B8]">
+                  Optional
+                </span>
               </div>
               <div className="relative">
-                <Gift
-                  size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                />
+                <Gift size={16} className={iconClass} />
                 <input
                   type="text"
                   value={referral}
                   onChange={(e) => setReferral(e.target.value)}
                   placeholder="Enter referral code"
-                  className="h-12 w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] pl-10 pr-3 text-[14px] text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#1877F2] focus:bg-white focus:ring-2 focus:ring-[#1877F2]/15"
+                  className={fieldClass}
                 />
               </div>
             </div>
 
             {error && (
-              <p className="rounded-[10px] bg-red-50 px-3 py-2 text-[13px] font-medium text-red-600">
+              <p className="rounded-xl bg-red-50 px-3 py-2.5 text-[13px] font-medium text-red-600">
                 {error}
               </p>
             )}
@@ -319,7 +310,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition hover:bg-[#166FE5] active:scale-[0.98] disabled:opacity-70"
+              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition hover:bg-[#166FE5] active:scale-[0.98] disabled:opacity-70"
             >
               {loading ? (
                 <>
@@ -337,7 +328,8 @@ export default function RegisterPage() {
 
           <p className="mt-4 text-center text-[12px] leading-5 text-[#94A3B8]">
             By creating an account, you agree to our{" "}
-            <span className="font-medium text-[#1877F2]">Terms of Service</span> and{" "}
+            <span className="font-medium text-[#1877F2]">Terms of Service</span>{" "}
+            and{" "}
             <span className="font-medium text-[#1877F2]">Privacy Policy</span>.
           </p>
 
@@ -349,8 +341,9 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <div className="mt-5 rounded-[16px] border border-[#DCE9FC] bg-white/80 p-4 text-center">
-          <p className="text-[12px] text-[#64748B]">
+        {/* Support — same width as card */}
+        <div className="mt-5 w-full rounded-[16px] border border-[#DCE9FC] bg-white/90 p-4 text-center">
+          <p className="text-[12px] leading-snug text-[#64748B]">
             Need help signing in or creating an account?
           </p>
           <a
