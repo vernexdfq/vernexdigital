@@ -124,7 +124,6 @@ export default function RegisterPage() {
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(24,119,242,0.12),transparent_55%)]" />
 
       <div className="relative mx-auto flex w-full max-w-[420px] flex-col px-5 pb-12 pt-8">
-        {/* Brand — perfectly centered */}
         <div className="mb-6 flex items-center justify-center gap-2.5">
           <VernexLogo size={40} className="shrink-0 rounded-[10px]" />
           <div className="text-left">
@@ -137,7 +136,6 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Card */}
         <div className="w-full rounded-[20px] border border-[#DCE9FC] bg-white p-5 shadow-[0_16px_40px_rgba(15,23,42,0.08)] sm:p-6">
           <h1 className="text-[24px] font-bold leading-tight tracking-[-0.03em] text-[#0B1F4D]">
             Create your account
@@ -146,7 +144,6 @@ export default function RegisterPage() {
             Start using Vernex digital services in seconds.
           </p>
 
-          {/* Equal-width segmented control */}
           <div className="mt-5 grid h-11 grid-cols-2 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <Link
               href="/login"
@@ -210,7 +207,7 @@ export default function RegisterPage() {
               <div className="relative">
                 <Mail size={16} className={iconClass} />
                 <input
-                  type="email"".
+                  type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
@@ -341,7 +338,6 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Support — same width as card */}
         <div className="mt-5 w-full rounded-[16px] border border-[#DCE9FC] bg-white/90 p-4 text-center">
           <p className="text-[12px] leading-snug text-[#64748B]">
             Need help signing in or creating an account?
