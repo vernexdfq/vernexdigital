@@ -43,7 +43,11 @@ export default function LoginPage() {
       if (mode === "password") {
         if (!email.trim() || !password) {
           setError("Enter your email and password");
-          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          setError("Password looks too short. Use your account password, or tap “Use PIN”.");
           return;
         }
 
@@ -54,13 +58,11 @@ export default function LoginPage() {
 
         if (signError) {
           setError(signError.message || "Invalid email or password");
-          setLoading(false);
           return;
         }
 
         if (!data.session) {
           setError("Could not start session. Try again.");
-          setLoading(false);
           return;
         }
 
@@ -68,9 +70,9 @@ export default function LoginPage() {
         return;
       }
 
+      // PIN mode
       if (!email.trim() || pin.length !== 4) {
         setError("Enter your email and 4-digit PIN");
-        setLoading(false);
         return;
       }
 
@@ -79,29 +81,55 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase(), pin }),
       });
-      const json = await res.json();
+
+      let json: {
+        ok?: boolean;
+        error?: string;
+        email?: string;
+        token_hash?: string;
+      } = {};
+      try {
+        json = await res.json();
+      } catch {
+        setError("Server error during PIN login. Check API / env vars.");
+        return;
+      }
 
       if (!res.ok || !json.ok) {
         setError(json.error || "Invalid email or PIN");
-        setLoading(false);
+        return;
+      }
+
+      if (!json.token_hash || !json.email) {
+        setError("Could not complete PIN login (missing session token)");
         return;
       }
 
       const { error: otpError } = await supabase.auth.verifyOtp({
         email: json.email,
         token_hash: json.token_hash,
-        type: "email",
+        type: "magiclink",
       });
 
       if (otpError) {
-        setError(otpError.message || "Could not complete PIN login");
-        setLoading(false);
-        return;
+        // Fallback: try email type (older Supabase clients)
+        const { error: otpError2 } = await supabase.auth.verifyOtp({
+          email: json.email,
+          token_hash: json.token_hash,
+          type: "email",
+        });
+        if (otpError2) {
+          setError(otpError2.message || otpError.message || "Could not complete PIN login");
+          return;
+        }
       }
 
       router.replace("/home");
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong. Please try again.";
+      setError(message);
+    } finally {
       setLoading(false);
     }
   }
@@ -175,6 +203,8 @@ export default function LoginPage() {
                   onClick={() => {
                     setMode(mode === "password" ? "pin" : "password");
                     setError("");
+                    setPassword("");
+                    setPin("");
                   }}
                   className="text-[11px] font-semibold text-[#1877F2]"
                 >
@@ -189,7 +219,7 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
+                    placeholder="Enter your password (8+ characters)"
                     autoComplete="current-password"
                     required={mode === "password"}
                     className={`${fieldClass} pr-11`}

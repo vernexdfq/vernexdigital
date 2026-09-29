@@ -3,8 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 import { verifyPin } from "@/lib/pin";
 
 function adminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
   return createClient(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -31,7 +34,15 @@ export async function POST(req: NextRequest) {
       .eq("email", email)
       .maybeSingle();
 
-    if (profileError || !profile) {
+    if (profileError) {
+      console.error("pin-login profile", profileError);
+      return NextResponse.json(
+        { error: "Database error. Run schema.sql in Supabase." },
+        { status: 500 }
+      );
+    }
+
+    if (!profile) {
       return NextResponse.json({ error: "Invalid email or PIN" }, { status: 401 });
     }
 
@@ -39,15 +50,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email or PIN" }, { status: 401 });
     }
 
-    // Issue a magic-link style token the client can exchange for a session
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "magiclink",
       email,
     });
 
     if (linkError || !linkData) {
-      console.error(linkError);
-      return NextResponse.json({ error: "Could not start session" }, { status: 500 });
+      console.error("pin-login generateLink", linkError);
+      return NextResponse.json(
+        { error: linkError?.message || "Could not start session" },
+        { status: 500 }
+      );
     }
 
     const tokenHash =
@@ -65,7 +78,8 @@ export async function POST(req: NextRequest) {
       full_name: profile.full_name,
     });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+    console.error("pin-login", e);
+    const message = e instanceof Error ? e.message : "Login failed";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
