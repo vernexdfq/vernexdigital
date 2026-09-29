@@ -20,6 +20,12 @@
 # production
 /build
 
+# OpenNext / Cloudflare
+.open-next
+.wrangler
+dev.vars
+.dev.vars
+
 # misc
 .DS_Store
 *.pem
@@ -32,9 +38,11 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
-# vercel
+# vercel / netlify
 .vercel
+.netlify
 
 # typescript
 *.tsbuildinfo
