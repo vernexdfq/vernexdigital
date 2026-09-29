@@ -2,10 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   typescript: {
-    // Temporarily allow build while residual type issues are cleaned up
     ignoreBuildErrors: true,
   },
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "logo.clearbit.com" },
       { protocol: "https", hostname: "images.unsplash.com" },
@@ -17,6 +17,6 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-// Enable OpenNext Cloudflare bindings during local `next dev`
+// Local next dev only — safe no-op during CI / opennext build
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 initOpenNextCloudflareForDev();
