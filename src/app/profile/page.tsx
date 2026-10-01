@@ -21,19 +21,13 @@ import {
   X,
   Eye,
   EyeOff,
+  Loader2,
 } from "lucide-react";
-
-const DEMO_USER = {
-  fullName: "Denny Kay",
-  email: "dennygodzilla0@gmail.com",
-  phone: "08141620644",
-  referral: "E2637BDA",
-  memberSince: "June 2026",
-  initials: "DK",
-};
+import { useUser } from "@/lib/useUser";
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { profile, loading, initials, memberSince } = useUser();
   const [copied, setCopied] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -53,7 +47,8 @@ export default function ProfilePage() {
   const [pwdMsg, setPwdMsg] = useState("");
 
   function copyReferral() {
-    navigator.clipboard?.writeText(DEMO_USER.referral).catch(() => {});
+    if (!profile?.referral_code) return;
+    navigator.clipboard?.writeText(profile.referral_code).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   }
@@ -82,12 +77,7 @@ export default function ProfilePage() {
       setPinMsg("Check password and PIN (min 4 digits, must match).");
       return;
     }
-    setPinMsg("PIN updated successfully.");
-    setTimeout(() => {
-      setPinOpen(false);
-      setPinForm({ password: "", pin: "", confirm: "" });
-      setPinMsg("");
-    }, 1200);
+    setPinMsg("PIN update will be available when the security API is live.");
   }
 
   function submitPwd() {
@@ -101,13 +91,21 @@ export default function ProfilePage() {
       );
       return;
     }
-    setPwdMsg("Password updated successfully.");
-    setTimeout(() => {
-      setPwdOpen(false);
-      setPwdForm({ current: "", next: "", confirm: "" });
-      setPwdMsg("");
-    }, 1200);
+    setPwdMsg("Password update will be available when the security API is live.");
   }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F4F7FB] pb-24 flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#1877F2]" size={28} />
+      </div>
+    );
+  }
+
+  const fullName = profile?.full_name || "User";
+  const email = profile?.email || "—";
+  const phone = profile?.phone || "—";
+  const referral = profile?.referral_code || "—";
 
   return (
     <div className="min-h-screen bg-[#F4F7FB] pb-24">
@@ -116,15 +114,15 @@ export default function ProfilePage() {
           <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_80%_20%,#60A5FA,transparent_50%)]" />
           <div className="relative flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center text-lg font-bold tracking-wide backdrop-blur-sm">
-              {DEMO_USER.initials}
+              {initials}
             </div>
             <div>
-              <p className="text-lg font-semibold leading-tight">
-                {DEMO_USER.fullName}
-              </p>
-              <p className="text-xs text-white/70 mt-0.5">
-                Member since {DEMO_USER.memberSince}
-              </p>
+              <p className="text-lg font-semibold leading-tight">{fullName}</p>
+              {memberSince ? (
+                <p className="text-xs text-white/70 mt-0.5">Member since {memberSince}</p>
+              ) : (
+                <p className="text-xs text-white/70 mt-0.5">Vernex member</p>
+              )}
             </div>
           </div>
         </div>
@@ -136,19 +134,19 @@ export default function ProfilePage() {
           <InfoRow
             icon={<User size={16} className="text-[#1877F2]" />}
             label="Full Name"
-            value={DEMO_USER.fullName}
+            value={fullName}
             bg="bg-[#EFF6FF]"
           />
           <InfoRow
             icon={<Mail size={16} className="text-[#1877F2]" />}
             label="Email"
-            value={DEMO_USER.email}
+            value={email}
             bg="bg-[#EFF6FF]"
           />
           <InfoRow
             icon={<Phone size={16} className="text-[#1877F2]" />}
             label="Phone"
-            value={DEMO_USER.phone}
+            value={phone}
             bg="bg-[#EFF6FF]"
           />
           <div className="flex items-center gap-3 px-4 py-3.5">
@@ -159,9 +157,7 @@ export default function ProfilePage() {
               <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
                 Referral Code
               </p>
-              <p className="text-sm font-semibold text-[#0F172A] tracking-wider">
-                {DEMO_USER.referral}
-              </p>
+              <p className="text-sm font-semibold text-[#0F172A] tracking-wider">{referral}</p>
             </div>
             <button
               type="button"
@@ -226,7 +222,6 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        {/* Log Out — scrolls with content, red */}
         <div className="mt-8 mb-2">
           <button
             type="button"
@@ -293,7 +288,9 @@ export default function ProfilePage() {
           {pinMsg && (
             <p
               className={`text-sm mb-3 ${
-                pinMsg.includes("success") ? "text-emerald-600" : "text-red-500"
+                pinMsg.includes("success") || pinMsg.includes("live")
+                  ? "text-emerald-600"
+                  : "text-red-500"
               }`}
             >
               {pinMsg}
@@ -312,8 +309,7 @@ export default function ProfilePage() {
       {pwdOpen && (
         <Sheet onClose={() => setPwdOpen(false)} title="Change Password">
           <p className="text-sm text-[#64748B] mb-4">
-            Enter your current password, then choose a new one. If you forgot
-            your password, use the login reset flow instead.
+            Enter your current password, then choose a new one.
           </p>
           <Field
             label="Current Password"
@@ -352,7 +348,9 @@ export default function ProfilePage() {
           {pwdMsg && (
             <p
               className={`text-sm mb-3 ${
-                pwdMsg.includes("success") ? "text-emerald-600" : "text-red-500"
+                pwdMsg.includes("success") || pwdMsg.includes("live")
+                  ? "text-emerald-600"
+                  : "text-red-500"
               }`}
             >
               {pwdMsg}
@@ -384,15 +382,11 @@ function InfoRow({
 }) {
   return (
     <div className="flex items-center gap-3 px-4 py-3.5">
-      <div
-        className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}
-      >
+      <div className={`w-9 h-9 rounded-xl ${bg} flex items-center justify-center shrink-0`}>
         {icon}
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">
-          {label}
-        </p>
+        <p className="text-[10px] font-semibold tracking-wide text-[#94A3B8] uppercase">{label}</p>
         <p className="text-sm font-medium text-[#0F172A] truncate">{value}</p>
       </div>
     </div>
@@ -412,14 +406,10 @@ function MenuRow({
 }) {
   const inner = (
     <div className="w-full bg-white rounded-[14px] border border-[#E2E8F0] px-4 py-3.5 flex items-center gap-3">
-      <div
-        className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}
-      >
+      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
         {icon}
       </div>
-      <span className="flex-1 text-sm font-medium text-[#0F172A] text-left">
-        {label}
-      </span>
+      <span className="flex-1 text-sm font-medium text-[#0F172A] text-left">{label}</span>
       <ChevronRight size={18} className="text-[#94A3B8]" />
     </div>
   );
@@ -444,20 +434,11 @@ function Sheet({
 }) {
   return (
     <div className="fixed inset-0 z-[80] flex flex-col justify-end">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-label="Close"
-      />
+      <button type="button" className="absolute inset-0 bg-black/40" onClick={onClose} aria-label="Close" />
       <div className="relative bg-white rounded-t-[20px] px-5 pt-4 pb-8 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-1">
           <h2 className="text-lg font-semibold text-[#0F172A]">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center text-[#64748B]"
-          >
+          <button type="button" onClick={onClose} className="w-9 h-9 flex items-center justify-center text-[#64748B]">
             <X size={20} />
           </button>
         </div>
@@ -494,9 +475,7 @@ function Field({
           className="w-full h-12 px-3 pr-10 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-sm text-[#0F172A]"
         />
         {right && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]">
-            {right}
-          </div>
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#94A3B8]">{right}</div>
         )}
       </div>
     </div>
