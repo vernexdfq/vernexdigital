@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Plus, Clock } from "lucide-react";
+import { useUser } from "@/lib/useUser";
 
 export default function WalletCard() {
   const [visible, setVisible] = useState(true);
-  const balance = 0;
+  const { wallet, loading } = useUser();
+  const balance = wallet.balance;
 
   return (
     <div className="relative overflow-hidden rounded-[16px] bg-gradient-to-br from-[#0B1B3A] via-[#0F2748] to-[#0A1628] p-5 text-white shadow-[0_12px_32px_rgba(11,27,58,0.28)]">
@@ -22,11 +24,14 @@ export default function WalletCard() {
 
       <div className="mt-3 flex items-center gap-3">
         <p className="text-3xl font-semibold tracking-tight tabular-nums">
-          {visible
-            ? `₦${balance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`
-            : "₦••••••"}
+          {loading
+            ? "₦…"
+            : visible
+              ? `₦${balance.toLocaleString("en-NG", { minimumFractionDigits: 2 })}`
+              : "₦••••••"}
         </p>
         <button
+          type="button"
           onClick={() => setVisible(!visible)}
           className="rounded-full p-1.5 transition-colors hover:bg-white/10"
           aria-label={visible ? "Hide balance" : "Show balance"}

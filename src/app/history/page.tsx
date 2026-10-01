@@ -16,8 +16,9 @@ import {
   Plus,
   Minus,
 } from "lucide-react";
+import { createBrowserClient } from "@/lib/supabase/client";
 
-type TxnKind = "boost" | "virtual" | "refund" | "gift" | "topup";
+type TxnKind = "boost" | "virtual" | "refund" | "gift" | "topup" | "other";
 type HistMode = "list" | "stats";
 
 type Txn = {
@@ -29,38 +30,25 @@ type Txn = {
   kind: TxnKind;
 };
 
-/** Demo transactions matching primex.ng/use — auto-removed when Supabase key is present */
-const DEMO_TXNS: Txn[] = [
-  { id: "d1", title: "Boosting: Instagram", amount: -386.96, status: "Success", when: "Jul 16, 2026 · 1:18am", kind: "boost" },
-  { id: "d2", title: "Boosting: Facebook", amount: -246.38, status: "Success", when: "Jul 16, 2026 · 12:48am", kind: "boost" },
-  { id: "d3", title: "Boosting: Twitter", amount: -226.98, status: "Success", when: "Jul 16, 2026 · 12:31am", kind: "boost" },
-  { id: "d4", title: "Refund: Boosting order", amount: 191.1, status: "Success", when: "Jul 16, 2026 · 12:02am", kind: "refund" },
-  { id: "d5", title: "Boosting: YouTube", amount: -191.1, status: "Success", when: "Jul 16, 2026 · 12:02am", kind: "boost" },
-  { id: "d6", title: "Boosting: YouTube", amount: -191.1, status: "Success", when: "Jul 15, 2026 · 11:58pm", kind: "boost" },
-  { id: "d7", title: "Refund: Boosting order", amount: 191.1, status: "Success", when: "Jul 15, 2026 · 11:58pm", kind: "refund" },
-  { id: "d8", title: "Boosting: YouTube", amount: -191.1, status: "Success", when: "Jul 15, 2026 · 11:57pm", kind: "boost" },
-  { id: "d9", title: "Virtual Number (US)", amount: -2160, status: "Success", when: "Jul 15, 2026 · 11:13pm", kind: "virtual" },
-  { id: "d10", title: "Boosting: Spotify", amount: -500.26, status: "Success", when: "Jul 15, 2026 · 12:13am", kind: "boost" },
-  { id: "d11", title: "Boosting: Audiomack", amount: -567, status: "Success", when: "Jul 15, 2026 · 12:05am", kind: "boost" },
-  { id: "d12", title: "Boosting: Audiomack", amount: -397.22, status: "Success", when: "Jul 15, 2026 · 12:02am", kind: "boost" },
-  { id: "d13", title: "Refund — Cancelled", amount: 3475, status: "Success", when: "Jul 14, 2026 · 1:02pm", kind: "refund" },
-  { id: "d14", title: "Virtual Number (All)", amount: -3475, status: "Success", when: "Jul 14, 2026 · 1:00pm", kind: "virtual" },
-  { id: "d15", title: "Refund - Virtual Number", amount: 2295, status: "Success", when: "Jul 14, 2026 · 12:59pm", kind: "refund" },
-  { id: "d16", title: "Virtual Number (All)", amount: -2295, status: "Success", when: "Jul 14, 2026 · 12:59pm", kind: "virtual" },
-  { id: "d17", title: "Refund - Virtual Number", amount: 2295, status: "Success", when: "Jul 14, 2026 · 12:32pm", kind: "refund" },
-  { id: "d18", title: "Virtual Number (All)", amount: -2295, status: "Success", when: "Jul 14, 2026 · 12:31pm", kind: "virtual" },
-  { id: "d19", title: "Refund — Cancelled", amount: 3475, status: "Success", when: "Jul 14, 2026 · 12:31pm", kind: "refund" },
-  { id: "d20", title: "Virtual Number (All)", amount: -3475, status: "Success", when: "Jul 14, 2026 · 12:15pm", kind: "virtual" },
-  { id: "d21", title: "Gift Card Sale — iTunes", amount: 133445, status: "Success", when: "Jul 14, 2026 · 12:40pm", kind: "gift" },
-  { id: "d22", title: "Wallet Top-up", amount: 50000, status: "Success", when: "Jul 13, 2026 · 9:20am", kind: "topup" },
-];
-
 const PAGE_SIZE = 8;
 
 function naira(n: number) {
   const abs = Math.abs(n);
-  const formatted = abs.toLocaleString("en-NG", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  const formatted = abs.toLocaleString("en-NG", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  });
   return (n < 0 ? "-" : n > 0 ? "+" : "") + "\u20a6" + formatted;
+}
+
+function mapKind(kind: string): TxnKind {
+  const k = kind.toLowerCase();
+  if (k.includes("boost")) return "boost";
+  if (k.includes("virtual") || k.includes("sms") || k.includes("number")) return "virtual";
+  if (k.includes("refund")) return "refund";
+  if (k.includes("gift")) return "gift";
+  if (k.includes("top") || k.includes("fund") || k.includes("deposit")) return "topup";
+  return "other";
 }
 
 function TxnIcon({ kind }: { kind: TxnKind }) {
@@ -96,41 +84,80 @@ export default function HistoryPage() {
   const [mode, setMode] = useState<HistMode>("list");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [hasSupabase, setHasSupabase] = useState(false);
+  const [txns, setTxns] = useState<Txn[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const key =
-      (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_URL) ||
-      (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
-      (typeof window !== "undefined" && (window as unknown as { __SUPABASE_URL__?: string }).__SUPABASE_URL__);
-    setHasSupabase(Boolean(key && String(key).length > 8));
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        const supabase = createBrowserClient();
+        const { data: auth } = await supabase.auth.getUser();
+        if (!auth.user) {
+          if (!cancelled) {
+            setTxns([]);
+            setLoading(false);
+          }
+          return;
+        }
 
-  const allTxns = useMemo(() => (hasSupabase ? [] : DEMO_TXNS), [hasSupabase]);
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("id, kind, title, amount, status, created_at")
+          .eq("user_id", auth.user.id)
+          .order("created_at", { ascending: false })
+          .limit(200);
+
+        if (error || !data) {
+          if (!cancelled) setTxns([]);
+        } else if (!cancelled) {
+          setTxns(
+            data.map((row) => ({
+              id: row.id,
+              title: row.title || row.kind || "Transaction",
+              amount: Number(row.amount) || 0,
+              status: row.status || "Success",
+              when: row.created_at
+                ? new Date(row.created_at).toLocaleString("en-NG", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })
+                : "",
+              kind: mapKind(String(row.kind || "")),
+            }))
+          );
+        }
+      } catch {
+        if (!cancelled) setTxns([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return allTxns;
-    return allTxns.filter(
+    if (!q) return txns;
+    return txns.filter(
       (t) =>
         t.title.toLowerCase().includes(q) ||
         t.status.toLowerCase().includes(q) ||
         t.when.toLowerCase().includes(q)
     );
-  }, [allTxns, search]);
+  }, [txns, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // Stats (demo values matching video when no Supabase)
-  const allTimeFunding = hasSupabase ? 0 : 110960.69;
-  const monthTopUps = hasSupabase ? 0 : 0;
-  const monthSpending = hasSupabase ? 0 : 0;
-  const totalPurchases = hasSupabase ? 0 : 0;
-  const totalTxns = hasSupabase ? 0 : 0;
-  const totalTopUps = hasSupabase ? 0 : 0;
-  const totalSpent = hasSupabase ? 0 : 0;
-  const purchaseCount = hasSupabase ? 0 : 0;
+  const topUps = txns.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const spent = txns.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+  const purchaseCount = txns.filter((t) => t.amount < 0).length;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24">
@@ -140,7 +167,6 @@ export default function HistoryPage() {
       </header>
 
       <div className="px-4 pt-2">
-        {/* List / Stats toggle */}
         <div className="flex gap-2 p-1 rounded-full bg-[#E8EEF5] mb-3">
           <button
             type="button"
@@ -177,9 +203,15 @@ export default function HistoryPage() {
               />
             </div>
 
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8] mb-2">All Activity</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#94A3B8] mb-2">
+              All Activity
+            </p>
 
-            {pageItems.length === 0 ? (
+            {loading ? (
+              <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-8 text-center">
+                <p className="text-sm text-[#64748B]">Loading…</p>
+              </div>
+            ) : pageItems.length === 0 ? (
               <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-8 text-center">
                 <p className="text-sm text-[#64748B]">No transactions yet</p>
                 <p className="text-xs text-[#94A3B8] mt-1">Fund your wallet to get started</p>
@@ -247,60 +279,54 @@ export default function HistoryPage() {
                 <CreditCard size={18} />
                 <p className="text-[11px] font-semibold uppercase tracking-wide">All-Time Funding</p>
               </div>
-              <p className="text-2xl font-bold tabular-nums">{"\u20a6"}{allTimeFunding.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
+              <p className="text-2xl font-bold tabular-nums">
+                {"\u20a6"}
+                {topUps.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+              </p>
               <p className="text-[11px] opacity-70 mt-1">Total deposits ever made</p>
-            </div>
-
-            <div className="rounded-[16px] p-4 bg-gradient-to-br from-[#0F172A] via-[#134E4A] to-[#0F172A] text-white">
-              <div className="flex items-center gap-2 mb-2 opacity-80">
-                <Upload size={16} />
-                <p className="text-[11px] font-semibold uppercase tracking-wide">This Month's Top-Ups</p>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{"\u20a6"}{monthTopUps.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
-              <p className="text-[11px] opacity-70 mt-1">September 2026</p>
             </div>
 
             <div className="rounded-[16px] p-4 bg-gradient-to-br from-[#0F172A] via-[#4C1D95] to-[#0F172A] text-white">
               <div className="flex items-center gap-2 mb-2 opacity-80">
                 <Upload size={16} className="rotate-180" />
-                <p className="text-[11px] font-semibold uppercase tracking-wide">This Month's Spending</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide">Total Spending</p>
               </div>
-              <p className="text-2xl font-bold tabular-nums">{"\u20a6"}{monthSpending.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</p>
-              <p className="text-[11px] opacity-70 mt-1">September 2026</p>
-            </div>
-
-            <div className="rounded-[16px] p-4 bg-gradient-to-br from-[#0F172A] via-[#1E3A5F] to-[#0F172A] text-white">
-              <div className="flex items-center gap-2 mb-2 opacity-80">
-                <ShoppingBag size={16} />
-                <p className="text-[11px] font-semibold uppercase tracking-wide">Total Purchases</p>
-              </div>
-              <p className="text-2xl font-bold tabular-nums">{totalPurchases}</p>
-              <p className="text-[11px] opacity-70 mt-1">September 2026</p>
+              <p className="text-2xl font-bold tabular-nums">
+                {"\u20a6"}
+                {spent.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+              </p>
+              <p className="text-[11px] opacity-70 mt-1">From your real transactions</p>
             </div>
 
             <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Calendar size={16} className="text-[#1877F2]" />
-                <p className="text-sm font-semibold text-[#0F172A]">September 2026 Summary</p>
+                <p className="text-sm font-semibold text-[#0F172A]">Summary</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5">
                   <span className="flex items-center gap-2 text-xs text-[#64748B]">
                     <ArrowLeftRight size={14} /> TOTAL TRANSACTIONS
                   </span>
-                  <span className="text-sm font-semibold text-[#0F172A]">{totalTxns}</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">{txns.length}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5 border-l-[3px] border-l-[#10B981]">
                   <span className="flex items-center gap-2 text-xs text-[#64748B]">
                     <Plus size={14} className="text-[#10B981]" /> TOTAL TOP-UPS
                   </span>
-                  <span className="text-sm font-semibold text-[#0F172A]">{"\u20a6"}{totalTopUps.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">
+                    {"\u20a6"}
+                    {topUps.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5 border-l-[3px] border-l-[#EF4444]">
                   <span className="flex items-center gap-2 text-xs text-[#64748B]">
                     <Minus size={14} className="text-[#EF4444]" /> TOTAL SPENT
                   </span>
-                  <span className="text-sm font-semibold text-[#0F172A]">{"\u20a6"}{totalSpent.toLocaleString("en-NG", { minimumFractionDigits: 2 })}</span>
+                  <span className="text-sm font-semibold text-[#0F172A]">
+                    {"\u20a6"}
+                    {spent.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between rounded-[10px] bg-[#F8FAFC] px-3 py-2.5">
                   <span className="flex items-center gap-2 text-xs text-[#64748B]">
