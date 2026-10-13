@@ -33,6 +33,7 @@ type FundState =
 
 const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
 
+/** Grade-1 fintech spacing: 16px page padding, 16px between blocks, 16px card padding */
 function CopyButton({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -48,7 +49,7 @@ function CopyButton({ value, label }: { value: string; label: string }) {
     <button
       type="button"
       onClick={onCopy}
-      className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#1877F2]"
+      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-2.5 text-xs font-medium text-[#1877F2]"
       aria-label={`Copy ${label}`}
     >
       {copied ? (
@@ -63,6 +64,37 @@ function CopyButton({ value, label }: { value: string; label: string }) {
         </>
       )}
     </button>
+  );
+}
+
+function DetailRow({
+  icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 py-3.5">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1877F2]/10 text-[#1877F2]">
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-[#94A3B8]">{label}</p>
+          <p
+            className={`truncate text-sm font-semibold text-[#0F172A] ${mono ? "tabular-nums" : ""}`}
+          >
+            {value}
+          </p>
+        </div>
+      </div>
+      <CopyButton value={value} label={label.toLowerCase()} />
+    </div>
   );
 }
 
@@ -128,9 +160,10 @@ export default function FundPage() {
   }, [amountInput, refresh]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-24">
-      <header className="sticky top-0 z-20 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
+    <div className="min-h-screen bg-[#F8FAFC] pb-28">
+      {/* Header — fixed height, clean edge */}
+      <header className="sticky top-0 z-20 border-b border-[#E2E8F0] bg-white">
+        <div className="mx-auto flex h-14 max-w-lg items-center gap-3 px-4">
           <button
             type="button"
             onClick={() => router.back()}
@@ -139,16 +172,18 @@ export default function FundPage() {
           >
             <ArrowLeft size={18} />
           </button>
-          <h1 className="text-base font-semibold text-[#0F172A]">Fund Wallet</h1>
+          <h1 className="text-[15px] font-semibold tracking-tight text-[#0F172A]">Fund Wallet</h1>
         </div>
       </header>
 
-      <div className="mx-auto max-w-lg space-y-4 px-4 pt-4">
-        <div className="relative overflow-hidden rounded-[14px] bg-[#0B1220] p-5 text-white shadow-[0_10px_28px_rgba(15,23,42,0.18)]">
-          <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-slate-400">
+      {/* Content: equal 16px page padding + 16px gap between every major block */}
+      <div className="mx-auto flex max-w-lg flex-col gap-4 px-4 pt-4">
+        {/* 1. Balance card */}
+        <div className="rounded-2xl bg-[#0B1220] px-5 py-5 text-white shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
             Wallet Balance
           </p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight tabular-nums">
+          <p className="mt-3 text-[32px] font-semibold leading-none tracking-tight tabular-nums">
             {walletLoading
               ? "₦…"
               : `₦${balance.toLocaleString("en-NG", {
@@ -156,17 +191,19 @@ export default function FundPage() {
                   maximumFractionDigits: 2,
                 })}`}
           </p>
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-emerald-300/90">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <p className="mt-4 flex items-center gap-2 text-xs text-emerald-300/90">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
             Available for transactions
           </p>
         </div>
 
-        {state.status !== "ready" && (
-          <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-4 shadow-sm space-y-3">
-            <h2 className="text-sm font-semibold text-[#0F172A]">Enter amount</h2>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-[#64748B]">
+        {/* 2. Enter amount OR payment details — same card shell */}
+        {state.status !== "ready" ? (
+          <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
+            <h2 className="text-[15px] font-semibold text-[#0F172A]">Enter amount</h2>
+
+            <div className="relative mt-4">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[#64748B]">
                 ₦
               </span>
               <input
@@ -174,27 +211,33 @@ export default function FundPage() {
                 inputMode="numeric"
                 value={amountInput}
                 onChange={(e) => setAmountInput(e.target.value.replace(/[^0-9]/g, ""))}
-                className="w-full rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] py-3 pl-8 pr-3 text-base font-semibold tabular-nums text-[#0F172A] outline-none focus:border-[#1877F2]"
+                className="h-12 w-full rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] pl-8 pr-4 text-base font-semibold tabular-nums text-[#0F172A] outline-none focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/15"
                 placeholder="1000"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+
+            <div className="mt-3 flex flex-wrap gap-2">
               {QUICK_AMOUNTS.map((a) => (
                 <button
                   key={a}
                   type="button"
                   onClick={() => setAmountInput(String(a))}
-                  className="rounded-full border border-[#E2E8F0] bg-white px-3 py-1.5 text-xs font-medium text-[#0F172A]"
+                  className={`h-9 rounded-full border px-3.5 text-xs font-medium transition-colors ${
+                    String(a) === amountInput
+                      ? "border-[#1877F2] bg-[#EFF6FF] text-[#1877F2]"
+                      : "border-[#E2E8F0] bg-white text-[#0F172A]"
+                  }`}
                 >
                   ₦{a.toLocaleString("en-NG")}
                 </button>
               ))}
             </div>
+
             <button
               type="button"
               onClick={generateAccount}
               disabled={state.status === "loading"}
-              className="flex w-full items-center justify-center gap-2 rounded-[12px] bg-[#1877F2] py-3 text-sm font-semibold text-white disabled:opacity-60"
+              className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1877F2] text-sm font-semibold text-white shadow-sm disabled:opacity-60"
             >
               {state.status === "loading" ? (
                 <>
@@ -205,95 +248,67 @@ export default function FundPage() {
                 "Generate payment account"
               )}
             </button>
+
             {state.status === "error" && (
-              <p className="text-center text-xs text-red-600">{state.message}</p>
+              <p className="mt-3 text-center text-xs text-red-600">{state.message}</p>
             )}
           </section>
-        )}
-
-        {state.status === "ready" && (
-          <section className="rounded-[14px] border border-[#E2E8F0] bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2">
+        ) : (
+          <section className="rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-2">
               <Building2 size={18} className="text-[#1877F2]" />
-              <h2 className="text-sm font-semibold text-[#0F172A]">Pay exactly this amount</h2>
+              <h2 className="text-[15px] font-semibold text-[#0F172A]">Pay exactly this amount</h2>
             </div>
-            <p className="mb-3 rounded-[10px] bg-[#EFF6FF] px-3 py-2 text-center text-lg font-bold tabular-nums text-[#1877F2]">
+
+            <p className="mt-4 rounded-xl bg-[#EFF6FF] px-4 py-3.5 text-center text-xl font-bold tabular-nums text-[#1877F2]">
               ₦
               {state.account.amount.toLocaleString("en-NG", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </p>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#1877F2]/10 text-[#1877F2]">
-                    <Building2 size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-[#94A3B8]">
-                      Bank Name
-                    </p>
-                    <p className="truncate text-sm font-semibold text-[#0F172A]">
-                      {state.account.bankName}
-                    </p>
-                  </div>
-                </div>
-                <CopyButton value={state.account.bankName} label="bank name" />
-              </div>
-              <div className="flex items-center justify-between rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#1877F2]/10 text-[#1877F2]">
-                    <Hash size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-[#94A3B8]">
-                      Account Number
-                    </p>
-                    <p className="truncate text-sm font-semibold tabular-nums text-[#0F172A]">
-                      {state.account.accountNumber}
-                    </p>
-                  </div>
-                </div>
-                <CopyButton value={state.account.accountNumber} label="account number" />
-              </div>
-              <div className="flex items-center justify-between rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] px-3.5 py-3">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#1877F2]/10 text-[#1877F2]">
-                    <User size={16} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-medium uppercase tracking-wide text-[#94A3B8]">
-                      Account Name
-                    </p>
-                    <p className="truncate text-sm font-semibold text-[#0F172A]">
-                      {state.account.accountName}
-                    </p>
-                  </div>
-                </div>
-                <CopyButton value={state.account.accountName} label="account name" />
-              </div>
-              {state.account.expireAt && (
-                <div className="flex items-center gap-2 text-xs text-[#64748B]">
-                  <Clock size={14} />
-                  <span>Expires: {state.account.expireAt}</span>
-                </div>
-              )}
+
+            <div className="mt-4 flex flex-col gap-3">
+              <DetailRow
+                icon={<Building2 size={16} />}
+                label="Bank Name"
+                value={state.account.bankName}
+              />
+              <DetailRow
+                icon={<Hash size={16} />}
+                label="Account Number"
+                value={state.account.accountNumber}
+                mono
+              />
+              <DetailRow
+                icon={<User size={16} />}
+                label="Account Name"
+                value={state.account.accountName}
+              />
             </div>
+
+            {state.account.expireAt && (
+              <div className="mt-3 flex items-center gap-2 text-xs text-[#64748B]">
+                <Clock size={14} className="shrink-0" />
+                <span>Expires: {state.account.expireAt}</span>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => {
                 setState({ status: "idle" });
                 refresh();
               }}
-              className="mt-4 w-full rounded-[12px] border border-[#E2E8F0] py-2.5 text-sm font-medium text-[#0F172A]"
+              className="mt-4 flex h-11 w-full items-center justify-center rounded-xl border border-[#E2E8F0] text-sm font-medium text-[#0F172A]"
             >
               Generate another amount
             </button>
           </section>
         )}
 
-        <div className="flex items-start gap-2.5 rounded-[12px] border border-[#E2E8F0] bg-white px-4 py-3.5 shadow-sm">
+        {/* 3. Trust note — same 16px gap above */}
+        <div className="flex items-start gap-3 rounded-2xl border border-[#E2E8F0] bg-white px-4 py-4 shadow-sm">
           <Shield size={18} className="mt-0.5 shrink-0 text-[#1877F2]" />
           <p className="text-xs leading-relaxed text-[#475569]">
             <span className="font-semibold text-[#0F172A]">Instant & Secure:</span> Transfer the{" "}
