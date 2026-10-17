@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createDynamicVirtualAccount, getXixaPayConfig } from "@/lib/xixapay";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 async function getAuthedUser(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -55,7 +56,8 @@ export async function POST(req: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
 
-    const email = profile?.email || user.email || `user-${user.id.slice(0, 8)}@vernexdigital.com`;
+    const email =
+      profile?.email || user.email || `user-${user.id.slice(0, 8)}@vernexdigital.com`;
     const name =
       (profile?.full_name && String(profile.full_name).trim()) ||
       email.split("@")[0] ||
@@ -65,7 +67,7 @@ export async function POST(req: NextRequest) {
     const externalReference = `fund_${user.id.replace(/-/g, "").slice(0, 12)}_${Date.now()}`;
     const callbackUrl =
       process.env.XIXAPAY_VIRTUAL_ACCOUNT_WEBHOOK_URL ||
-      "https://vernexdigital.com/api/webhooks/xixapay/virtual-account";
+      "https://www.vernexdigital.com/api/webhooks/xixapay/virtual-account";
 
     const va = await createDynamicVirtualAccount({
       email,
@@ -76,6 +78,18 @@ export async function POST(req: NextRequest) {
       callbackUrl,
     });
 
+    const meta = {
+      provider: "xixapay",
+      account_type: "dynamic",
+      bank_name: va.bankName,
+      account_number: va.accountNumber,
+      account_name: va.accountName,
+      reserved_account_id: va.reservedAccountId,
+      customer_id: va.customerId,
+      external_reference: externalReference,
+      expire_at: va.expireAt,
+    };
+
     const { data: tx, error: txError } = await admin
       .from("transactions")
       .insert({
@@ -84,28 +98,47 @@ export async function POST(req: NextRequest) {
         title: `Fund wallet ₦${amount.toLocaleString("en-NG")}`,
         amount,
         status: "pending",
-        meta: {
-          provider: "xixapay",
-          account_type: "dynamic",
-          bank_name: va.bankName,
-          account_number: va.accountNumber,
-          account_name: va.accountName,
-          reserved_account_id: va.reservedAccountId,
-          customer_id: va.customerId,
-          external_reference: externalReference,
-          expire_at: va.expireAt,
-        },
+        meta,
       })
       .select("id")
       .single();
 
-    if (txError) {
+    if (txError || !tx?.id) {
       console.error("[wallet/fund] tx insert", txError);
+      return NextResponse.json(
+        {
+          error:
+            "Could not save funding session. Check Supabase transactions table (kind, status, meta).",
+          detail: txError?.message || "no_id",
+        },
+        { status: 500 }
+      );
     }
+
+    const { error: vaInsertErr } = await admin.from("virtual_accounts").insert({
+      user_id: user.id,
+      account_number: String(va.accountNumber).replace(/\D/g, ""),
+      bank_name: va.bankName,
+      account_name: va.accountName,
+      amount,
+      external_ref: externalReference,
+      reserved_account_id: va.reservedAccountId || null,
+      status: "pending",
+      expire_at: va.expireAt,
+      transaction_id: tx.id,
+    });
+    if (vaInsertErr) {
+      console.warn("[wallet/fund] virtual_accounts insert", vaInsertErr.message);
+    }
+
+    await admin.from("wallets").upsert(
+      { user_id: user.id, balance: 0, updated_at: new Date().toISOString() },
+      { onConflict: "user_id", ignoreDuplicates: true }
+    );
 
     return NextResponse.json({
       ok: true,
-      transactionId: tx?.id || null,
+      transactionId: tx.id,
       amount: va.amount,
       bankName: va.bankName,
       accountNumber: va.accountNumber,
@@ -113,7 +146,8 @@ export async function POST(req: NextRequest) {
       reservedAccountId: va.reservedAccountId,
       expireAt: va.expireAt,
       externalReference,
-      message: "Transfer the exact amount to this account. Your wallet will update automatically.",
+      message:
+        "Transfer the exact amount to this account. Your wallet will update automatically.",
     });
   } catch (e) {
     console.error("[wallet/fund]", e);
