@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -71,7 +71,7 @@ const COUNTRIES = [
   "South Africa",
 ];
 
-/** Catalog prices (product pricing — not user history). Live API will replace these later. */
+/** Fallback estimates when catalog is offline */
 const CATALOG_PRICES: Record<ProviderId, number> = {
   "usa-s1": 5247.07,
   "usa-s2": 4800.0,
@@ -103,9 +103,13 @@ export default function VirtualNumberPage() {
   const [fetching, setFetching] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [error, setError] = useState("");
-  /** Empty until the user places a real order (or API returns history). */
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [wholesaleNgn, setWholesaleNgn] = useState<number>(0);
+  const [costUsd, setCostUsd] = useState<number>(0.5);
+  const [grizzlyCountry, setGrizzlyCountry] = useState("");
+  const [ordering, setOrdering] = useState(false);
 
   const selectedProvider = PROVIDERS.find((p) => p.id === provider)!;
   const needsCountry = selectedProvider.needsCountry;
@@ -128,7 +132,64 @@ export default function VirtualNumberPage() {
     setShowPrice(false);
     setError("");
     setActiveOrder(null);
+    setLivePrice(null);
   }
+
+  const loadPrice = useCallback(
+    async (svc: string, ctry: string, pool: ProviderId) => {
+      if (!svc) return;
+      if (PROVIDERS.find((p) => p.id === pool)?.needsCountry && !ctry) return;
+      setFetching(true);
+      setShowPrice(false);
+      setError("");
+      try {
+        const qs = new URLSearchParams({
+          mode: "prices",
+          pool,
+          service: svc,
+        });
+        const ISO: Record<string, string> = {
+          "United States": "US",
+          "United Kingdom": "GB",
+          Germany: "DE",
+          Canada: "CA",
+          Nigeria: "NG",
+          France: "FR",
+          Netherlands: "NL",
+          India: "IN",
+          Brazil: "BR",
+          Australia: "AU",
+          Spain: "ES",
+          Italy: "IT",
+          Poland: "PL",
+          Ukraine: "UA",
+          "South Africa": "ZA",
+        };
+        if (ctry) qs.set("country", ISO[ctry] || ctry);
+        const res = await fetch(`/api/vn/catalog?${qs}`);
+        const data = await res.json().catch(() => ({}));
+        const opt = data.options?.[0];
+        if (data.ok && opt) {
+          setLivePrice(Number(opt.priceNgn) || null);
+          setWholesaleNgn(Number(opt.wholesaleNgn) || 0);
+          setCostUsd(Number(opt.costUsd) || 0.5);
+          setGrizzlyCountry(opt.grizzlyCountry || ISO[ctry] || ctry || "US");
+          setShowPrice(true);
+        } else {
+          setLivePrice(CATALOG_PRICES[pool] || null);
+          setShowPrice(true);
+          if (data.error) setError(String(data.error));
+        }
+      } catch {
+        setLivePrice(CATALOG_PRICES[pool] || null);
+        setShowPrice(true);
+        setError("Could not load live price. Showing estimate.");
+      } finally {
+        setFetching(false);
+      }
+    },
+    [],
+  );
 
   function selectService(name: string) {
     setService(name);
@@ -136,12 +197,7 @@ export default function VirtualNumberPage() {
     setServiceQuery("");
     setError("");
     if (!needsCountry || country) {
-      setFetching(true);
-      setShowPrice(false);
-      setTimeout(() => {
-        setFetching(false);
-        setShowPrice(true);
-      }, 400);
+      void loadPrice(name, country, provider);
     }
   }
 
@@ -151,25 +207,67 @@ export default function VirtualNumberPage() {
     setCountryQuery("");
     setError("");
     if (service) {
-      setFetching(true);
-      setShowPrice(false);
-      setTimeout(() => {
-        setFetching(false);
-        setShowPrice(true);
-      }, 400);
+      void loadPrice(service, name, provider);
     }
   }
 
-  function handleOrder() {
-    const price = CATALOG_PRICES[provider];
-    if (balance < price) {
+  async function handleOrder() {
+    const price = livePrice ?? CATALOG_PRICES[provider];
+    if (!price || balance < price) {
       setError("Insufficient wallet balance. Fund your wallet first.");
       return;
     }
-    setError("Ordering is not connected to a provider yet. No charge was made.");
+    setOrdering(true);
+    setError("");
+    try {
+      const { createBrowserClient } = await import("@/lib/supabase/client");
+      const supabase = createBrowserClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        setError("Sign in again to buy a number.");
+        setOrdering(false);
+        return;
+      }
+      const res = await fetch("/api/vn/buy", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          service,
+          country: grizzlyCountry || "US",
+          pool: provider,
+          priceNgn: price,
+          wholesaleNgn,
+          maxPriceUsd: costUsd || 0.5,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        setError(data.error || "Purchase failed");
+        setOrdering(false);
+        return;
+      }
+      const o = data.order;
+      const order: Order = {
+        phone: o.phone || "—",
+        service: service,
+        provider: selectedProvider.label,
+        status: "waiting",
+      };
+      setOrders((prev) => [order, ...prev]);
+      setActiveOrder(order);
+      setShowPrice(false);
+    } catch {
+      setError("Network error while ordering");
+    } finally {
+      setOrdering(false);
+    }
   }
 
-  const price = CATALOG_PRICES[provider];
+  const price = livePrice ?? CATALOG_PRICES[provider];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28">
@@ -285,10 +383,11 @@ export default function VirtualNumberPage() {
               <button
                 type="button"
                 onClick={handleOrder}
-                className="w-full h-11 bg-[#1877F2] hover:bg-[#166FE5] text-white text-sm font-medium rounded-[10px] flex items-center justify-center gap-2 transition-colors"
+                disabled={ordering || fetching}
+                className="w-full h-11 bg-[#1877F2] hover:bg-[#166FE5] text-white text-sm font-medium rounded-[10px] flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
               >
                 <ShoppingCart size={16} />
-                Order Number
+                {ordering ? "Ordering…" : "Order Number"}
               </button>
 
               {error && (
@@ -303,7 +402,7 @@ export default function VirtualNumberPage() {
           {activeOrder && (
             <div className="mt-2 p-3 rounded-[10px] border border-[#1877F2]/30 bg-[#1877F2]/5">
               <p className="text-xs font-medium text-[#64748B] mb-1">Waiting for SMS</p>
-              <p className="text-sm font-semibold text-[#0F172A] tabular-nums">+{activeOrder.phone}</p>
+              <p className="text-sm font-semibold text-[#0F172A] tabular-nums">{activeOrder.phone}</p>
               <p className="text-xs text-[#64748B] mt-1">
                 Use this number on {activeOrder.service}. OTP will appear here when received.
               </p>
