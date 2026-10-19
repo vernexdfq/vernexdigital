@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
-import { createDynamicVirtualAccount, getXixaPayConfig } from "@/lib/xixapay";
+import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,8 +8,8 @@ const PANEL_SLUG = "vernexdigital";
 const ACCOUNT_NAME = "Verxor–vernexdigital";
 
 /**
- * Partner / child-panel wholesale top-up.
- * Account name is always Verxor–vernexdigital (never a personal name).
+ * Partner wholesale top-up via Verxor only (Verxor's XixaPay).
+ * No local XixaPay — panel API key authenticates to Verxor.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -26,75 +25,59 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Amount is too large." }, { status: 400 });
     }
 
-    if (!getXixaPayConfig()) {
+    const { configured } = verxorConfig();
+    if (!configured) {
       return NextResponse.json(
         {
           error:
-            "Payment gateway is not configured. Add XIXAPAY_* env vars, then retry.",
+            "VERXOR_PANEL_API_KEY is not set on vernexdigital. Add it in Vercel env, then redeploy.",
         },
         { status: 503 },
       );
     }
 
-    const externalReference = `partner_${PANEL_SLUG}_${Date.now()}`;
-    const callbackUrl =
-      process.env.XIXAPAY_VIRTUAL_ACCOUNT_WEBHOOK_URL ||
-      "https://www.vernexdigital.com/api/webhooks/xixapay/virtual-account";
-
-    const va = await createDynamicVirtualAccount({
-      email: `partner-${PANEL_SLUG}@vernexdigital.com`,
-      name: ACCOUNT_NAME,
-      phoneNumber: "08000000000",
-      amount,
-      externalReference,
-      callbackUrl,
+    const res = await verxorFetch("/partner/fund/generate", {
+      method: "POST",
+      body: JSON.stringify({
+        amount,
+        amountNgn: amount,
+        name: ACCOUNT_NAME,
+        email: `partner-${PANEL_SLUG}@verxor.local`,
+      }),
     });
 
-    const accountName = ACCOUNT_NAME;
+    const data = await res.json().catch(() => ({}));
 
-    try {
-      const admin = createServerClient();
-      await admin.from("partner_fund_sessions").insert({
-        panel_slug: PANEL_SLUG,
-        amount,
-        status: "pending",
-        bank_name: va.bankName,
-        account_number: String(va.accountNumber).replace(/\D/g, ""),
-        account_name: accountName,
-        external_ref: externalReference,
-        reserved_account_id: va.reservedAccountId || null,
-        expire_at: va.expireAt,
-        meta: {
-          provider: "xixapay",
-          account_type: "partner_wholesale",
+    if (!res.ok || data.ok === false) {
+      return NextResponse.json(
+        {
+          error:
+            data.message ||
+            data.error ||
+            data.reason ||
+            "Could not create funding account on Verxor.",
         },
-      });
-    } catch (e) {
-      console.warn("[partner-fund] session insert skipped", e);
+        { status: res.status >= 400 ? res.status : 502 },
+      );
     }
 
+    const account = data.account || data;
     return NextResponse.json({
       ok: true,
-      amount: va.amount,
-      bankName: va.bankName,
-      accountNumber: va.accountNumber,
-      accountName,
-      reservedAccountId: va.reservedAccountId,
-      expireAt: va.expireAt,
-      externalReference,
+      amount: Number(account.amountNgn ?? account.amount ?? amount),
+      bankName: account.bankName || "OPay",
+      accountNumber: String(account.accountNumber || ""),
+      accountName: account.accountName || ACCOUNT_NAME,
+      reservedAccountId: account.providerId || null,
+      expireAt: account.expireAt || null,
+      externalReference: account.externalRef || null,
       message:
-        "Transfer the exact amount. Panel wholesale balance updates when the bank confirms.",
+        "Transfer the exact amount. Panel wholesale balance updates on Verxor when the bank confirms.",
     });
   } catch (e) {
     console.error("[partner-fund]", e);
     const message =
       e instanceof Error ? e.message : "Could not create funding account";
-    if (message === "XIXAPAY_NOT_CONFIGURED") {
-      return NextResponse.json(
-        { error: "Payment gateway is not configured." },
-        { status: 503 },
-      );
-    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
