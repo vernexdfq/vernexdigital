@@ -8,8 +8,8 @@ const PANEL_SLUG = "vernexdigital";
 const ACCOUNT_NAME = "Verxor–vernexdigital";
 
 /**
- * Partner wholesale top-up via Verxor only (Verxor's XixaPay).
- * No local XixaPay — panel API key authenticates to Verxor.
+ * Partner top-up via Verxor only (single XixaPay lives on Verxor).
+ * Child panel never needs XIXAPAY_* — only VERXOR_PANEL_API_KEY.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "VERXOR_PANEL_API_KEY is not set on vernexdigital. Add it in Vercel env, then redeploy.",
+            "VERXOR_PANEL_API_KEY is not set. Add it on vernexdigital Vercel, then retry.",
         },
         { status: 503 },
       );
@@ -38,12 +38,7 @@ export async function POST(req: NextRequest) {
 
     const res = await verxorFetch("/partner/fund/generate", {
       method: "POST",
-      body: JSON.stringify({
-        amount,
-        amountNgn: amount,
-        name: ACCOUNT_NAME,
-        email: `partner-${PANEL_SLUG}@verxor.local`,
-      }),
+      body: JSON.stringify({ amountNgn: amount, amount }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -61,18 +56,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const account = data.account || data;
     return NextResponse.json({
       ok: true,
-      amount: Number(account.amountNgn ?? account.amount ?? amount),
-      bankName: account.bankName || "OPay",
-      accountNumber: String(account.accountNumber || ""),
-      accountName: account.accountName || ACCOUNT_NAME,
-      reservedAccountId: account.providerId || null,
-      expireAt: account.expireAt || null,
-      externalReference: account.externalRef || null,
+      amount: Number(data.amountNgn ?? data.amount) || amount,
+      bankName: data.bankName || data.account?.bankName || "OPay",
+      accountNumber: String(
+        data.accountNumber || data.account?.accountNumber || "",
+      ).replace(/\D/g, ""),
+      accountName:
+        data.accountName || data.account?.accountName || ACCOUNT_NAME,
+      reservedAccountId: data.reservedAccountId || null,
+      expireAt: data.expireAt || data.account?.expireAt || null,
+      externalReference:
+        data.externalReference ||
+        data.externalRef ||
+        data.account?.externalRef ||
+        null,
       message:
-        "Transfer the exact amount. Panel wholesale balance updates on Verxor when the bank confirms.",
+        data.message ||
+        "Transfer the exact amount. Panel balance updates when the bank confirms.",
+      panelSlug: PANEL_SLUG,
     });
   } catch (e) {
     console.error("[partner-fund]", e);

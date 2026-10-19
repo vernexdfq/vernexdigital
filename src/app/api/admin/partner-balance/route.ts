@@ -4,7 +4,9 @@ import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Panel wholesale balance from Verxor (reseller_wallet via panel API key). */
+/**
+ * Panel wholesale balance from Verxor reseller_wallet (linked to panel key).
+ */
 export async function GET() {
   try {
     const { configured } = verxorConfig();
@@ -13,7 +15,7 @@ export async function GET() {
         balance: 0,
         panelSlug: "vernexdigital",
         live: false,
-        message: "Set VERXOR_PANEL_API_KEY to read live balance",
+        message: "Set VERXOR_PANEL_API_KEY to load live balance",
       });
     }
 
@@ -25,15 +27,16 @@ export async function GET() {
         balance: 0,
         panelSlug: "vernexdigital",
         live: false,
-        error: data.error || data.reason || "balance_failed",
+        error: data.reason || data.error || "balance_unavailable",
       });
     }
 
-    const balance = Number(data.balanceNgn ?? data.balance ?? 0) || 0;
+    const balance = Number(data.balanceNgn ?? data.balance) || 0;
     return NextResponse.json({
       balance,
       panelSlug: "vernexdigital",
       live: true,
+      panel: data.panel || null,
     });
   } catch {
     return NextResponse.json({
