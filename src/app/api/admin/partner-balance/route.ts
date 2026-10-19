@@ -1,27 +1,45 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
+import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Panel wholesale balance. Returns 0 until partner_wallets SQL exists. */
+/** Panel wholesale balance from Verxor (reseller_wallet via panel API key). */
 export async function GET() {
   try {
-    const admin = createServerClient();
-    const { data, error } = await admin
-      .from("partner_wallets")
-      .select("balance")
-      .eq("panel_slug", "vernexdigital")
-      .maybeSingle();
-
-    if (error || !data) {
-      return NextResponse.json({ balance: 0, panelSlug: "vernexdigital" });
+    const { configured } = verxorConfig();
+    if (!configured) {
+      return NextResponse.json({
+        balance: 0,
+        panelSlug: "vernexdigital",
+        live: false,
+        message: "Set VERXOR_PANEL_API_KEY to read live balance",
+      });
     }
+
+    const res = await verxorFetch("/partner/balance");
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok || data.ok === false) {
+      return NextResponse.json({
+        balance: 0,
+        panelSlug: "vernexdigital",
+        live: false,
+        error: data.error || data.reason || "balance_failed",
+      });
+    }
+
+    const balance = Number(data.balanceNgn ?? data.balance ?? 0) || 0;
     return NextResponse.json({
-      balance: Number(data.balance) || 0,
+      balance,
       panelSlug: "vernexdigital",
+      live: true,
     });
   } catch {
-    return NextResponse.json({ balance: 0, panelSlug: "vernexdigital" });
+    return NextResponse.json({
+      balance: 0,
+      panelSlug: "vernexdigital",
+      live: false,
+    });
   }
 }
