@@ -1,30 +1,60 @@
 /**
- * Verxor → child-panel API pricing (NGN).
- * Provider cost arrives as NGN (USD × 1380 on Verxor).
- * Panel pays Verxor: cost_ngn × tier multiplier.
- * Panel may add its own markup for end users separately.
+ * Two-layer virtual-number pricing (all NGN display; FX = 1380).
+ *
+ * 1) VERXOR → PANEL (wholesale)
+ *    From provider USD:
+ *      Economy  < $0.50        × 1.5
+ *      Standard $0.50 – $1.00  × 1.3
+ *      Fast     $1.01 – $2.00  × 1.2
+ *      Premium  > $2.00        × 1.15
+ *    panel_pays = ceil(provider_usd × 1380 × wholesale_mult)
+ *
+ * 2) PANEL → CUSTOMER (retail, default until admin pricing page exists)
+ *    From wholesale cost in NGN:
+ *      Economy  cost < 1035           × 3.0
+ *      Standard 1035 – 1794           × 2.5
+ *      Fast     1672.9 – 3312         × 2.0
+ *      Premium  > 3174                × 1.5
+ *    customer_pays = ceil(wholesale_ngn × retail_mult)
  */
+
 export const NGN_RATE = 1380;
 
-/** API multipliers (what Verxor charges the panel) */
-export const API_MULT = {
+/** What Verxor charges the panel (by provider USD band / pool tier) */
+export const WHOLESALE_MULT = {
+  economy: 1.5,
+  standard: 1.3,
+  fast: 1.2,
+  premium: 1.15,
+} as const;
+
+/** Default what panel charges end users (by wholesale ₦ cost band) */
+export const RETAIL_MULT = {
   economy: 3.0,
   standard: 2.5,
   fast: 2.0,
   premium: 1.5,
 } as const;
 
-export type PoolTier = keyof typeof API_MULT;
+export type PoolTier = keyof typeof WHOLESALE_MULT;
 
-/** Typical cost bands in NGN (documentation / matching) */
-export const COST_BANDS_NGN = {
+/** Provider USD bands that define Verxor pool tiers */
+export const PROVIDER_USD_BANDS = {
+  economy: { maxUsd: 0.5 },
+  standard: { minUsd: 0.5, maxUsd: 1.0 },
+  fast: { minUsd: 1.01, maxUsd: 2.0 },
+  premium: { minUsd: 2.0 },
+} as const;
+
+/** Wholesale ₦ bands for default panel retail multiplier */
+export const RETAIL_COST_BANDS_NGN = {
   economy: { max: 1035 },
   standard: { min: 1035, max: 1794 },
   fast: { min: 1672.9, max: 3312 },
   premium: { min: 3174 },
 } as const;
 
-/** Map UI pool ids (usa-s1 …) → Verxor catalog pool ids */
+/** UI pool id → Verxor catalog pool + tier */
 export const UI_POOL_TO_VERXOR: Record<string, { verxorPool: string; tier: PoolTier }> = {
   "usa-s1": { verxorPool: "usa-economy", tier: "economy" },
   "usa-s2": { verxorPool: "usa-standard", tier: "standard" },
@@ -64,29 +94,74 @@ export const SERVICE_NAME_TO_CODE: Record<string, string> = {
   Viber: "vi",
 };
 
-/**
- * Wholesale price panel pays Verxor (NGN).
- * costNgn = provider cost already in naira, OR costUsd * NGN_RATE
- */
-export function panelWholesaleNgn(opts: {
-  costNgn?: number | null;
-  costUsd?: number | null;
-  tier: PoolTier;
-}): number {
-  const { tier } = opts;
-  const mult = API_MULT[tier] ?? 2;
-  let cost =
-    opts.costNgn != null && Number.isFinite(opts.costNgn)
-      ? Number(opts.costNgn)
-      : opts.costUsd != null && Number.isFinite(opts.costUsd)
-        ? Number(opts.costUsd) * NGN_RATE
-        : 0;
-  if (cost <= 0) return 0;
-  return Math.ceil(cost * mult);
+/** Infer wholesale tier from provider USD when pool tier is unknown */
+export function tierFromProviderUsd(usd: number): PoolTier {
+  if (!Number.isFinite(usd) || usd < 0.5) return "economy";
+  if (usd <= 1.0) return "standard";
+  if (usd <= 2.0) return "fast";
+  return "premium";
 }
 
-/** Default panel markup on top of Verxor wholesale (end-user price). Override via env PANEL_MARKUP_PERCENT */
-export function endUserPriceNgn(wholesaleNgn: number, markupPercent = 15): number {
-  if (wholesaleNgn <= 0) return 0;
-  return Math.ceil(wholesaleNgn * (1 + markupPercent / 100));
+/**
+ * Infer retail tier from wholesale ₦ cost (panel default).
+ * Prefer non-overlapping order: <1035 economy, ≤1794 standard, ≤3312 fast, else premium.
+ */
+export function retailTierFromWholesaleNgn(wholesaleNgn: number): PoolTier {
+  if (!Number.isFinite(wholesaleNgn) || wholesaleNgn < 1035) return "economy";
+  if (wholesaleNgn <= 1794) return "standard";
+  if (wholesaleNgn <= 3312) return "fast";
+  return "premium";
+}
+
+/**
+ * Price panel pays Verxor (NGN).
+ * Prefer costUsd (provider). Tier from pool, or from USD band if omitted.
+ */
+export function panelWholesaleNgn(opts: {
+  costUsd?: number | null;
+  costNgn?: number | null;
+  tier?: PoolTier | null;
+}): number {
+  const costUsd =
+    opts.costUsd != null && Number.isFinite(opts.costUsd) ? Number(opts.costUsd) : null;
+  const costNgn =
+    opts.costNgn != null && Number.isFinite(opts.costNgn) ? Number(opts.costNgn) : null;
+
+  const providerNgn =
+    costUsd != null ? costUsd * NGN_RATE : costNgn != null ? costNgn : 0;
+  if (providerNgn <= 0) return 0;
+
+  const tier =
+    opts.tier ||
+    (costUsd != null ? tierFromProviderUsd(costUsd) : "economy");
+  const mult = WHOLESALE_MULT[tier] ?? 1.15;
+  return Math.ceil(providerNgn * mult);
+}
+
+/**
+ * Default end-user price on vernexdigital (NGN).
+ * Uses wholesale ₦ cost bands × RETAIL_MULT. Admin can override later.
+ */
+export function endUserPriceNgn(wholesaleNgn: number, retailTier?: PoolTier | null): number {
+  if (!Number.isFinite(wholesaleNgn) || wholesaleNgn <= 0) return 0;
+  const tier = retailTier || retailTierFromWholesaleNgn(wholesaleNgn);
+  const mult = RETAIL_MULT[tier] ?? 1.5;
+  return Math.ceil(wholesaleNgn * mult);
+}
+
+/** Full quote from provider USD + pool tier */
+export function quoteFromProviderUsd(costUsd: number, poolTier?: PoolTier | null) {
+  const tier = poolTier || tierFromProviderUsd(costUsd);
+  const wholesaleNgn = panelWholesaleNgn({ costUsd, tier });
+  const retailTier = retailTierFromWholesaleNgn(wholesaleNgn);
+  const priceNgn = endUserPriceNgn(wholesaleNgn, retailTier);
+  return {
+    costUsd,
+    tier,
+    wholesaleMult: WHOLESALE_MULT[tier],
+    wholesaleNgn,
+    retailTier,
+    retailMult: RETAIL_MULT[retailTier],
+    priceNgn,
+  };
 }
