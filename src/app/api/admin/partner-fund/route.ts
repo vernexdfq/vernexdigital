@@ -41,17 +41,24 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ amountNgn: amount, amount }),
     });
 
-    const data = await res.json().catch(() => ({}));
+    const text = await res.text().catch(() => "");
+    let data: Record<string, unknown> = {};
+    try {
+      data = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      data = { raw: text.slice(0, 400) };
+    }
 
     if (!res.ok || data.ok === false) {
+      const msg =
+        (typeof data.message === "string" && data.message) ||
+        (typeof data.error === "string" && data.error) ||
+        (typeof data.reason === "string" && data.reason) ||
+        (typeof data.raw === "string" && data.raw) ||
+        `Could not create funding account on Verxor (HTTP ${res.status}).`;
+      console.error("[partner-fund] Verxor error", res.status, text.slice(0, 500));
       return NextResponse.json(
-        {
-          error:
-            data.message ||
-            data.error ||
-            data.reason ||
-            "Could not create funding account on Verxor.",
-        },
+        { error: msg },
         { status: res.status >= 400 ? res.status : 502 },
       );
     }
@@ -59,21 +66,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       amount: Number(data.amountNgn ?? data.amount) || amount,
-      bankName: data.bankName || data.account?.bankName || "OPay",
+      bankName: data.bankName || (data.account as any)?.bankName || "OPay",
       accountNumber: String(
-        data.accountNumber || data.account?.accountNumber || "",
+        data.accountNumber || (data.account as any)?.accountNumber || "",
       ).replace(/\D/g, ""),
       accountName:
-        data.accountName || data.account?.accountName || ACCOUNT_NAME,
+        data.accountName || (data.account as any)?.accountName || ACCOUNT_NAME,
       reservedAccountId: data.reservedAccountId || null,
-      expireAt: data.expireAt || data.account?.expireAt || null,
+      expireAt: data.expireAt || (data.account as any)?.expireAt || null,
       externalReference:
         data.externalReference ||
         data.externalRef ||
-        data.account?.externalRef ||
+        (data.account as any)?.externalRef ||
         null,
       message:
-        data.message ||
+        (typeof data.message === "string" && data.message) ||
         "Transfer the exact amount. Panel balance updates when the bank confirms.",
       panelSlug: PANEL_SLUG,
     });
