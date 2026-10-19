@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 import {
-  API_MULT,
+  WHOLESALE_MULT,
+  RETAIL_MULT,
   UI_POOL_TO_VERXOR,
   SERVICE_NAME_TO_CODE,
   panelWholesaleNgn,
   endUserPriceNgn,
+  quoteFromProviderUsd,
   type PoolTier,
 } from "@/lib/verxor-pricing";
 
@@ -13,9 +15,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Proxy Verxor catalog and re-price with panel API multipliers (NGN).
- * Query: mode=services|prices|countries|pools
- *        pool=usa-s1|…  service=wa|WhatsApp  country=US
+ * Proxy Verxor catalog; re-price with two layers:
+ *  - wholesaleNgn = provider_usd × 1380 × Verxor mult (1.5 / 1.3 / 1.2 / 1.15)
+ *  - priceNgn     = wholesale × panel retail mult (3 / 2.5 / 2 / 1.5)  [default]
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -30,7 +32,6 @@ export async function GET(req: NextRequest) {
   const serviceCode =
     SERVICE_NAME_TO_CODE[serviceRaw] || serviceRaw.toLowerCase() || "";
 
-  const markup = Number(process.env.PANEL_MARKUP_PERCENT) || 15;
   const { configured } = verxorConfig();
 
   if (!configured) {
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
         ok: true,
         mode: "services",
         live: false,
-        message: "Set VERXOR_PANEL_API_KEY to load live catalog",
+        message: "Set VERXOR_PANEL_API_KEY to load live Grizzly catalog",
         services: Object.entries(SERVICE_NAME_TO_CODE).map(([name, code]) => ({
           code,
           name,
@@ -48,9 +49,9 @@ export async function GET(req: NextRequest) {
       });
     }
     if (mode === "prices") {
-      const demoCost = { economy: 800, standard: 1400, fast: 2200, premium: 4000 }[tier];
-      const wholesale = panelWholesaleNgn({ costNgn: demoCost, tier });
-      const retail = endUserPriceNgn(wholesale, markup);
+      const demoUsd =
+        { economy: 0.4, standard: 0.75, fast: 1.5, premium: 2.5 }[tier] ?? 0.4;
+      const q = quoteFromProviderUsd(demoUsd, tier);
       return NextResponse.json({
         ok: true,
         mode: "prices",
@@ -60,18 +61,20 @@ export async function GET(req: NextRequest) {
         options: [
           {
             label: "Route 1",
-            costNgn: demoCost,
-            wholesaleNgn: wholesale,
-            priceNgn: retail,
+            costUsd: demoUsd,
+            wholesaleNgn: q.wholesaleNgn,
+            priceNgn: q.priceNgn,
+            wholesaleMult: q.wholesaleMult,
+            retailMult: q.retailMult,
             stock: 99,
           },
         ],
       });
     }
-    return NextResponse.json({
-      ok: false,
-      error: "VERXOR_PANEL_API_KEY not configured",
-    }, { status: 503 });
+    return NextResponse.json(
+      { ok: false, error: "VERXOR_PANEL_API_KEY not configured" },
+      { status: 503 },
+    );
   }
 
   try {
@@ -85,7 +88,11 @@ export async function GET(req: NextRequest) {
 
     if (!res.ok || data.ok === false) {
       return NextResponse.json(
-        { ok: false, error: data.reason || data.error || "Catalog failed", upstream: data },
+        {
+          ok: false,
+          error: data.reason || data.error || "Catalog failed",
+          upstream: data,
+        },
         { status: res.status >= 400 ? res.status : 502 },
       );
     }
@@ -103,28 +110,44 @@ export async function GET(req: NextRequest) {
           },
           i: number,
         ) => {
-          const costUsd = o.priceUsd ?? o.fromUsd ?? null;
-          const wholesale = panelWholesaleNgn({
-            costUsd: costUsd != null ? Number(costUsd) : null,
-            costNgn:
-              costUsd == null && o.priceNgn
-                ? Number(o.priceNgn) / (API_MULT[tier] || 2)
+          const costUsdRaw = o.priceUsd ?? o.fromUsd ?? null;
+          const costUsd = costUsdRaw != null ? Number(costUsdRaw) : null;
+
+          let wholesale: number;
+          let retail: number;
+          let wholesaleMult = WHOLESALE_MULT[tier];
+          let retailMult = RETAIL_MULT[tier];
+
+          if (costUsd != null && costUsd > 0) {
+            const q = quoteFromProviderUsd(costUsd, tier);
+            wholesale = q.wholesaleNgn;
+            retail = q.priceNgn;
+            wholesaleMult = q.wholesaleMult;
+            retailMult = q.retailMult;
+          } else {
+            wholesale = panelWholesaleNgn({
+              costNgn: o.priceNgn
+                ? Number(o.priceNgn) / (WHOLESALE_MULT[tier] || 1.5)
                 : null,
-            tier,
-          });
-          const retail = endUserPriceNgn(wholesale || Number(o.priceNgn) || 0, markup);
+              tier,
+            });
+            retail = endUserPriceNgn(wholesale);
+          }
+
           return {
             label: o.label || `Route ${i + 1}`,
-            costUsd: costUsd != null ? Number(costUsd) : null,
+            costUsd,
             wholesaleNgn: wholesale,
             priceNgn: retail,
             stock: Number(o.stock) || 0,
             grizzlyCountry: o.grizzlyCountry || country || "",
             tier,
-            multiplier: API_MULT[tier],
+            wholesaleMult,
+            retailMult,
           };
         },
       );
+
       return NextResponse.json({
         ok: true,
         mode: "prices",
@@ -137,9 +160,9 @@ export async function GET(req: NextRequest) {
         count: options.length,
         options,
         pricing: {
-          note: "wholesaleNgn = cost × API mult (panel pays Verxor); priceNgn = wholesale × panel markup (end user)",
-          apiMult: API_MULT[tier],
-          markupPercent: markup,
+          note: "wholesaleNgn = usd×1380×Verxor(1.5/1.3/1.2/1.15); priceNgn = wholesale×panel(3/2.5/2/1.5)",
+          wholesaleMult: WHOLESALE_MULT[tier],
+          retailMult: RETAIL_MULT[tier],
         },
       });
     }
