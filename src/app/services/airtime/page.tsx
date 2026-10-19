@@ -83,30 +83,6 @@ function NetworkLogo({ id }: { id: NetworkId }) {
   );
 }
 
-function PromoArtwork() {
-  return (
-    <svg className="air-tower-svg" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="air-phone-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#4F46E5" /><stop offset="100%" stopColor="#1E1B4B" />
-        </linearGradient>
-        <linearGradient id="air-glow-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#38BDF8" stopOpacity=".8" /><stop offset="100%" stopColor="#818CF8" stopOpacity=".2" />
-        </linearGradient>
-      </defs>
-      <circle cx="80" cy="50" r="35" fill="url(#air-glow-gradient)" />
-      <g transform="translate(45 12) rotate(8 25 43)">
-        <rect width="50" height="86" rx="10" fill="url(#air-phone-gradient)" stroke="#6366F1" strokeWidth="2" />
-        <rect x="4" y="8" width="42" height="70" rx="6" fill="#0B132B" opacity=".9" />
-        <path d="M16 48c4-4 14-4 18 0M20 54c2.5-2.5 7.5-2.5 10 0" stroke="#38BDF8" strokeWidth="2.5" strokeLinecap="round" />
-        <circle cx="25" cy="59" r="2" fill="#38BDF8" />
-        <rect x="20" y="4" width="10" height="2" rx="1" fill="#475569" />
-      </g>
-      <circle cx="25" cy="30" r="2.5" fill="#38BDF8" /><circle cx="15" cy="50" r="1.5" fill="#818CF8" /><circle cx="35" cy="75" r="2" fill="#38BDF8" />
-    </svg>
-  );
-}
-
 export default function AirtimePage() {
   const { profile, wallet, loading: userLoading } = useUser();
   const [phone, setPhone] = useState("");
@@ -190,15 +166,6 @@ export default function AirtimePage() {
         </nav>
       </header>
 
-      <section className="air-promo-banner" aria-label="Airtime promotion">
-        <div className="air-promo-content">
-          <div className="air-promo-badge"><Zap size={11} className="air-promo-zap" /><span>FAST TOP-UP</span></div>
-          <h2 className="air-promo-title">Airtime Recharge</h2>
-          <p className="air-promo-desc">Top up any major network in moments.</p>
-        </div>
-        <div className="air-promo-art"><PromoArtwork /></div>
-        <div className="air-promo-dots" aria-hidden="true"><span className="dot active" /><span className="dot" /></div>
-      </section>
 
       <section className="air-section" aria-labelledby="network-heading">
         <div className="air-section-head"><h2 id="network-heading">Select Network</h2><p>{selectedNetworkInfo ? `${selectedNetworkInfo.label} selected` : "Choose a provider or enter a number to detect it."}</p></div>
@@ -261,7 +228,7 @@ export default function AirtimePage() {
         {insufficient && <div className="air-summary-warn"><span className="air-warn-text"><AlertCircle size={15} /> Insufficient balance. Add {naira(amount - balance)} to continue.</span><Link href="/fund" className="air-warn-fund-link">Fund wallet</Link></div>}
       </section>}
 
-      {insufficient ? <Link href="/fund" className="air-cta air-cta-fund"><Wallet size={18} /> Fund Wallet</Link> : <button type="button" className="air-cta" disabled={!readyToConfirm} onClick={() => setConfirmOpen(true)}><LockKeyhole size={16} /> {readyToConfirm ? "Continue to confirm" : "Enter recipient and amount"}</button>}
+      {insufficient ? <Link href="/fund" className="air-cta air-cta-fund"><Wallet size={18} /> Fund Wallet</Link> : <button type="button" className="air-cta" disabled={!readyToConfirm} onClick={() => setConfirmOpen(true)}><Zap size={16} fill="currentColor" /> {readyToConfirm ? "Buy Airtime" : "Enter recipient and amount"}</button>}
 
       <div className="air-trust"><span className="air-trust-icon"><ShieldCheck size={15} /></span><div className="air-trust-body"><strong>Secure airtime purchase</strong><p>Review the recipient and amount before confirming.</p></div></div>
 
