@@ -9,7 +9,6 @@ import {
   Check,
   CheckCircle2,
   Clock3,
-  LockKeyhole,
   Phone,
   Plus,
   ShieldCheck,
@@ -156,108 +155,336 @@ export default function AirtimePage() {
   return (
     <main className="air-page">
       <header className="air-topbar">
-        <Link href="/home" className="air-back" aria-label="Back to home"><ArrowLeft size={18} strokeWidth={2.4} /></Link>
-        <div className="air-title-wrap"><h1 className="air-title">Buy Airtime</h1><p className="air-subtitle">Instant mobile top-up</p></div>
+        <Link href="/home" className="air-back" aria-label="Back to home">
+          <ArrowLeft size={19} strokeWidth={2.4} />
+        </Link>
+        <div className="air-title-wrap">
+          <h1 className="air-title">Buy Airtime</h1>
+          <p className="air-subtitle">Instant mobile top-up</p>
+        </div>
         <nav className="air-topbar-right" aria-label="Airtime navigation">
           <Link href="/history" className="air-history-link">History</Link>
           <Link href="/fund" className="air-wallet-btn" aria-label="Fund wallet">
-            <Wallet size={15} strokeWidth={2.2} /><span className="air-wallet-val">{userLoading ? "₦…" : naira(balance)}</span><Plus size={14} className="air-wallet-plus" />
+            <Wallet size={15} strokeWidth={2.2} />
+            <span className="air-wallet-val">{userLoading ? "₦…" : naira(balance)}</span>
+            <Plus size={14} className="air-wallet-plus" />
           </Link>
         </nav>
       </header>
 
-
       <section className="air-section" aria-labelledby="network-heading">
-        <div className="air-section-head"><h2 id="network-heading">Select Network</h2><p>{selectedNetworkInfo ? `${selectedNetworkInfo.label} selected` : "Choose a provider or enter a number to detect it."}</p></div>
+        <div className="air-section-head">
+          <h2 id="network-heading">Select Network</h2>
+          <p>{selectedNetworkInfo ? `${selectedNetworkInfo.label} selected` : "Choose a provider or enter a number to detect it."}</p>
+        </div>
         <div className="air-networks" role="group" aria-label="Mobile network">
           {NETWORKS.map((network) => {
             const selected = selectedNetwork === network.id;
-            return <button key={network.id} type="button" className={`air-net${selected ? " selected" : ""}`} aria-pressed={selected} onClick={() => setNetworkId(network.id)}>
-              {selected && <span className="air-net-badge"><Check size={11} strokeWidth={3.5} /></span>}
-              <span className="air-net-logo-wrap"><NetworkLogo id={network.id} /></span><span className="air-net-label">{network.label}</span>
-            </button>;
+            return (
+              <button
+                key={network.id}
+                type="button"
+                className={`air-net${selected ? " selected" : ""}`}
+                aria-pressed={selected}
+                onClick={() => setNetworkId(network.id)}
+              >
+                {selected && (
+                  <span className="air-net-badge">
+                    <Check size={11} strokeWidth={3.5} />
+                  </span>
+                )}
+                <span className="air-net-logo-wrap">
+                  <NetworkLogo id={network.id} />
+                </span>
+                <span className="air-net-label">{network.label}</span>
+              </button>
+            );
           })}
         </div>
       </section>
 
       <section className="air-section air-details" aria-labelledby="details-heading">
-        <div className="air-section-head"><h2 id="details-heading">Recharge Details</h2><p>Enter the recipient and choose an amount.</p></div>
+        <div className="air-section-head">
+          <h2 id="details-heading">Recharge Details</h2>
+          <p>Enter the recipient and choose an amount.</p>
+        </div>
+
         <div className="air-field">
           <div className={`air-input-wrap${phone && !validPhone ? " is-error" : ""}`}>
-            <span className="air-input-lead-icon"><Phone size={17} strokeWidth={2.2} /></span>
-            <input type="tel" inputMode="tel" autoComplete="tel" placeholder="0803 000 0000" value={phone} onChange={(event) => {
-              const next = event.target.value.replace(/[^0-9+]/g, "").slice(0, 14);
-              const detected = detectNetwork(next);
-              setPhone(next);
-              if (detected) setNetworkId(detected);
-            }} aria-label="Recipient phone number" />
-            {phone && <button type="button" className="air-clear" aria-label="Clear recipient number" onClick={() => { setPhone(""); setNetworkId(null); }}><X size={14} /></button>}
+            <span className="air-input-lead-icon">
+              <Phone size={18} strokeWidth={2.2} />
+            </span>
+            <input
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="0803 000 0000"
+              value={phone}
+              onChange={(event) => {
+                const next = event.target.value.replace(/[^0-9+]/g, "").slice(0, 14);
+                const detected = detectNetwork(next);
+                setPhone(next);
+                if (detected) setNetworkId(detected);
+              }}
+              aria-label="Recipient phone number"
+            />
+            {phone && (
+              <button
+                type="button"
+                className="air-clear"
+                aria-label="Clear recipient number"
+                onClick={() => { setPhone(""); setNetworkId(null); }}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
           {phone && !validPhone && <p className="air-field-error" role="alert">Enter a valid 11-digit Nigerian number.</p>}
-          {phone && validPhone && selectedNetworkInfo && <p className="air-field-success"><CheckCircle2 size={13} /> {selectedNetworkInfo.label} detected from the number.</p>}
+          {phone && validPhone && selectedNetworkInfo && (
+            <p className="air-field-success">
+              <CheckCircle2 size={14} /> {selectedNetworkInfo.label} detected from the number.
+            </p>
+          )}
           <div className="air-recipient-actions">
-            <button type="button" className="air-use-mine" onClick={() => setRecipientPickerOpen(true)}><Sparkles size={13} /> Use My Number</button>
-            {recentRecipients.length > 0 && <button type="button" className="air-recent-btn" onClick={() => setRecipientPickerOpen(true)} aria-label="Choose a recent recharge number"><Clock3 size={15} /><span>Recent numbers</span></button>}
+            <button type="button" className="air-use-mine" onClick={() => setRecipientPickerOpen(true)}>
+              <Sparkles size={13} /> Use My Number
+            </button>
+            {recentRecipients.length > 0 && (
+              <button
+                type="button"
+                className="air-recent-btn"
+                onClick={() => setRecipientPickerOpen(true)}
+                aria-label="Choose a recent recharge number"
+              >
+                <Clock3 size={15} />
+                <span>Recent numbers</span>
+              </button>
+            )}
           </div>
         </div>
 
         <div className="air-field">
           <div className="air-input-wrap">
-            <span className="air-input-lead-icon"><Wallet size={17} strokeWidth={2.2} /></span><span className="air-naira" aria-hidden="true">₦</span>
-            <input type="text" inputMode="numeric" placeholder={`${MIN_AMOUNT} – ${MAX_AMOUNT.toLocaleString("en-NG")}`} value={amountText} onChange={(event) => setAmountText(event.target.value.replace(/[^0-9]/g, ""))} aria-label="Airtime amount in naira" />
-            {amountText && <button type="button" className="air-clear" aria-label="Clear amount" onClick={() => setAmountText("")}><X size={14} /></button>}
+            <span className="air-input-lead-icon">
+              <Wallet size={18} strokeWidth={2.2} />
+            </span>
+            <span className="air-naira" aria-hidden="true">₦</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder={`${MIN_AMOUNT} – ${MAX_AMOUNT.toLocaleString("en-NG")}`}
+              value={amountText}
+              onChange={(event) => setAmountText(event.target.value.replace(/[^0-9]/g, ""))}
+              aria-label="Airtime amount in naira"
+            />
+            {amountText && (
+              <button
+                type="button"
+                className="air-clear"
+                aria-label="Clear amount"
+                onClick={() => setAmountText("")}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
           {amount > 0 && !validAmount && <p className="air-field-error" role="alert">Choose an amount between ₦100 and ₦50,000.</p>}
         </div>
 
         <div className="air-wallet-strip">
-          <div className="air-wallet-strip-left"><Wallet size={14} className="air-strip-ico" /><span>Available balance: <strong>{userLoading ? "Loading…" : naira(balance)}</strong></span></div>
+          <div className="air-wallet-strip-left">
+            <Wallet size={15} className="air-strip-ico" strokeWidth={2.2} />
+            <span>Available balance: <strong>{userLoading ? "Loading…" : naira(balance)}</strong></span>
+          </div>
           <Link href="/fund" className="air-strip-fund-btn">Fund Wallet</Link>
         </div>
 
         <div className="air-quick">
           <span className="air-quick-label">Quick amounts</span>
           <div className="air-quick-grid">
-            {QUICK_AMOUNTS.map((value) => <button key={value} type="button" className={`air-chip${amount === value ? " active" : ""}`} aria-pressed={amount === value} onClick={() => setAmountText(String(value))}>{naira(value)}</button>)}
+            {QUICK_AMOUNTS.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`air-chip${amount === value ? " active" : ""}`}
+                aria-pressed={amount === value}
+                onClick={() => setAmountText(String(value))}
+              >
+                {naira(value)}
+              </button>
+            ))}
           </div>
         </div>
       </section>
 
-      {amount > 0 && <section className="air-summary" aria-live="polite">
-        <div className="air-summary-row"><span>You pay</span><strong>{naira(amount)}</strong></div>
-        {insufficient && <div className="air-summary-warn"><span className="air-warn-text"><AlertCircle size={15} /> Insufficient balance. Add {naira(amount - balance)} to continue.</span><Link href="/fund" className="air-warn-fund-link">Fund wallet</Link></div>}
-      </section>}
-
-      {insufficient ? <Link href="/fund" className="air-cta air-cta-fund"><Wallet size={18} /> Fund Wallet</Link> : <button type="button" className="air-cta" disabled={!readyToConfirm} onClick={() => setConfirmOpen(true)}><Zap size={16} fill="currentColor" /> {readyToConfirm ? "Buy Airtime" : "Enter recipient and amount"}</button>}
-
-      <div className="air-trust"><span className="air-trust-icon"><ShieldCheck size={15} /></span><div className="air-trust-body"><strong>Secure airtime purchase</strong><p>Review the recipient and amount before confirming.</p></div></div>
-
-      {recipientPickerOpen && <div className="air-modal-backdrop" onClick={() => setRecipientPickerOpen(false)}>
-        <section className="air-modal-card" role="dialog" aria-modal="true" aria-labelledby="recipient-title" onClick={(event) => event.stopPropagation()}>
-          <div className="air-modal-header"><div className="air-modal-title-wrap"><h3 id="recipient-title">Choose a recipient</h3><p>Pick your account number or a recent top-up.</p></div><button type="button" className="air-modal-close" onClick={() => setRecipientPickerOpen(false)} aria-label="Close recipient picker"><X size={17} /></button></div>
-          <div className="air-modal-list">
-            {registeredPhone && <button type="button" className="air-modal-item" onClick={() => choosePhone(registeredPhone)}><span className="air-modal-item-icon account"><Phone size={18} /></span><span className="air-modal-item-info"><span className="air-modal-item-top"><strong>{formatPhone(registeredPhone)}</strong><span className="air-tag primary">My account</span></span><span className="air-modal-item-sub">Phone number on your account</span></span></button>}
-            {recentRecipients.map((recipient) => <button type="button" className="air-modal-item" key={recipient.phone} onClick={() => choosePhone(recipient.phone, recipient.networkId)}><span className="air-modal-item-icon recent"><Clock3 size={18} /></span><span className="air-modal-item-info"><span className="air-modal-item-top"><strong>{formatPhone(recipient.phone)}</strong>{recipient.networkId && <span className={`air-tag net-${recipient.networkId}`}>{NETWORKS.find((network) => network.id === recipient.networkId)?.label}</span>}</span><span className="air-modal-item-sub">Previously recharged on this device</span></span></button>)}
-            {!registeredPhone && recentRecipients.length === 0 && <div className="air-modal-empty"><p>No saved numbers yet.</p><span>Enter a number to get started. Successful demo submissions are saved on this device.</span></div>}
+      {amount > 0 && (
+        <section className="air-summary" aria-live="polite">
+          <div className="air-summary-row">
+            <span>You pay</span>
+            <strong>{naira(amount)}</strong>
           </div>
+          {insufficient && (
+            <div className="air-summary-warn">
+              <span className="air-warn-text">
+                <AlertCircle size={16} /> Insufficient balance. Add {naira(amount - balance)} to continue.
+              </span>
+              <Link href="/fund" className="air-warn-fund-link">Fund wallet</Link>
+            </div>
+          )}
         </section>
-      </div>}
+      )}
 
-      {confirmOpen && selectedNetworkInfo && <div className="air-modal-backdrop" onClick={() => setConfirmOpen(false)}>
-        <section className="air-confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={(event) => event.stopPropagation()}>
-          <div className="air-modal-header"><div className="air-modal-title-wrap"><h3 id="confirm-title">Confirm Airtime</h3><p>Check the details before continuing.</p></div><button type="button" className="air-modal-close" onClick={() => setConfirmOpen(false)} aria-label="Close confirmation"><X size={17} /></button></div>
-          <div className="air-confirm-details">
-            <div><span>Network</span><strong><NetworkLogo id={selectedNetworkInfo.id} />{selectedNetworkInfo.label}</strong></div>
-            <div><span>Recipient</span><strong>{formatPhone(normalizedPhone)}</strong></div>
-            <div className="air-confirm-total"><span>Amount</span><strong>{naira(amount)}</strong></div>
-          </div>
-          <p className="air-demo-note"><Smartphone size={15} /> Airtime checkout is currently a demo flow; no payment will be charged.</p>
-          <button type="button" className="air-cta" onClick={submitDemoPurchase}><Check size={17} /> Confirm demo purchase</button>
-          <button type="button" className="air-cancel-btn" onClick={() => setConfirmOpen(false)}>Go back</button>
-        </section>
-      </div>}
+      {insufficient ? (
+        <Link href="/fund" className="air-cta air-cta-fund">
+          <Wallet size={19} strokeWidth={2.2} />
+          <span>Fund Wallet</span>
+        </Link>
+      ) : (
+        <button
+          type="button"
+          className="air-cta"
+          disabled={!readyToConfirm}
+          onClick={() => setConfirmOpen(true)}
+        >
+          <Zap size={18} fill="currentColor" strokeWidth={0} />
+          <span>{readyToConfirm ? "Buy Airtime" : "Enter recipient and amount"}</span>
+        </button>
+      )}
 
-      {toast && <div className="air-toast" role="status"><CheckCircle2 size={16} />{toast}</div>}
+      <div className="air-trust">
+        <span className="air-trust-icon">
+          <ShieldCheck size={16} strokeWidth={2.4} />
+        </span>
+        <div className="air-trust-body">
+          <strong>Instant Airtime Top-Up Guarantee</strong>
+          <p>Direct network connection with 100% automated delivery.</p>
+        </div>
+      </div>
+
+      {recipientPickerOpen && (
+        <div className="air-modal-backdrop" onClick={() => setRecipientPickerOpen(false)}>
+          <section
+            className="air-modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="recipient-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="air-modal-header">
+              <div className="air-modal-title-wrap">
+                <h3 id="recipient-title">Choose a recipient</h3>
+                <p>Pick your account number or a recent top-up.</p>
+              </div>
+              <button
+                type="button"
+                className="air-modal-close"
+                onClick={() => setRecipientPickerOpen(false)}
+                aria-label="Close recipient picker"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="air-modal-list">
+              {registeredPhone && (
+                <button type="button" className="air-modal-item" onClick={() => choosePhone(registeredPhone)}>
+                  <span className="air-modal-item-icon account"><Phone size={18} /></span>
+                  <span className="air-modal-item-info">
+                    <span className="air-modal-item-top">
+                      <strong>{formatPhone(registeredPhone)}</strong>
+                      <span className="air-tag primary">My account</span>
+                    </span>
+                    <span className="air-modal-item-sub">Phone number on your account</span>
+                  </span>
+                </button>
+              )}
+              {recentRecipients.map((recipient) => (
+                <button
+                  type="button"
+                  className="air-modal-item"
+                  key={recipient.phone}
+                  onClick={() => choosePhone(recipient.phone, recipient.networkId)}
+                >
+                  <span className="air-modal-item-icon recent"><Clock3 size={18} /></span>
+                  <span className="air-modal-item-info">
+                    <span className="air-modal-item-top">
+                      <strong>{formatPhone(recipient.phone)}</strong>
+                      {recipient.networkId && (
+                        <span className={`air-tag net-${recipient.networkId}`}>
+                          {NETWORKS.find((network) => network.id === recipient.networkId)?.label}
+                        </span>
+                      )}
+                    </span>
+                    <span className="air-modal-item-sub">Previously recharged on this device</span>
+                  </span>
+                </button>
+              ))}
+              {!registeredPhone && recentRecipients.length === 0 && (
+                <div className="air-modal-empty">
+                  <p>No saved numbers yet.</p>
+                  <span>Enter a number to get started. Successful demo submissions are saved on this device.</span>
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {confirmOpen && selectedNetworkInfo && (
+        <div className="air-modal-backdrop" onClick={() => setConfirmOpen(false)}>
+          <section
+            className="air-confirm-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="air-modal-header">
+              <div className="air-modal-title-wrap">
+                <h3 id="confirm-title">Confirm Airtime</h3>
+                <p>Check the details before continuing.</p>
+              </div>
+              <button
+                type="button"
+                className="air-modal-close"
+                onClick={() => setConfirmOpen(false)}
+                aria-label="Close confirmation"
+              >
+                <X size={17} />
+              </button>
+            </div>
+            <div className="air-confirm-details">
+              <div>
+                <span>Network</span>
+                <strong><NetworkLogo id={selectedNetworkInfo.id} />{selectedNetworkInfo.label}</strong>
+              </div>
+              <div>
+                <span>Recipient</span>
+                <strong>{formatPhone(normalizedPhone)}</strong>
+              </div>
+              <div className="air-confirm-total">
+                <span>Amount</span>
+                <strong>{naira(amount)}</strong>
+              </div>
+            </div>
+            <p className="air-demo-note">
+              <Smartphone size={15} /> Airtime checkout is currently a demo flow; no payment will be charged.
+            </p>
+            <button type="button" className="air-cta" onClick={submitDemoPurchase}>
+              <Check size={18} strokeWidth={2.6} /> Confirm demo purchase
+            </button>
+            <button type="button" className="air-cancel-btn" onClick={() => setConfirmOpen(false)}>
+              Go back
+            </button>
+          </section>
+        </div>
+      )}
+
+      {toast && (
+        <div className="air-toast" role="status">
+          <CheckCircle2 size={16} />
+          <span>{toast}</span>
+        </div>
+      )}
     </main>
   );
 }
