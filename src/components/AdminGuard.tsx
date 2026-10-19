@@ -6,8 +6,7 @@ import { createBrowserClient } from "@/lib/supabase/client";
 
 /**
  * Protects /admin/* (except /admin/login).
- * Requires a logged-in user with profiles.is_admin = true.
- * If no admin exists yet, allows access so you can set the first password in Settings.
+ * Accepts: Supabase is_admin user OR partner env session cookie.
  */
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -24,13 +23,25 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
     async function check() {
       try {
-        const statusRes = await fetch("/api/admin/status");
+        const statusRes = await fetch("/api/admin/status", {
+          credentials: "include",
+          cache: "no-store",
+        });
         const status = await statusRes.json();
 
         if (cancelled) return;
 
-        // First-time setup: no admin yet → allow panel so password can be set
-        if (!status.hasAdmins) {
+        // Partner env session cookie is enough
+        if (status.partnerSession) {
+          try {
+            sessionStorage.setItem("vernex_admin", "1");
+          } catch {}
+          setReady(true);
+          return;
+        }
+
+        // First-time setup: no admin and no partner env → allow
+        if (!status.hasAdmins && !status.partnerEnvConfigured) {
           setReady(true);
           return;
         }
