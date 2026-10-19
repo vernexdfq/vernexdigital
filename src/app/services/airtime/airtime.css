@@ -1,0 +1,1116 @@
+/* ==========================================================================
+   Vernex Digital — Buy Airtime Page (Grade-One FinTech Polish)
+   Refined spacing, authentic brand presentation, 4x2 quick amounts, and full
+   navigation to Fund Wallet across all balance touchpoints.
+   ========================================================================== */
+
+.air-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 12px 16px 40px;
+  background: #F8FAFC;
+  min-height: 100vh;
+  box-sizing: border-box;
+  width: 100%;
+  color: #0F172A;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.air-page *,
+.air-page *::before,
+.air-page *::after {
+  box-sizing: border-box;
+}
+
+/* ── Top Bar ── */
+.air-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0 2px;
+}
+
+.air-back {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0F172A;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.air-back:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.air-back:active {
+  transform: scale(0.95);
+}
+
+.air-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.air-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.air-subtitle {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* Topbar right items: History link & Wallet button */
+.air-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.air-history-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1877F2;
+  text-decoration: none;
+  padding: 6px 8px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.air-history-link:hover {
+  background: #EFF6FF;
+}
+
+/* Wallet Button in Topbar (Direct Fund Wallet Trigger) */
+.air-wallet-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  color: #0F172A;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+.air-wallet-btn:hover {
+  background: #EEF2FF;
+  border-color: #C7D2FE;
+  color: #1877F2;
+}
+
+.air-wallet-btn:active {
+  transform: scale(0.96);
+}
+
+.air-wallet-val {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.air-wallet-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1877F2;
+  color: #FFFFFF;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── Advertisement / Promo Banner Strip ── */
+.air-promo-banner {
+  position: relative;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #07112B 0%, #0D1C44 55%, #132760 100%);
+  color: #FFFFFF;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 112px;
+}
+
+.air-promo-banner::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: 30%;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(24, 119, 242, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.air-promo-content {
+  position: relative;
+  z-index: 2;
+  max-width: 62%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.air-promo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: rgba(24, 119, 242, 0.28);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #E0E7FF;
+  width: fit-content;
+}
+
+.air-promo-zap {
+  color: #FBBF24;
+}
+
+.air-promo-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #FFFFFF;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.air-promo-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: #94A3B8;
+  line-height: 1.35;
+  font-weight: 400;
+}
+
+.air-promo-art {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 115px;
+  height: 115px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.air-tower-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.air-promo-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.air-promo-dots .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.air-promo-dots .dot.active {
+  width: 14px;
+  border-radius: 4px;
+  background: #38BDF8;
+}
+
+/* ── Section Cards ── */
+.air-section {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.air-section-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+}
+
+.air-section-head p {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #64748B;
+  font-weight: 500;
+}
+
+/* 4-column responsive grid for MTN, Airtel, Glo, 9mobile */
+.air-networks {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.air-net {
+  position: relative;
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 10px 4px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.air-net:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.air-net:active {
+  transform: scale(0.96);
+}
+
+.air-net.selected {
+  background: #FFFFFF;
+  border-color: #1877F2;
+  box-shadow: 0 4px 12px rgba(24, 119, 242, 0.14);
+}
+
+.air-net-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1877F2;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.air-net-logo-wrap {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.air-net-logo-wrap svg {
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.air-net-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1E293B;
+  letter-spacing: -0.01em;
+}
+
+/* ── Input Fields ── */
+.air-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.air-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 0 12px;
+  height: 52px;
+  transition: all 0.15s ease;
+}
+
+.air-input-wrap:focus-within {
+  background: #FFFFFF;
+  border-color: #1877F2;
+  box-shadow: 0 0 0 3px rgba(24, 119, 242, 0.08);
+}
+
+.air-input-wrap.is-error {
+  border-color: #EF4444;
+  background: #FEF2F2;
+}
+
+.air-input-lead-icon {
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.air-input-wrap input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0F172A;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.air-input-wrap input::placeholder {
+  color: #94A3B8;
+  font-weight: 400;
+}
+
+.air-naira {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0F172A;
+  margin-right: 6px;
+  user-select: none;
+}
+
+.air-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.air-use-mine {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1877F2;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.air-use-mine:hover {
+  background: #DBEAFE;
+}
+
+.air-use-mine:active {
+  transform: scale(0.96);
+}
+
+.air-recent-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.air-recent-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.air-clear {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #E2E8F0;
+  border: none;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.air-clear:hover {
+  background: #CBD5E1;
+  color: #0F172A;
+}
+
+.air-field-error {
+  margin: 2px 0 0 4px;
+  font-size: 11px;
+  color: #EF4444;
+  font-weight: 600;
+}
+
+/* ── Wallet Balance Strip Inside Recharge Details ── */
+.air-wallet-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.air-wallet-strip-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #475569;
+}
+
+.air-strip-ico {
+  color: #1877F2;
+}
+
+.air-wallet-strip-left strong {
+  color: #0F172A;
+  font-weight: 700;
+}
+
+.air-strip-fund-btn {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1877F2;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.air-strip-fund-btn:hover {
+  background: #1877F2;
+  color: #FFFFFF;
+  border-color: #1877F2;
+}
+
+.air-strip-fund-btn:active {
+  transform: scale(0.96);
+}
+
+/* ── Quick Amounts (Four-by-Four grid with ₦20,000) ── */
+.air-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.air-quick-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: -0.01em;
+}
+
+.air-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.air-chip {
+  height: 40px;
+  border-radius: 12px;
+  background: #F8FAFC;
+  border: 1.5px solid #E2E8F0;
+  color: #1E293B;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.air-chip:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+.air-chip:active {
+  transform: scale(0.96);
+}
+
+.air-chip.active {
+  background: #1877F2;
+  border-color: #1877F2;
+  color: #FFFFFF;
+  box-shadow: 0 4px 10px rgba(24, 119, 242, 0.25);
+}
+
+/* ── Summary & Insufficient Warning ── */
+.air-summary {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.air-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.air-summary-row span {
+  color: #64748B;
+  font-weight: 500;
+}
+
+.air-summary-row strong {
+  font-size: 17px;
+  color: #0F172A;
+  font-weight: 800;
+}
+
+.air-summary-warn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.air-warn-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #B91C1C;
+  font-weight: 600;
+}
+
+.air-warn-fund-link {
+  background: #DC2626;
+  color: #FFFFFF;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.air-warn-fund-link:hover {
+  background: #B91C1C;
+}
+
+/* ── Primary Action Button (CTA) ── */
+.air-cta {
+  width: 100%;
+  height: 52px;
+  border-radius: 16px;
+  border: none;
+  background: linear-gradient(135deg, #1877F2 0%, #166FE5 100%);
+  color: #FFFFFF;
+  font-size: 15.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(24, 119, 242, 0.28);
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.air-cta:hover:not(:disabled) {
+  opacity: 0.96;
+  box-shadow: 0 10px 24px rgba(24, 119, 242, 0.36);
+}
+
+.air-cta:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.air-cta:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  background: #94A3B8;
+}
+
+.air-cta.air-cta-fund {
+  background: linear-gradient(135deg, #059669 0%, #10B981 100%);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.28);
+}
+
+/* ── Instant Delivery Trust Card ── */
+.air-trust {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.air-trust-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #10B981;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.air-trust-body strong {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #065F46;
+}
+
+.air-trust-body p {
+  margin: 1px 0 0;
+  font-size: 11px;
+  color: #047857;
+  line-height: 1.3;
+}
+
+/* ── Recipient Picker Sheet / Modal ── */
+.air-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: airFadeIn 0.15s ease-out;
+}
+
+@keyframes airFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.air-modal-card {
+  background: #FFFFFF;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 24px 24px 0 0;
+  padding: 20px 18px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
+  animation: airSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+@keyframes airSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.air-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #F1F5F9;
+  padding-bottom: 12px;
+}
+
+.air-modal-title-wrap h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.01em;
+}
+
+.air-modal-title-wrap p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: #64748B;
+}
+
+.air-modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.air-modal-close:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+}
+
+.air-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.air-modal-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1.5px solid #F1F5F9;
+  background: #FFFFFF;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.air-modal-item:hover {
+  background: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+.air-modal-item:active {
+  transform: scale(0.98);
+}
+
+.air-modal-item-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.air-modal-item-icon.account {
+  background: #EFF6FF;
+  color: #1877F2;
+}
+
+.air-modal-item-icon.recent {
+  background: #F1F5F9;
+  color: #0284C7;
+}
+
+.air-modal-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.air-modal-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.air-modal-item-top strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+.air-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 6px;
+  letter-spacing: 0.03em;
+}
+
+.air-tag.primary {
+  background: #EFF6FF;
+  color: #1877F2;
+}
+
+.air-tag.net-mtn { background: #FEF08A; color: #854D0E; }
+.air-tag.net-airtel { background: #FEE2E2; color: #991B1B; }
+.air-tag.net-glo { background: #DCFCE7; color: #166534; }
+.air-tag.net-9mobile { background: #ECFCCB; color: #3F6212; }
+
+.air-modal-item-sub {
+  font-size: 11px;
+  color: #64748B;
+}
+
+.air-modal-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: #64748B;
+}
+
+.air-modal-empty p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1E293B;
+}
+
+.air-modal-empty span {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: #94A3B8;
+}
+
+/* ── Toast Notification ── */
+.air-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.94);
+  color: #FFFFFF;
+  padding: 10px 18px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  animation: airToastIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+@keyframes airToastIn {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.air-network-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  flex-shrink: 0;
+}
+
+.air-network-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+  object-fit: contain;
+}
+
+.air-logo-fallback {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: var(--network-color);
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.air-logo-mtn { color: #111827; }
+.air-logo-glo { color: #FFFFFF; }
+.air-logo-9mobile { color: #C2D500; }
+
+.air-net-logo-wrap .air-network-logo { width: 42px; height: 42px; border-radius: 12px; }
+.air-net-logo-wrap .air-network-logo img { padding: 2px; }
+
+.air-recipient-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.air-recipient-actions .air-use-mine { min-height: 36px; padding-inline: 11px; }
+
+.air-recent-btn {
+  width: auto;
+  min-height: 36px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.air-field-success {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 5px 0 0 4px;
+  color: #15803D;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.air-summary-warn .air-warn-text { flex: 1; }
+.air-warn-fund-link { text-decoration: none; }
+
+.air-confirm-card {
+  position: relative;
+  width: min(100%, 440px);
+  margin: 0 auto;
+  padding: 20px 18px 28px;
+  border-radius: 24px 24px 0 0;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
+  animation: airSlideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.air-confirm-details {
+  border: 1px solid #E2E8F0;
+  border-radius: 14px;
+  background: #F8FAFC;
+  padding: 4px 14px;
+}
+
+.air-confirm-details > div {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid #E2E8F0;
+  color: #64748B;
+  font-size: 13px;
+}
+
+.air-confirm-details > div:last-child { border-bottom: 0; }
+.air-confirm-details strong { display: inline-flex; align-items: center; gap: 8px; color: #0F172A; font-size: 13px; font-weight: 700; }
+.air-confirm-details strong .air-network-logo { width: 26px; height: 26px; border-radius: 8px; }
+.air-confirm-details .air-confirm-total strong { color: #1877F2; font-size: 17px; }
+
+.air-demo-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #FFFBEB;
+  border: 1px solid #FDE68A;
+  color: #92400E;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.air-demo-note svg { flex: none; margin-top: 1px; }
+.air-cancel-btn { height: 42px; border: 0; background: transparent; color: #64748B; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.air-toast { display: flex; align-items: center; gap: 8px; }
+
+@media (max-width: 360px) {
+  .air-page { padding-inline: 12px; }
+  .air-section { padding: 15px; }
+  .air-topbar-right { gap: 4px; }
+  .air-history-link { padding-inline: 5px; }
+  .air-wallet-btn { gap: 4px; padding-inline: 8px; font-size: 11px; }
+  .air-chip { font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .air-page *, .air-page *::before, .air-page *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

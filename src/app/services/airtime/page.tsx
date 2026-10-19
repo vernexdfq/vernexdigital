@@ -1,249 +1,296 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import "./airtime.css";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, X, CheckCircle2, Smartphone } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  CheckCircle2,
+  Clock3,
+  LockKeyhole,
+  Phone,
+  Plus,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Wallet,
+  X,
+  Zap,
+} from "lucide-react";
+import { useUser } from "@/lib/useUser";
 
 type NetworkId = "mtn" | "airtel" | "glo" | "9mobile";
+type NetworkOption = { id: NetworkId; label: string; color: string };
+type RecentRecipient = { phone: string; networkId: NetworkId | null; lastUsed: number };
 
-const NETWORKS: { id: NetworkId; name: string; prefixes: string[] }[] = [
-  { id: "mtn", name: "MTN", prefixes: ["0803","0806","0703","0706","0810","0813","0814","0816","0903","0906","0913","0916","0704"] },
-  { id: "airtel", name: "Airtel", prefixes: ["0802","0808","0701","0708","0812","0901","0902","0904","0907","0912","0801"] },
-  { id: "glo", name: "Glo", prefixes: ["0805","0807","0705","0811","0815","0905","0915"] },
-  { id: "9mobile", name: "9mobile", prefixes: ["0809","0817","0818","0908","0909","0918"] },
+const NETWORKS: NetworkOption[] = [
+  { id: "mtn", label: "MTN", color: "#FFCC00" },
+  { id: "airtel", label: "Airtel", color: "#E60000" },
+  { id: "glo", label: "Glo", color: "#00A859" },
+  { id: "9mobile", label: "9mobile", color: "#005B38" },
 ];
-
-function detectNetwork(phone: string): NetworkId | null {
-  const clean = phone.replace(/\D/g, "");
-  let local = clean;
-  if (local.startsWith("234") && local.length >= 13) local = "0" + local.slice(3);
-  if (local.length < 4) return null;
-  const prefix = local.slice(0, 4);
-  for (const net of NETWORKS) {
-    if (net.prefixes.includes(prefix)) return net.id;
-  }
-  return null;
-}
-
-const PRESETS = [50, 100, 200, 500, 1000, 2000, 5000, 10000];
-const MIN_AMOUNT = 50;
+const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000, 10000, 20000];
+const MIN_AMOUNT = 100;
 const MAX_AMOUNT = 50000;
-
-function formatNaira(n: number) {
-  return "\u20a6" + n.toLocaleString("en-NG");
-}
-
-const NETWORK_LOGOS: Record<NetworkId, string> = {
+const RECENT_RECIPIENTS_KEY = "vernexdigital_airtime_recent_recipients_v1";
+const LOGOS: Record<NetworkId, string> = {
   mtn: "https://raw.githubusercontent.com/josephajibodu/utility-providers-assets/main/network-providers/mtn.svg",
   airtel: "https://raw.githubusercontent.com/josephajibodu/utility-providers-assets/main/network-providers/airtel.svg",
   glo: "https://raw.githubusercontent.com/josephajibodu/utility-providers-assets/main/network-providers/glo.svg",
   "9mobile": "https://raw.githubusercontent.com/josephajibodu/utility-providers-assets/main/network-providers/9mobile.svg",
 };
 
-function NetworkLogo({ networkId, size = "md" }: { networkId: NetworkId; size?: "sm" | "md" }) {
-  const net = NETWORKS.find((n) => n.id === networkId);
-  if (!net) return null;
-  const dim = size === "sm" ? "w-7 h-7" : "w-8 h-8";
+function normalizePhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.startsWith("234") && digits.length === 13) return `0${digits.slice(3)}`;
+  return digits;
+}
+
+function detectNetwork(value: string): NetworkId | null {
+  const phone = normalizePhone(value);
+  if (phone.length < 4) return null;
+  const prefix = phone.slice(0, 4);
+  const prefixMap: Record<string, NetworkId> = {
+    "0803": "mtn", "0806": "mtn", "0703": "mtn", "0706": "mtn", "0810": "mtn", "0813": "mtn", "0814": "mtn", "0816": "mtn", "0903": "mtn", "0906": "mtn", "0913": "mtn", "0916": "mtn", "0704": "mtn",
+    "0802": "airtel", "0808": "airtel", "0701": "airtel", "0708": "airtel", "0812": "airtel", "0901": "airtel", "0902": "airtel", "0904": "airtel", "0907": "airtel", "0912": "airtel", "0801": "airtel",
+    "0805": "glo", "0807": "glo", "0705": "glo", "0811": "glo", "0815": "glo", "0905": "glo", "0915": "glo",
+    "0809": "9mobile", "0817": "9mobile", "0818": "9mobile", "0908": "9mobile", "0909": "9mobile", "0918": "9mobile",
+  };
+  return prefixMap[prefix] ?? null;
+}
+
+function formatPhone(value: string) {
+  const phone = normalizePhone(value);
+  if (phone.length === 11) return `${phone.slice(0, 4)} ${phone.slice(4, 7)} ${phone.slice(7)}`;
+  return phone;
+}
+
+function naira(value: number) {
+  return `₦${value.toLocaleString("en-NG")}`;
+}
+
+function NetworkLogo({ id }: { id: NetworkId }) {
+  const [failed, setFailed] = useState(false);
+  const network = NETWORKS.find((item) => item.id === id)!;
   return (
-    <div className={`${dim} rounded-full overflow-hidden bg-white border border-[#E2E8F0] flex items-center justify-center shrink-0`}>
-      <img src={NETWORK_LOGOS[networkId]} alt={net.name} className="w-full h-full object-contain p-0.5" />
-    </div>
+    <span className="air-network-logo" style={{ "--network-color": network.color } as React.CSSProperties}>
+      {failed ? <span className={`air-logo-fallback air-logo-${id}`}>{id === "9mobile" ? "9" : network.label.slice(0, 1)}</span> : (
+        <img src={LOGOS[id]} alt={`${network.label} logo`} onError={() => setFailed(true)} />
+      )}
+    </span>
+  );
+}
+
+function PromoArtwork() {
+  return (
+    <svg className="air-tower-svg" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="air-phone-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#4F46E5" /><stop offset="100%" stopColor="#1E1B4B" />
+        </linearGradient>
+        <linearGradient id="air-glow-gradient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#38BDF8" stopOpacity=".8" /><stop offset="100%" stopColor="#818CF8" stopOpacity=".2" />
+        </linearGradient>
+      </defs>
+      <circle cx="80" cy="50" r="35" fill="url(#air-glow-gradient)" />
+      <g transform="translate(45 12) rotate(8 25 43)">
+        <rect width="50" height="86" rx="10" fill="url(#air-phone-gradient)" stroke="#6366F1" strokeWidth="2" />
+        <rect x="4" y="8" width="42" height="70" rx="6" fill="#0B132B" opacity=".9" />
+        <path d="M16 48c4-4 14-4 18 0M20 54c2.5-2.5 7.5-2.5 10 0" stroke="#38BDF8" strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="25" cy="59" r="2" fill="#38BDF8" />
+        <rect x="20" y="4" width="10" height="2" rx="1" fill="#475569" />
+      </g>
+      <circle cx="25" cy="30" r="2.5" fill="#38BDF8" /><circle cx="15" cy="50" r="1.5" fill="#818CF8" /><circle cx="35" cy="75" r="2" fill="#38BDF8" />
+    </svg>
   );
 }
 
 export default function AirtimePage() {
+  const { profile, wallet, loading: userLoading } = useUser();
   const [phone, setPhone] = useState("");
-  const [networkId, setNetworkId] = useState<NetworkId>("mtn");
-  const [netOpen, setNetOpen] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
-  const [buying, setBuying] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [phoneError, setPhoneError] = useState(false);
+  const [networkId, setNetworkId] = useState<NetworkId | null>(null);
+  const [amountText, setAmountText] = useState("");
+  const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
+  const [recentRecipients, setRecentRecipients] = useState<RecentRecipient[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [toast, setToast] = useState("");
 
   useEffect(() => {
-    const detected = detectNetwork(phone);
-    if (detected) setNetworkId(detected);
-  }, [phone]);
+    try {
+      const stored = localStorage.getItem(RECENT_RECIPIENTS_KEY);
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setRecentRecipients(parsed.filter((item): item is RecentRecipient =>
+            item && typeof item.phone === "string" && normalizePhone(item.phone).length === 11,
+          ).slice(0, 3));
+        }
+      }
+    } catch { /* Ignore malformed local history and keep the form usable. */ }
+  }, []);
 
-  const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? NETWORKS[0];
-  const numericAmount = Number(amount.replace(/,/g, "")) || 0;
-  const isValidPhone = phone.replace(/\D/g, "").length >= 10;
-  const isValidAmount = numericAmount >= MIN_AMOUNT && numericAmount <= MAX_AMOUNT;
-  const canPay = isValidPhone && isValidAmount;
+  const registeredPhone = useMemo(() => {
+    const normalized = normalizePhone(profile?.phone ?? "");
+    return normalized.length === 11 ? normalized : "";
+  }, [profile?.phone]);
+  const normalizedPhone = useMemo(() => normalizePhone(phone), [phone]);
+  const selectedNetwork = networkId ?? detectNetwork(normalizedPhone);
+  const selectedNetworkInfo = NETWORKS.find((item) => item.id === selectedNetwork);
+  const amount = Number(amountText.replace(/,/g, "")) || 0;
+  const validPhone = normalizedPhone.length === 11 && normalizedPhone.startsWith("0");
+  const validAmount = amount >= MIN_AMOUNT && amount <= MAX_AMOUNT;
+  const balance = Number(wallet.balance) || 0;
+  const insufficient = validAmount && amount > balance;
+  const readyToConfirm = Boolean(selectedNetwork && validPhone && validAmount && !insufficient);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 3200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  const choosePhone = useCallback((value: string, suppliedNetwork?: NetworkId | null) => {
+    const clean = normalizePhone(value);
+    setPhone(clean);
+    setNetworkId(suppliedNetwork ?? detectNetwork(clean));
+    setRecipientPickerOpen(false);
+  }, []);
+
+  const saveRecentRecipient = useCallback((number: string, network: NetworkId) => {
+    const updated = [
+      { phone: number, networkId: network, lastUsed: Date.now() },
+      ...recentRecipients.filter((recipient) => recipient.phone !== number),
+    ].slice(0, 3);
+    setRecentRecipients(updated);
+    try { localStorage.setItem(RECENT_RECIPIENTS_KEY, JSON.stringify(updated)); } catch { /* Local history is optional. */ }
+  }, [recentRecipients]);
+
+  const submitDemoPurchase = () => {
+    if (!readyToConfirm || !selectedNetwork) return;
+    saveRecentRecipient(normalizedPhone, selectedNetwork);
+    setConfirmOpen(false);
+    setToast("Airtime purchase submitted (demo)");
+    setPhone("");
+    setNetworkId(null);
+    setAmountText("");
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-28">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#E2E8F0]">
-        <div className="h-14 px-4 flex items-center justify-between">
-          <Link href="/home" className="flex items-center gap-1.5 text-sm font-medium text-[#0F172A]">
-            <ArrowLeft size={18} /> Back
+    <main className="air-page">
+      <header className="air-topbar">
+        <Link href="/home" className="air-back" aria-label="Back to home"><ArrowLeft size={18} strokeWidth={2.4} /></Link>
+        <div className="air-title-wrap"><h1 className="air-title">Buy Airtime</h1><p className="air-subtitle">Instant mobile top-up</p></div>
+        <nav className="air-topbar-right" aria-label="Airtime navigation">
+          <Link href="/history" className="air-history-link">History</Link>
+          <Link href="/fund" className="air-wallet-btn" aria-label="Fund wallet">
+            <Wallet size={15} strokeWidth={2.2} /><span className="air-wallet-val">{userLoading ? "₦…" : naira(balance)}</span><Plus size={14} className="air-wallet-plus" />
           </Link>
-          <h1 className="text-sm font-semibold text-[#0F172A]">Airtime</h1>
-          <Link href="/history" className="text-sm font-medium text-[#1877F2]">History</Link>
-        </div>
+        </nav>
       </header>
 
-      <div className="px-4 pt-4 space-y-4">
-        <div className="rounded-[14px] bg-white border border-[#E2E8F0] p-3.5">
-          <div className="flex items-center gap-2.5">
-            <button type="button" onClick={() => setNetOpen(true)} className="flex items-center gap-1.5 h-11 px-2.5 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] shrink-0">
-              <NetworkLogo networkId={activeNetwork.id} size="sm" />
-              <span className="text-xs font-semibold text-[#0F172A]">{activeNetwork.name}</span>
-              <ChevronDown size={14} className="text-[#94A3B8]" />
-            </button>
-            <div className="flex-1 relative">
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={(e) => {
-                  setPhone(e.target.value.replace(/[^0-9+]/g, "").slice(0, 14));
-                  setPhoneError(false);
-                }}
-                placeholder="e.g. 0803 000 0000"
-                className={`w-full h-11 px-3 rounded-[10px] bg-[#F8FAFC] border text-sm font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none ${phoneError ? "border-red-400" : "border-[#E2E8F0] focus:border-[#1877F2]"}`}
-              />
-              {phone && (
-                <button type="button" onClick={() => { setPhone(""); setNetworkId("mtn"); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#E2E8F0] flex items-center justify-center">
-                  <X size={12} className="text-[#64748B]" />
-                </button>
-              )}
-            </div>
-          </div>
-          {phoneError && <p className="mt-2 text-[11px] text-red-500">Please enter a valid phone number</p>}
-          {phone.length >= 4 && !phoneError && (
-            <p className="mt-2 text-[11px] text-[#16A34A] flex items-center gap-1">
-              <CheckCircle2 size={12} /> Detected {activeNetwork.name} network
-            </p>
-          )}
+      <section className="air-promo-banner" aria-label="Airtime promotion">
+        <div className="air-promo-content">
+          <div className="air-promo-badge"><Zap size={11} className="air-promo-zap" /><span>FAST TOP-UP</span></div>
+          <h2 className="air-promo-title">Airtime Recharge</h2>
+          <p className="air-promo-desc">Top up any major network in moments.</p>
         </div>
+        <div className="air-promo-art"><PromoArtwork /></div>
+        <div className="air-promo-dots" aria-hidden="true"><span className="dot active" /><span className="dot" /></div>
+      </section>
 
-        <div className="rounded-[14px] bg-white border border-[#E2E8F0] p-4">
-          <h2 className="text-sm font-semibold text-[#0F172A] mb-3">Select Amount</h2>
-          <div className="grid grid-cols-3 gap-2.5">
-            {PRESETS.map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => { setSelectedPreset(p); setAmount(String(p)); }}
-                className={`rounded-[12px] border py-3.5 px-2 text-center ${selectedPreset === p ? "border-[#1877F2] bg-[#EFF6FF]" : "border-[#E2E8F0] bg-[#F8FAFC]"}`}
-              >
-                <p className="text-[15px] font-bold text-[#0F172A] tabular-nums">{formatNaira(p)}</p>
-              </button>
-            ))}
+      <section className="air-section" aria-labelledby="network-heading">
+        <div className="air-section-head"><h2 id="network-heading">Select Network</h2><p>{selectedNetworkInfo ? `${selectedNetworkInfo.label} selected` : "Choose a provider or enter a number to detect it."}</p></div>
+        <div className="air-networks" role="group" aria-label="Mobile network">
+          {NETWORKS.map((network) => {
+            const selected = selectedNetwork === network.id;
+            return <button key={network.id} type="button" className={`air-net${selected ? " selected" : ""}`} aria-pressed={selected} onClick={() => setNetworkId(network.id)}>
+              {selected && <span className="air-net-badge"><Check size={11} strokeWidth={3.5} /></span>}
+              <span className="air-net-logo-wrap"><NetworkLogo id={network.id} /></span><span className="air-net-label">{network.label}</span>
+            </button>;
+          })}
+        </div>
+      </section>
+
+      <section className="air-section air-details" aria-labelledby="details-heading">
+        <div className="air-section-head"><h2 id="details-heading">Recharge Details</h2><p>Enter the recipient and choose an amount.</p></div>
+        <div className="air-field">
+          <div className={`air-input-wrap${phone && !validPhone ? " is-error" : ""}`}>
+            <span className="air-input-lead-icon"><Phone size={17} strokeWidth={2.2} /></span>
+            <input type="tel" inputMode="tel" autoComplete="tel" placeholder="0803 000 0000" value={phone} onChange={(event) => {
+              const next = event.target.value.replace(/[^0-9+]/g, "").slice(0, 14);
+              const detected = detectNetwork(next);
+              setPhone(next);
+              if (detected) setNetworkId(detected);
+            }} aria-label="Recipient phone number" />
+            {phone && <button type="button" className="air-clear" aria-label="Clear recipient number" onClick={() => { setPhone(""); setNetworkId(null); }}><X size={14} /></button>}
           </div>
-          <div className="mt-4 flex items-center gap-2.5">
-            <div className="flex-1 relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#64748B]">\u20a6</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => { setAmount(e.target.value.replace(/[^0-9]/g, "")); setSelectedPreset(null); }}
-                placeholder={`${MIN_AMOUNT} – ${MAX_AMOUNT.toLocaleString()}`}
-                className="w-full h-12 pl-8 pr-3 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-sm font-medium text-[#0F172A] focus:outline-none focus:border-[#1877F2] tabular-nums"
-              />
-            </div>
-            <button
-              type="button"
-              disabled={!canPay}
-              onClick={() => { if (!isValidPhone) { setPhoneError(true); return; } setBuying(true); }}
-              className="h-12 px-6 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold shrink-0 disabled:opacity-40"
-            >
-              Pay
-            </button>
+          {phone && !validPhone && <p className="air-field-error" role="alert">Enter a valid 11-digit Nigerian number.</p>}
+          {phone && validPhone && selectedNetworkInfo && <p className="air-field-success"><CheckCircle2 size={13} /> {selectedNetworkInfo.label} detected from the number.</p>}
+          <div className="air-recipient-actions">
+            <button type="button" className="air-use-mine" onClick={() => setRecipientPickerOpen(true)}><Sparkles size={13} /> Use My Number</button>
+            {recentRecipients.length > 0 && <button type="button" className="air-recent-btn" onClick={() => setRecipientPickerOpen(true)} aria-label="Choose a recent recharge number"><Clock3 size={15} /><span>Recent numbers</span></button>}
           </div>
         </div>
 
-        <div className="rounded-[12px] bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-3 flex gap-2.5">
-          <Smartphone size={16} className="text-[#1877F2] shrink-0 mt-0.5" />
-          <p className="text-[12px] text-[#1E3A5F] leading-relaxed">
-            Enter any Nigerian number. Network is detected automatically. Airtime is delivered instantly after payment.
-          </p>
+        <div className="air-field">
+          <div className="air-input-wrap">
+            <span className="air-input-lead-icon"><Wallet size={17} strokeWidth={2.2} /></span><span className="air-naira" aria-hidden="true">₦</span>
+            <input type="text" inputMode="numeric" placeholder={`${MIN_AMOUNT} – ${MAX_AMOUNT.toLocaleString("en-NG")}`} value={amountText} onChange={(event) => setAmountText(event.target.value.replace(/[^0-9]/g, ""))} aria-label="Airtime amount in naira" />
+            {amountText && <button type="button" className="air-clear" aria-label="Clear amount" onClick={() => setAmountText("")}><X size={14} /></button>}
+          </div>
+          {amount > 0 && !validAmount && <p className="air-field-error" role="alert">Choose an amount between ₦100 and ₦50,000.</p>}
         </div>
-      </div>
 
-      {netOpen && (
-        <div className="fixed inset-0 z-[60] flex flex-col justify-end">
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setNetOpen(false)} />
-          <div className="relative bg-white rounded-t-[20px] max-h-[55vh] flex flex-col shadow-xl">
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <h3 className="text-base font-semibold text-[#0F172A]">Select Network</h3>
-              <button type="button" onClick={() => setNetOpen(false)} className="w-8 h-8 rounded-full bg-[#F1F5F9] flex items-center justify-center">
-                <X size={16} />
-              </button>
-            </div>
-            <div className="overflow-y-auto px-2 pb-8">
-              {NETWORKS.map((n) => (
-                <button
-                  key={n.id}
-                  type="button"
-                  onClick={() => { setNetworkId(n.id); setNetOpen(false); }}
-                  className={`w-full flex items-center gap-3 px-3 py-3.5 rounded-[12px] text-left ${networkId === n.id ? "bg-[#EFF6FF]" : "hover:bg-[#F8FAFC]"}`}
-                >
-                  <NetworkLogo networkId={n.id} />
-                  <span className={`text-sm font-medium ${networkId === n.id ? "text-[#1877F2]" : "text-[#0F172A]"}`}>{n.name}</span>
-                  {networkId === n.id && <CheckCircle2 size={16} className="ml-auto text-[#1877F2]" />}
-                </button>
-              ))}
-            </div>
+        <div className="air-wallet-strip">
+          <div className="air-wallet-strip-left"><Wallet size={14} className="air-strip-ico" /><span>Available balance: <strong>{userLoading ? "Loading…" : naira(balance)}</strong></span></div>
+          <Link href="/fund" className="air-strip-fund-btn">Fund Wallet</Link>
+        </div>
+
+        <div className="air-quick">
+          <span className="air-quick-label">Quick amounts</span>
+          <div className="air-quick-grid">
+            {QUICK_AMOUNTS.map((value) => <button key={value} type="button" className={`air-chip${amount === value ? " active" : ""}`} aria-pressed={amount === value} onClick={() => setAmountText(String(value))}>{naira(value)}</button>)}
           </div>
         </div>
-      )}
+      </section>
 
-      {buying && (
-        <div className="fixed inset-0 z-[70] flex flex-col justify-end">
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setBuying(false)} />
-          <div className="relative bg-white rounded-t-[20px] shadow-xl px-4 pt-5 pb-8">
-            <h3 className="text-base font-semibold text-[#0F172A] text-center">Confirm Airtime</h3>
-            <div className="mt-4 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-[#64748B]">Network</span>
-                <span className="font-medium text-[#0F172A] flex items-center gap-1.5">
-                  <NetworkLogo networkId={activeNetwork.id} size="sm" />
-                  {activeNetwork.name}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#64748B]">Number</span>
-                <span className="font-medium text-[#0F172A] tabular-nums">{phone}</span>
-              </div>
-              <div className="border-t border-[#E2E8F0] pt-3 flex justify-between">
-                <span className="text-sm font-medium text-[#0F172A]">Amount</span>
-                <span className="text-lg font-bold text-[#1877F2] tabular-nums">{formatNaira(numericAmount)}</span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setBuying(false);
-                setSuccess(true);
-                setTimeout(() => setSuccess(false), 2800);
-                setPhone("");
-                setNetworkId("mtn");
-                setAmount("");
-                setSelectedPreset(null);
-              }}
-              className="mt-5 w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold"
-            >
-              Pay {formatNaira(numericAmount)}
-            </button>
-            <button type="button" onClick={() => setBuying(false)} className="mt-2 w-full h-11 text-sm font-medium text-[#64748B]">
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
+      {amount > 0 && <section className="air-summary" aria-live="polite">
+        <div className="air-summary-row"><span>You pay</span><strong>{naira(amount)}</strong></div>
+        {insufficient && <div className="air-summary-warn"><span className="air-warn-text"><AlertCircle size={15} /> Insufficient balance. Add {naira(amount - balance)} to continue.</span><Link href="/fund" className="air-warn-fund-link">Fund wallet</Link></div>}
+      </section>}
 
-      {success && (
-        <div className="fixed top-16 left-4 right-4 z-[80] flex justify-center">
-          <div className="bg-[#0F172A] text-white text-sm font-medium px-4 py-3 rounded-[12px] shadow-lg flex items-center gap-2">
-            <CheckCircle2 size={16} className="text-emerald-400" />
-            Airtime purchase submitted (demo)
+      {insufficient ? <Link href="/fund" className="air-cta air-cta-fund"><Wallet size={18} /> Fund Wallet</Link> : <button type="button" className="air-cta" disabled={!readyToConfirm} onClick={() => setConfirmOpen(true)}><LockKeyhole size={16} /> {readyToConfirm ? "Continue to confirm" : "Enter recipient and amount"}</button>}
+
+      <div className="air-trust"><span className="air-trust-icon"><ShieldCheck size={15} /></span><div className="air-trust-body"><strong>Secure airtime purchase</strong><p>Review the recipient and amount before confirming.</p></div></div>
+
+      {recipientPickerOpen && <div className="air-modal-backdrop" onClick={() => setRecipientPickerOpen(false)}>
+        <section className="air-modal-card" role="dialog" aria-modal="true" aria-labelledby="recipient-title" onClick={(event) => event.stopPropagation()}>
+          <div className="air-modal-header"><div className="air-modal-title-wrap"><h3 id="recipient-title">Choose a recipient</h3><p>Pick your account number or a recent top-up.</p></div><button type="button" className="air-modal-close" onClick={() => setRecipientPickerOpen(false)} aria-label="Close recipient picker"><X size={17} /></button></div>
+          <div className="air-modal-list">
+            {registeredPhone && <button type="button" className="air-modal-item" onClick={() => choosePhone(registeredPhone)}><span className="air-modal-item-icon account"><Phone size={18} /></span><span className="air-modal-item-info"><span className="air-modal-item-top"><strong>{formatPhone(registeredPhone)}</strong><span className="air-tag primary">My account</span></span><span className="air-modal-item-sub">Phone number on your account</span></span></button>}
+            {recentRecipients.map((recipient) => <button type="button" className="air-modal-item" key={recipient.phone} onClick={() => choosePhone(recipient.phone, recipient.networkId)}><span className="air-modal-item-icon recent"><Clock3 size={18} /></span><span className="air-modal-item-info"><span className="air-modal-item-top"><strong>{formatPhone(recipient.phone)}</strong>{recipient.networkId && <span className={`air-tag net-${recipient.networkId}`}>{NETWORKS.find((network) => network.id === recipient.networkId)?.label}</span>}</span><span className="air-modal-item-sub">Previously recharged on this device</span></span></button>)}
+            {!registeredPhone && recentRecipients.length === 0 && <div className="air-modal-empty"><p>No saved numbers yet.</p><span>Enter a number to get started. Successful demo submissions are saved on this device.</span></div>}
           </div>
-        </div>
-      )}
-    </div>
+        </section>
+      </div>}
+
+      {confirmOpen && selectedNetworkInfo && <div className="air-modal-backdrop" onClick={() => setConfirmOpen(false)}>
+        <section className="air-confirm-card" role="dialog" aria-modal="true" aria-labelledby="confirm-title" onClick={(event) => event.stopPropagation()}>
+          <div className="air-modal-header"><div className="air-modal-title-wrap"><h3 id="confirm-title">Confirm Airtime</h3><p>Check the details before continuing.</p></div><button type="button" className="air-modal-close" onClick={() => setConfirmOpen(false)} aria-label="Close confirmation"><X size={17} /></button></div>
+          <div className="air-confirm-details">
+            <div><span>Network</span><strong><NetworkLogo id={selectedNetworkInfo.id} />{selectedNetworkInfo.label}</strong></div>
+            <div><span>Recipient</span><strong>{formatPhone(normalizedPhone)}</strong></div>
+            <div className="air-confirm-total"><span>Amount</span><strong>{naira(amount)}</strong></div>
+          </div>
+          <p className="air-demo-note"><Smartphone size={15} /> Airtime checkout is currently a demo flow; no payment will be charged.</p>
+          <button type="button" className="air-cta" onClick={submitDemoPurchase}><Check size={17} /> Confirm demo purchase</button>
+          <button type="button" className="air-cancel-btn" onClick={() => setConfirmOpen(false)}>Go back</button>
+        </section>
+      </div>}
+
+      {toast && <div className="air-toast" role="status"><CheckCircle2 size={16} />{toast}</div>}
+    </main>
   );
 }
