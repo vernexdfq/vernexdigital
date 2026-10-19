@@ -32,5 +32,5 @@ export async function verxorFetch(
   if (init?.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  return fetch(url, { ...init, headers, cache: "no-store", redirect: "manual" });
+  return fetch(url, { ...init, headers, cache: "no-store", redirect: "follow" });
 }
