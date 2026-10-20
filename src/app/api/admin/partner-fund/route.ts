@@ -42,55 +42,35 @@ export async function POST(req: NextRequest) {
       ? { debug: true }
       : { amount, amountNgn: amount };
 
-    let res = await verxorFetch("/partner/fund/generate", {
+    const res = await verxorFetch("/partner/fund/generate", {
       method: "POST",
       body: JSON.stringify(payload),
     });
 
-    let text = await res.text().catch(() => "");
+    const text = await res.text().catch(() => "");
     let data: Record<string, unknown> = {};
     const looksLikeHtml =
       text.includes("<!DOCTYPE") ||
       text.includes("<html") ||
-      (text.includes("Bad gateway") && !text.trim().startsWith("{"));
+      (text.toLowerCase().includes("bad gateway") && !text.trim().startsWith("{"));
 
     if (looksLikeHtml) {
-      data = {
-        message:
-          "Verxor payment service temporarily unavailable. Retry in 30–60 seconds.",
-      };
-    } else {
-      try {
-        data = JSON.parse(text) as Record<string, unknown>;
-      } catch {
-        data = { raw: text.slice(0, 400) };
-      }
+      return NextResponse.json(
+        {
+          error:
+            "Verxor payment service temporarily unavailable (gateway). Retry in 30–60 seconds.",
+        },
+        { status: 502 },
+      );
     }
 
-    let accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
-
-    if (!accountNumber && !isDebug && looksLikeHtml) {
-      try {
-        const pingRes = await verxorFetch("/partner/fund/ping", {
-          method: "POST",
-          body: JSON.stringify({ amount }),
-        });
-        const pingText = await pingRes.text().catch(() => "");
-        if (pingText.trim().startsWith("{")) {
-          const pingData = JSON.parse(pingText) as Record<string, unknown>;
-          const pingAcc = String(pingData.accountNumber || "").replace(/\D/g, "");
-          if (pingAcc) {
-            res = pingRes;
-            text = pingText;
-            data = pingData;
-            accountNumber = pingAcc;
-          } else {
-            data = pingData;
-          }
-        }
-      } catch {
-        /* keep original */
-      }
+    try {
+      data = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json(
+        { error: `Unexpected response from Verxor: ${text.slice(0, 200)}` },
+        { status: 502 },
+      );
     }
 
     if (isDebug) {
@@ -103,12 +83,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
     if (!accountNumber) {
       const errors = Array.isArray(data.errors) ? data.errors.map(String) : [];
       const msg =
         (typeof data.message === "string" && data.message) ||
         errors.join("; ") ||
-        (typeof data.raw === "string" && data.raw) ||
         `Could not create OPay account (HTTP ${res.status}).`;
       console.error("[partner-fund] no account", res.status, text.slice(0, 600));
       return NextResponse.json({ error: msg }, { status: 502 });
