@@ -46,7 +46,15 @@ export async function POST(req: NextRequest) {
     try {
       data = JSON.parse(text) as Record<string, unknown>;
     } catch {
-      data = { raw: text.slice(0, 400) };
+      // Verxor sometimes returns Cloudflare/Vercel 502 HTML when the function crashes
+      if (text.includes("502") || text.includes("Bad gateway") || text.includes("<!DOCTYPE")) {
+        data = {
+          message:
+            "Verxor payment service is temporarily unavailable (502). Please try again in 30–60 seconds.",
+        };
+      } else {
+        data = { raw: text.slice(0, 400) };
+      }
     }
 
     if (!res.ok || data.ok === false) {
@@ -59,7 +67,7 @@ export async function POST(req: NextRequest) {
       console.error("[partner-fund] Verxor error", res.status, text.slice(0, 500));
       return NextResponse.json(
         { error: msg },
-        { status: res.status >= 400 ? res.status : 502 },
+        { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
       );
     }
 
