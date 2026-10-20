@@ -3,6 +3,7 @@ import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const PANEL_SLUG = "vernexdigital";
 const ACCOUNT_NAME = "Verxor-vernexdigital";
@@ -38,11 +39,9 @@ export async function POST(req: NextRequest) {
     }
 
     const amount = isDebug ? 0 : Math.round(Number(body.amount));
-    const payload = isDebug
-      ? { debug: true }
-      : { amount, amountNgn: amount };
+    const payload = isDebug ? {} : { amount };
 
-    const res = await verxorFetch("/partner/fund/generate", {
+    const res = await verxorFetch("/partner/fund/ping", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -89,9 +88,16 @@ export async function POST(req: NextRequest) {
       const msg =
         (typeof data.message === "string" && data.message) ||
         errors.join("; ") ||
-        `Could not create OPay account (HTTP ${res.status}).`;
+        `Could not create account (HTTP ${res.status}).`;
       console.error("[partner-fund] no account", res.status, text.slice(0, 600));
-      return NextResponse.json({ error: msg }, { status: 502 });
+      return NextResponse.json(
+        {
+          error: msg,
+          usedEmail: data.usedEmail || null,
+          usedPhone: data.usedPhone || null,
+        },
+        { status: 502 },
+      );
     }
 
     return NextResponse.json({
