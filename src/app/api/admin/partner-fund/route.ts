@@ -10,13 +10,9 @@ const MIN_AMOUNT = 500;
 
 /**
  * Partner wholesale top-up — Grizzly-style.
- *
- * Child panel uses ONLY VERXOR_PANEL_API_KEY (vx_panel_*).
- * VA is created on Verxor with Verxor's own XixaPay merchant keys.
- * Bank money settles to Verxor; webhook credits panel reseller_wallet.
- *
- * NEVER read XIXAPAY_* from vernexdigital env for this route — those keys
- * belong to the panel's end-customer payments and would send money to them.
+ * Only VERXOR_PANEL_API_KEY on this panel.
+ * VA created on Verxor with Verxor merchant XixaPay → money settles to you.
+ * Webhook credits panel reseller_wallet.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -41,20 +37,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "VERXOR_PANEL_API_KEY is not set. Add the vx_panel_* key from Verxor only — do not add XixaPay keys here.",
+            "VERXOR_PANEL_API_KEY is not set. Add the vx_panel_* key from Verxor only.",
         },
         { status: 503 },
       );
     }
 
+    // Use /partner/fund/ping with amount — proven to create VA on Verxor merchant
+    // (the /generate route still hits a platform 502 in production)
     const payload = isDebug
-      ? { debug: true }
-      : {
-          amountNgn: Math.round(Number(body.amount)),
-          amount: Math.round(Number(body.amount)),
-        };
+      ? {}
+      : { amount: Math.round(Number(body.amount)) };
 
-    const res = await verxorFetch("/partner/fund/generate", {
+    const res = await verxorFetch("/partner/fund/ping", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -80,22 +75,25 @@ export async function POST(req: NextRequest) {
 
     if (isDebug) {
       return NextResponse.json({
-        ok: data.ok === true,
+        ok: data.ok === true || data.step === "xixapay",
         source: "verxor-only",
         usesLocalXixapay: false,
+        merchant: "verxor",
         debug: data,
         httpStatus: res.status,
         message:
-          "Partner fund always uses Verxor XixaPay (your merchant). Panel only needs VERXOR_PANEL_API_KEY.",
+          "Partner fund uses Verxor XixaPay merchant only. Money settles to Verxor.",
       });
     }
 
-    if (!res.ok || data.ok === false) {
+    const accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
+    if (!accountNumber) {
       const msg =
         (typeof data.message === "string" && data.message) ||
-        (typeof data.error === "string" && data.error) ||
-        `Could not create funding account on Verxor (HTTP ${res.status}).`;
-      console.error("[partner-fund] Verxor error", res.status, text.slice(0, 500));
+        (typeof data.providerMessage === "string" && data.providerMessage) ||
+        (typeof data.networkError === "string" && data.networkError) ||
+        `Could not create funding account (HTTP ${res.status}).`;
+      console.error("[partner-fund] no account", res.status, text.slice(0, 500));
       return NextResponse.json(
         { error: msg },
         { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
@@ -104,18 +102,18 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      amount: Number(data.amountNgn ?? data.amount) || Math.round(Number(body.amount)),
+      amount: Number(data.amount) || Math.round(Number(body.amount)),
       bankName: data.bankName || "OPay",
-      accountNumber: String(data.accountNumber || "").replace(/\D/g, ""),
+      accountNumber,
       accountName: data.accountName || ACCOUNT_NAME,
       reservedAccountId: data.reservedAccountId || null,
       expireAt: data.expireAt || null,
-      externalReference: data.externalReference || data.externalRef || null,
+      externalReference: data.externalReference || null,
       message:
-        (typeof data.message === "string" && data.message) ||
         "Transfer the exact amount. Money settles to Verxor; your panel wholesale balance credits when the bank confirms.",
       panelSlug: PANEL_SLUG,
       source: "verxor",
+      merchant: "verxor",
     });
   } catch (e) {
     console.error("[partner-fund]", e);
