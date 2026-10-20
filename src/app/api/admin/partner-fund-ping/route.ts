@@ -1,18 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   try {
     const { configured } = verxorConfig();
     if (!configured) {
       return NextResponse.json({ error: "VERXOR_PANEL_API_KEY not set" }, { status: 503 });
     }
+    const body = await req.json().catch(() => ({}));
     const res = await verxorFetch("/partner/fund/ping", {
       method: "POST",
-      body: "{}",
+      body: JSON.stringify(body),
     });
     const text = await res.text().catch(() => "");
     let data: Record<string, unknown> = {};
