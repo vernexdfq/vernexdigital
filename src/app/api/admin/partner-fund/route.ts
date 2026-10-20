@@ -10,19 +10,25 @@ const ACCOUNT_NAME = "Verxor–vernexdigital";
 /**
  * Partner top-up via Verxor only (single XixaPay lives on Verxor).
  * Child panel never needs XIXAPAY_* — only VERXOR_PANEL_API_KEY.
+ *
+ * Body { debug: true } → probes Verxor auth + XixaPay config (no VA created).
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const amount = Math.round(Number(body.amount));
-    if (!Number.isFinite(amount) || amount < 500) {
-      return NextResponse.json(
-        { error: "Minimum panel top-up is ₦500." },
-        { status: 400 },
-      );
-    }
-    if (amount > 5_000_000) {
-      return NextResponse.json({ error: "Amount is too large." }, { status: 400 });
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const isDebug = body.debug === true;
+
+    if (!isDebug) {
+      const amount = Math.round(Number(body.amount));
+      if (!Number.isFinite(amount) || amount < 500) {
+        return NextResponse.json(
+          { error: "Minimum panel top-up is ₦500." },
+          { status: 400 },
+        );
+      }
+      if (amount > 5_000_000) {
+        return NextResponse.json({ error: "Amount is too large." }, { status: 400 });
+      }
     }
 
     const { configured } = verxorConfig();
@@ -36,9 +42,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const payload = isDebug
+      ? { debug: true }
+      : { amountNgn: Math.round(Number(body.amount)), amount: Math.round(Number(body.amount)) };
+
     const res = await verxorFetch("/partner/fund/generate", {
       method: "POST",
-      body: JSON.stringify({ amountNgn: amount, amount }),
+      body: JSON.stringify(payload),
     });
 
     const text = await res.text().catch(() => "");
@@ -46,7 +56,6 @@ export async function POST(req: NextRequest) {
     try {
       data = JSON.parse(text) as Record<string, unknown>;
     } catch {
-      // Verxor sometimes returns Cloudflare/Vercel 502 HTML when the function crashes
       if (text.includes("502") || text.includes("Bad gateway") || text.includes("<!DOCTYPE")) {
         data = {
           message:
@@ -55,6 +64,17 @@ export async function POST(req: NextRequest) {
       } else {
         data = { raw: text.slice(0, 400) };
       }
+    }
+
+    if (isDebug) {
+      return NextResponse.json(
+        {
+          ok: data.ok === true,
+          debug: data,
+          httpStatus: res.status,
+        },
+        { status: res.ok ? 200 : res.status >= 400 ? res.status : 502 },
+      );
     }
 
     if (!res.ok || data.ok === false) {
@@ -73,7 +93,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      amount: Number(data.amountNgn ?? data.amount) || amount,
+      amount: Number(data.amountNgn ?? data.amount) || Math.round(Number(body.amount)),
       bankName: data.bankName || (data.account as any)?.bankName || "OPay",
       accountNumber: String(
         data.accountNumber || (data.account as any)?.accountNumber || "",
