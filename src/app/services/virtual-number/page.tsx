@@ -24,15 +24,15 @@ type ProviderId =
   | "all-s3"
   | "all-s4";
 
-const PROVIDERS: { id: ProviderId; label: string; flag: string; needsCountry: boolean }[] = [
-  { id: "usa-s1", label: "USA (S1)", flag: "🇺🇸", needsCountry: false },
-  { id: "usa-s2", label: "USA (S2)", flag: "🇺🇸", needsCountry: false },
-  { id: "usa-s3", label: "USA (S3)", flag: "🇺🇸", needsCountry: false },
-  { id: "usa-s4", label: "USA (S4)", flag: "🇺🇸", needsCountry: false },
-  { id: "all-s1", label: "All Countries (S1)", flag: "🌐", needsCountry: true },
-  { id: "all-s2", label: "All Countries (S2)", flag: "🌐", needsCountry: true },
-  { id: "all-s3", label: "All Countries (S3)", flag: "🌐", needsCountry: true },
-  { id: "all-s4", label: "All Countries (S4)", flag: "🌐", needsCountry: true },
+const PROVIDERS: { id: ProviderId; label: string; flag: string; needsCountry: boolean; tier: string }[] = [
+  { id: "usa-s1", label: "USA (S1)", flag: "🇺🇸", needsCountry: false, tier: "Economy" },
+  { id: "usa-s2", label: "USA (S2)", flag: "🇺🇸", needsCountry: false, tier: "Standard" },
+  { id: "usa-s3", label: "USA (S3)", flag: "🇺🇸", needsCountry: false, tier: "Fast" },
+  { id: "usa-s4", label: "USA (S4)", flag: "🇺🇸", needsCountry: false, tier: "Premium" },
+  { id: "all-s1", label: "All Countries (S1)", flag: "🌐", needsCountry: true, tier: "Economy" },
+  { id: "all-s2", label: "All Countries (S2)", flag: "🌐", needsCountry: true, tier: "Standard" },
+  { id: "all-s3", label: "All Countries (S3)", flag: "🌐", needsCountry: true, tier: "Fast" },
+  { id: "all-s4", label: "All Countries (S4)", flag: "🌐", needsCountry: true, tier: "Premium" },
 ];
 
 const SERVICES = [
@@ -71,16 +71,31 @@ const COUNTRIES = [
   "South Africa",
 ];
 
-/** Fallback estimates when catalog is offline */
-const CATALOG_PRICES: Record<ProviderId, number> = {
-  "usa-s1": 5247.07,
-  "usa-s2": 4800.0,
-  "usa-s3": 1300.0,
-  "usa-s4": 2100.5,
-  "all-s1": 3446.31,
-  "all-s2": 1115.5,
-  "all-s3": 1850.0,
-  "all-s4": 920.0,
+const ISO: Record<string, string> = {
+  "United States": "US",
+  "United Kingdom": "GB",
+  Germany: "DE",
+  Canada: "CA",
+  Nigeria: "NG",
+  France: "FR",
+  Netherlands: "NL",
+  India: "IN",
+  Brazil: "BR",
+  Australia: "AU",
+  Spain: "ES",
+  Italy: "IT",
+  Poland: "PL",
+  Ukraine: "UA",
+  "South Africa": "ZA",
+};
+
+type PriceOption = {
+  label: string;
+  priceNgn: number;
+  wholesaleNgn: number;
+  costUsd: number;
+  stock: number;
+  grizzlyCountry: string;
 };
 
 type Order = {
@@ -105,15 +120,14 @@ export default function VirtualNumberPage() {
   const [error, setError] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
-  const [livePrice, setLivePrice] = useState<number | null>(null);
-  const [wholesaleNgn, setWholesaleNgn] = useState<number>(0);
-  const [costUsd, setCostUsd] = useState<number>(0.5);
-  const [grizzlyCountry, setGrizzlyCountry] = useState("");
+  const [options, setOptions] = useState<PriceOption[]>([]);
+  const [selectedIdx, setSelectedIdx] = useState(0);
   const [ordering, setOrdering] = useState(false);
 
   const selectedProvider = PROVIDERS.find((p) => p.id === provider)!;
   const needsCountry = selectedProvider.needsCountry;
   const balance = wallet.balance;
+  const selected = options[selectedIdx] || null;
 
   const filteredServices = useMemo(() => {
     const q = serviceQuery.toLowerCase();
@@ -132,7 +146,8 @@ export default function VirtualNumberPage() {
     setShowPrice(false);
     setError("");
     setActiveOrder(null);
-    setLivePrice(null);
+    setOptions([]);
+    setSelectedIdx(0);
   }
 
   const loadPrice = useCallback(
@@ -142,48 +157,51 @@ export default function VirtualNumberPage() {
       setFetching(true);
       setShowPrice(false);
       setError("");
+      setOptions([]);
+      setSelectedIdx(0);
       try {
         const qs = new URLSearchParams({
           mode: "prices",
           pool,
           service: svc,
         });
-        const ISO: Record<string, string> = {
-          "United States": "US",
-          "United Kingdom": "GB",
-          Germany: "DE",
-          Canada: "CA",
-          Nigeria: "NG",
-          France: "FR",
-          Netherlands: "NL",
-          India: "IN",
-          Brazil: "BR",
-          Australia: "AU",
-          Spain: "ES",
-          Italy: "IT",
-          Poland: "PL",
-          Ukraine: "UA",
-          "South Africa": "ZA",
-        };
         if (ctry) qs.set("country", ISO[ctry] || ctry);
         const res = await fetch(`/api/vn/catalog?${qs}`);
         const data = await res.json().catch(() => ({}));
-        const opt = data.options?.[0];
-        if (data.ok && opt) {
-          setLivePrice(Number(opt.priceNgn) || null);
-          setWholesaleNgn(Number(opt.wholesaleNgn) || 0);
-          setCostUsd(Number(opt.costUsd) || 0.5);
-          setGrizzlyCountry(opt.grizzlyCountry || ISO[ctry] || ctry || "US");
+        const raw = Array.isArray(data.options) ? data.options : [];
+        if (data.ok && raw.length > 0) {
+          const mapped: PriceOption[] = raw.map(
+            (
+              o: {
+                label?: string;
+                priceNgn?: number;
+                wholesaleNgn?: number;
+                costUsd?: number;
+                stock?: number;
+                grizzlyCountry?: string;
+              },
+              i: number,
+            ) => ({
+              label: o.label || `Route ${i + 1}`,
+              priceNgn: Math.round(Number(o.priceNgn) || 0),
+              wholesaleNgn: Math.round(Number(o.wholesaleNgn) || 0),
+              costUsd: Number(o.costUsd) || 0,
+              stock: Number(o.stock) || 0,
+              grizzlyCountry: String(o.grizzlyCountry || ISO[ctry] || ctry || "US"),
+            }),
+          );
+          // Cheapest first — same idea as Verxor multi-route list
+          mapped.sort((a, b) => a.priceNgn - b.priceNgn);
+          setOptions(mapped);
+          setSelectedIdx(0);
           setShowPrice(true);
         } else {
-          setLivePrice(CATALOG_PRICES[pool] || null);
-          setShowPrice(true);
-          if (data.error) setError(String(data.error));
+          setShowPrice(false);
+          setError(data.error || "No numbers available for this selection. Try another tier or service.");
         }
       } catch {
-        setLivePrice(CATALOG_PRICES[pool] || null);
-        setShowPrice(true);
-        setError("Could not load live price. Showing estimate.");
+        setShowPrice(false);
+        setError("Could not load live prices from Verxor. Try again.");
       } finally {
         setFetching(false);
       }
@@ -212,8 +230,11 @@ export default function VirtualNumberPage() {
   }
 
   async function handleOrder() {
-    const price = livePrice ?? CATALOG_PRICES[provider];
-    if (!price || balance < price) {
+    if (!selected || selected.priceNgn < 50) {
+      setError("Select a price route first.");
+      return;
+    }
+    if (balance < selected.priceNgn) {
       setError("Insufficient wallet balance. Fund your wallet first.");
       return;
     }
@@ -237,11 +258,11 @@ export default function VirtualNumberPage() {
         },
         body: JSON.stringify({
           service,
-          country: grizzlyCountry || "US",
+          country: selected.grizzlyCountry || "US",
           pool: provider,
-          priceNgn: price,
-          wholesaleNgn,
-          maxPriceUsd: costUsd || 0.5,
+          priceNgn: selected.priceNgn,
+          wholesaleNgn: selected.wholesaleNgn,
+          maxPriceUsd: selected.costUsd || 0.5,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -253,7 +274,7 @@ export default function VirtualNumberPage() {
       const o = data.order;
       const order: Order = {
         phone: o.phone || "—",
-        service: service,
+        service,
         provider: selectedProvider.label,
         status: "waiting",
       };
@@ -266,8 +287,6 @@ export default function VirtualNumberPage() {
       setOrdering(false);
     }
   }
-
-  const price = livePrice ?? CATALOG_PRICES[provider];
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28">
@@ -318,7 +337,12 @@ export default function VirtualNumberPage() {
         </div>
 
         <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-[#0F172A]">Order a Number</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-[#0F172A]">Order a Number</h3>
+            <span className="text-[10px] font-medium text-[#64748B] bg-[#F1F5F9] px-2 py-0.5 rounded-full">
+              {selectedProvider.tier}
+            </span>
+          </div>
 
           {needsCountry && (
             <div>
@@ -365,38 +389,75 @@ export default function VirtualNumberPage() {
           {fetching && (
             <div className="flex items-center gap-2 text-sm text-[#64748B] py-2">
               <span className="w-4 h-4 border-2 border-[#1877F2] border-t-transparent rounded-full animate-spin" />
-              Fetching price...
+              Fetching live prices from Verxor…
             </div>
           )}
 
-          {showPrice && service && (!needsCountry || country) && !fetching && (
+          {showPrice && options.length > 0 && !fetching && (
             <>
-              <div className="flex items-end justify-between pt-1">
-                <div>
-                  <p className="text-2xl font-bold text-[#1877F2] tabular-nums">
-                    ₦{price.toLocaleString("en-NG", { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-xs text-[#64748B] mt-0.5">Catalog price</p>
+              <div>
+                <p className="text-[11px] font-medium text-[#64748B] uppercase tracking-wide mb-2">
+                  Available prices ({options.length})
+                </p>
+                <div className="space-y-2">
+                  {options.map((opt, i) => {
+                    const active = i === selectedIdx;
+                    return (
+                      <button
+                        key={`${opt.label}-${opt.priceNgn}-${i}`}
+                        type="button"
+                        onClick={() => setSelectedIdx(i)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-[10px] border text-left transition-colors ${
+                          active
+                            ? "border-[#1877F2] bg-[#1877F2]/5"
+                            : "border-[#E2E8F0] bg-[#F8FAFC] hover:border-[#1877F2]/40"
+                        }`}
+                      >
+                        <div>
+                          <p className={`text-sm font-semibold tabular-nums ${
+                            active ? "text-[#1877F2]" : "text-[#0F172A]"
+                          }`}>
+                            ₦{opt.priceNgn.toLocaleString("en-NG")}
+                          </p>
+                          <p className="text-[11px] text-[#64748B]">
+                            {opt.label}
+                            {opt.stock > 0 ? ` · stock ${opt.stock > 9999 ? "9k+" : opt.stock}` : ""}
+                          </p>
+                        </div>
+                        <span
+                          className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                            active ? "border-[#1877F2]" : "border-[#CBD5E1]"
+                          }`}
+                        >
+                          {active && <span className="w-2 h-2 rounded-full bg-[#1877F2]" />}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleOrder}
-                disabled={ordering || fetching}
+                disabled={ordering || fetching || !selected}
                 className="w-full h-11 bg-[#1877F2] hover:bg-[#166FE5] text-white text-sm font-medium rounded-[10px] flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
               >
                 <ShoppingCart size={16} />
-                {ordering ? "Ordering…" : "Order Number"}
+                {ordering
+                  ? "Ordering…"
+                  : selected
+                    ? `Order Number · ₦${selected.priceNgn.toLocaleString("en-NG")}`
+                    : "Order Number"}
               </button>
-
-              {error && (
-                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-[10px] px-3 py-2.5">
-                  <X size={16} className="shrink-0" />
-                  {error}
-                </div>
-              )}
             </>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-[10px] px-3 py-2.5">
+              <X size={16} className="shrink-0" />
+              {error}
+            </div>
           )}
 
           {activeOrder && (
