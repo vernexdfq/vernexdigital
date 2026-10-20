@@ -38,10 +38,11 @@ export async function POST(req: NextRequest) {
     }
 
     const amount = isDebug ? 0 : Math.round(Number(body.amount));
-    const payload = isDebug ? {} : { amount };
+    const payload = isDebug
+      ? { debug: true }
+      : { amount, amountNgn: amount };
 
-    // ping has multi-bank fallback + real email (same merchant as customer funding)
-    const res = await verxorFetch("/partner/fund/ping", {
+    const res = await verxorFetch("/partner/fund/generate", {
       method: "POST",
       body: JSON.stringify(payload),
     });
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
       const msg =
         (typeof data.message === "string" && data.message) ||
         errors.join("; ") ||
-        `Could not create account (HTTP ${res.status}).`;
+        `Could not create OPay account (HTTP ${res.status}).`;
       console.error("[partner-fund] no account", res.status, text.slice(0, 600));
       return NextResponse.json({ error: msg }, { status: 502 });
     }
