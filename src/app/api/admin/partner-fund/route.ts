@@ -5,12 +5,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PANEL_SLUG = "vernexdigital";
-const ACCOUNT_NAME = "Verxor-vernexdigital";
+const ACCOUNT_NAME = "Verxor-vernexdigital partner";
 const MIN_AMOUNT = 500;
 
 /**
  * Partner wholesale top-up — only VERXOR_PANEL_API_KEY.
- * VA on Verxor merchant XixaPay → money to you; webhook credits panel balance.
+ * VA on Verxor merchant XixaPay → money settles to Verxor; webhook credits panel balance.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -35,35 +35,55 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "VERXOR_PANEL_API_KEY is not set. Add the vx_panel_* key from Verxor only.",
+            "VERXOR_PANEL_API_KEY is not set. Add the vx_panel_* key from Verxor in your environment variables.",
         },
         { status: 503 },
       );
     }
 
-    const payload = isDebug ? {} : { amount: Math.round(Number(body.amount)) };
+    const payload = isDebug
+      ? {}
+      : {
+          amount: Math.round(Number(body.amount)),
+          phone: String(body.phone || body.phoneNumber || "09164159443").trim(),
+          accountName: String(body.accountName || ACCOUNT_NAME).trim(),
+          panelSlug: PANEL_SLUG,
+        };
 
-    const res = await verxorFetch("/partner/fund/ping", {
+    // Primary attempt: call Verxor partner fund endpoint
+    let res = await verxorFetch("/partner/fund/ping", {
       method: "POST",
       body: JSON.stringify(payload),
     });
 
-    const text = await res.text().catch(() => "");
+    let text = await res.text().catch(() => "");
     let data: Record<string, unknown> = {};
     try {
       data = JSON.parse(text) as Record<string, unknown>;
     } catch {
-      if (
-        text.includes("502") ||
-        text.includes("Bad gateway") ||
-        text.includes("<!DOCTYPE")
-      ) {
-        data = {
-          message:
-            "Verxor payment service temporarily unavailable. Retry in 30–60 seconds.",
-        };
-      } else {
-        data = { raw: text.slice(0, 400) };
+      data = {};
+    }
+
+    let accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
+
+    // Fallback: if ping didn't return an account, also try /partner/fund/generate
+    if (!accountNumber && !isDebug) {
+      try {
+        const genRes = await verxorFetch("/partner/fund/generate", {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+        const genText = await genRes.text().catch(() => "");
+        const genData = (JSON.parse(genText) || {}) as Record<string, unknown>;
+        const genAcc = String(genData.accountNumber || "").replace(/\D/g, "");
+        if (genAcc) {
+          res = genRes;
+          text = genText;
+          data = genData;
+          accountNumber = genAcc;
+        }
+      } catch {
+        /* keep original ping data */
       }
     }
 
@@ -77,24 +97,24 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
     if (!accountNumber) {
       const errors = Array.isArray(data.errors) ? data.errors.map(String) : [];
       const msg =
+        (typeof data.error === "string" && data.error) ||
         (typeof data.message === "string" && data.message) ||
         errors.join("; ") ||
         (typeof data.providerMessage === "string" && data.providerMessage) ||
-        `Could not create OPay account (HTTP ${res.status}).`;
+        `Could not create funding account (HTTP ${res.status}).`;
       console.error("[partner-fund] no account", res.status, text.slice(0, 600));
-      return NextResponse.json({ error: msg }, { status: 502 });
+      return NextResponse.json({ error: msg, details: data }, { status: 502 });
     }
 
     return NextResponse.json({
       ok: true,
       amount: Number(data.amount) || Math.round(Number(body.amount)),
-      bankName: data.bankName || "OPay",
+      bankName: String(data.bankName || "OPay"),
       accountNumber,
-      accountName: data.accountName || ACCOUNT_NAME,
+      accountName: String(data.accountName || ACCOUNT_NAME),
       reservedAccountId: data.reservedAccountId || null,
       expireAt: data.expireAt || null,
       externalReference: data.externalReference || null,

@@ -11,7 +11,7 @@ export function verxorConfig() {
   if (base.startsWith("https://verxor.com")) {
     base = base.replace("https://verxor.com", "https://www.verxor.com");
   }
-  const key = process.env.VERXOR_PANEL_API_KEY || "";
+  const key = (process.env.VERXOR_PANEL_API_KEY || process.env.VERXOR_API_KEY || "").trim();
   return { base, key, configured: Boolean(key) };
 }
 

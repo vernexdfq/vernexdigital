@@ -12,12 +12,13 @@ export async function tryCreditPartnerWholesale(
 ): Promise<{ credited: number; balance: number; panelSlug: string } | null> {
   const { externalRef, accountNumber, amountPaid, transactionId } = opts;
 
-  let partnerSession: {
+  type PartnerSession = {
     id: string;
     panel_slug: string;
     amount: number;
     status: string;
-  } | null = null;
+  };
+  let partnerSession: PartnerSession | null = null;
 
   if (externalRef && externalRef.startsWith("partner_")) {
     const { data } = await admin
@@ -25,7 +26,7 @@ export async function tryCreditPartnerWholesale(
       .select("id, panel_slug, amount, status")
       .eq("external_ref", externalRef)
       .maybeSingle();
-    if (data) partnerSession = data as typeof partnerSession;
+    if (data) partnerSession = data as unknown as PartnerSession;
   }
 
   if (!partnerSession && accountNumber) {
@@ -36,7 +37,7 @@ export async function tryCreditPartnerWholesale(
       .eq("status", "pending")
       .order("created_at", { ascending: false })
       .limit(1);
-    if (rows?.[0]) partnerSession = rows[0] as typeof partnerSession;
+    if (rows?.[0]) partnerSession = rows[0] as unknown as PartnerSession;
   }
 
   if (!partnerSession || partnerSession.status !== "pending") return null;

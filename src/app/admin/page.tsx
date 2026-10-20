@@ -206,8 +206,7 @@ export default function AdminPartnerFundPage() {
         setState({
           status: "error",
           message:
-            data.error ||
-            "Could not create funding account. Connect payment gateway or run partner SQL first.",
+            data.error || "Could not create funding account. Please try again.",
         });
         return;
       }
