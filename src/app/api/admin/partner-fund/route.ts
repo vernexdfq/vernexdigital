@@ -8,10 +8,6 @@ const PANEL_SLUG = "vernexdigital";
 const ACCOUNT_NAME = "Verxor-vernexdigital";
 const MIN_AMOUNT = 500;
 
-/**
- * Partner wholesale top-up — only VERXOR_PANEL_API_KEY.
- * Calls Verxor /partner/fund/generate which mirrors the working user funding path.
- */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
@@ -46,7 +42,6 @@ export async function POST(req: NextRequest) {
       ? { debug: true }
       : { amount, amountNgn: amount };
 
-    // Use generate first (same payload shape as working user funding)
     let res = await verxorFetch("/partner/fund/generate", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -54,45 +49,47 @@ export async function POST(req: NextRequest) {
 
     let text = await res.text().catch(() => "");
     let data: Record<string, unknown> = {};
-    try {
-      data = JSON.parse(text) as Record<string, unknown>;
-    } catch {
-      if (
-        text.includes("502") ||
-        text.includes("Bad gateway") ||
-        text.includes("<!DOCTYPE")
-      ) {
-        data = {
-          message:
-            "Verxor payment service temporarily unavailable. Retry in 30–60 seconds.",
-        };
-      } else {
+    const looksLikeHtml =
+      text.includes("<!DOCTYPE") ||
+      text.includes("<html") ||
+      (text.includes("Bad gateway") && !text.trim().startsWith("{"));
+
+    if (looksLikeHtml) {
+      data = {
+        message:
+          "Verxor payment service temporarily unavailable. Retry in 30–60 seconds.",
+      };
+    } else {
+      try {
+        data = JSON.parse(text) as Record<string, unknown>;
+      } catch {
         data = { raw: text.slice(0, 400) };
       }
     }
 
     let accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
 
-    // Fallback to ping if generate failed
-    if (!accountNumber && !isDebug) {
+    if (!accountNumber && !isDebug && looksLikeHtml) {
       try {
         const pingRes = await verxorFetch("/partner/fund/ping", {
           method: "POST",
           body: JSON.stringify({ amount }),
         });
         const pingText = await pingRes.text().catch(() => "");
-        const pingData = JSON.parse(pingText || "{}") as Record<string, unknown>;
-        const pingAcc = String(pingData.accountNumber || "").replace(/\D/g, "");
-        if (pingAcc) {
-          res = pingRes;
-          text = pingText;
-          data = pingData;
-          accountNumber = pingAcc;
-        } else if (!data.message && pingData.message) {
-          data = pingData;
+        if (pingText.trim().startsWith("{")) {
+          const pingData = JSON.parse(pingText) as Record<string, unknown>;
+          const pingAcc = String(pingData.accountNumber || "").replace(/\D/g, "");
+          if (pingAcc) {
+            res = pingRes;
+            text = pingText;
+            data = pingData;
+            accountNumber = pingAcc;
+          } else {
+            data = pingData;
+          }
         }
       } catch {
-        /* keep generate error */
+        /* keep original */
       }
     }
 
@@ -111,6 +108,7 @@ export async function POST(req: NextRequest) {
       const msg =
         (typeof data.message === "string" && data.message) ||
         errors.join("; ") ||
+        (typeof data.raw === "string" && data.raw) ||
         `Could not create OPay account (HTTP ${res.status}).`;
       console.error("[partner-fund] no account", res.status, text.slice(0, 600));
       return NextResponse.json({ error: msg }, { status: 502 });
