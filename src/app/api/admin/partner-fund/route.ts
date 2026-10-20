@@ -9,10 +9,8 @@ const ACCOUNT_NAME = "Verxor-vernexdigital";
 const MIN_AMOUNT = 500;
 
 /**
- * Partner wholesale top-up — Grizzly-style.
- * Only VERXOR_PANEL_API_KEY on this panel.
- * VA created on Verxor with Verxor merchant XixaPay → money settles to you.
- * Webhook credits panel reseller_wallet.
+ * Partner wholesale top-up — only VERXOR_PANEL_API_KEY.
+ * VA on Verxor merchant XixaPay → money to you; webhook credits panel balance.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -43,11 +41,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Use /partner/fund/ping with amount — proven to create VA on Verxor merchant
-    // (the /generate route still hits a platform 502 in production)
-    const payload = isDebug
-      ? {}
-      : { amount: Math.round(Number(body.amount)) };
+    const payload = isDebug ? {} : { amount: Math.round(Number(body.amount)) };
 
     const res = await verxorFetch("/partner/fund/ping", {
       method: "POST",
@@ -75,29 +69,24 @@ export async function POST(req: NextRequest) {
 
     if (isDebug) {
       return NextResponse.json({
-        ok: data.ok === true || data.step === "xixapay",
+        ok: data.ok === true,
         source: "verxor-only",
-        usesLocalXixapay: false,
         merchant: "verxor",
         debug: data,
         httpStatus: res.status,
-        message:
-          "Partner fund uses Verxor XixaPay merchant only. Money settles to Verxor.",
       });
     }
 
     const accountNumber = String(data.accountNumber || "").replace(/\D/g, "");
     if (!accountNumber) {
+      const errors = Array.isArray(data.errors) ? data.errors.map(String) : [];
       const msg =
         (typeof data.message === "string" && data.message) ||
+        errors.join("; ") ||
         (typeof data.providerMessage === "string" && data.providerMessage) ||
-        (typeof data.networkError === "string" && data.networkError) ||
-        `Could not create funding account (HTTP ${res.status}).`;
-      console.error("[partner-fund] no account", res.status, text.slice(0, 500));
-      return NextResponse.json(
-        { error: msg },
-        { status: res.status >= 400 && res.status < 600 ? res.status : 502 },
-      );
+        `Could not create OPay account (HTTP ${res.status}).`;
+      console.error("[partner-fund] no account", res.status, text.slice(0, 600));
+      return NextResponse.json({ error: msg }, { status: 502 });
     }
 
     return NextResponse.json({
@@ -110,7 +99,7 @@ export async function POST(req: NextRequest) {
       expireAt: data.expireAt || null,
       externalReference: data.externalReference || null,
       message:
-        "Transfer the exact amount. Money settles to Verxor; your panel wholesale balance credits when the bank confirms.",
+        "Transfer the exact amount. Money settles to Verxor; panel balance credits when the bank confirms.",
       panelSlug: PANEL_SLUG,
       source: "verxor",
       merchant: "verxor",
