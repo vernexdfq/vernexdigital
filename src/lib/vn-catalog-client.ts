@@ -37,6 +37,7 @@ export const FALLBACK_SERVICES: CatalogService[] = [
   { code: "rd", name: "Reddit" },
 ];
 
+/** Curated popular countries only — used if live catalog fails. Not a full world list. */
 export const FALLBACK_COUNTRIES: CatalogCountry[] = [
   { code: "GB", name: "United Kingdom", flag: "🇬🇧", dial: "+44" },
   { code: "DE", name: "Germany", flag: "🇩🇪", dial: "+49" },
@@ -53,7 +54,38 @@ export const FALLBACK_COUNTRIES: CatalogCountry[] = [
   { code: "UA", name: "Ukraine", flag: "🇺🇦", dial: "+380" },
   { code: "ZA", name: "South Africa", flag: "🇿🇦", dial: "+27" },
   { code: "PH", name: "Philippines", flag: "🇵🇭", dial: "+63" },
+  { code: "ID", name: "Indonesia", flag: "🇮🇩", dial: "+62" },
+  { code: "MY", name: "Malaysia", flag: "🇲🇾", dial: "+60" },
+  { code: "KE", name: "Kenya", flag: "🇰🇪", dial: "+254" },
+  { code: "GH", name: "Ghana", flag: "🇬🇭", dial: "+233" },
+  { code: "AE", name: "United Arab Emirates", flag: "🇦🇪", dial: "+971" },
 ];
+
+const COUNTRY_ALIASES: Record<string, string[]> = {
+  GB: ["uk", "united kingdom", "britain", "great britain", "england"],
+  US: ["usa", "united states", "america"],
+  AE: ["uae", "emirates", "dubai"],
+  NL: ["holland", "netherlands"],
+  CZ: ["czech", "czechia"],
+  KR: ["korea", "south korea"],
+  RU: ["russia", "russian federation"],
+};
+
+export function countryMatchesQuery(c: CatalogCountry, q: string): boolean {
+  if (!q) return true;
+  const needle = q.trim().toLowerCase();
+  if (!needle) return true;
+  const hay = [
+    c.name,
+    c.code,
+    c.dial || "",
+    c.grizzlyCode || "",
+    ...(COUNTRY_ALIASES[c.code] || []),
+  ]
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(needle);
+}
 
 export async function fetchServices(pool: string): Promise<{
   services: CatalogService[];
@@ -77,6 +109,10 @@ export async function fetchServices(pool: string): Promise<{
   return { services: FALLBACK_SERVICES, live: false };
 }
 
+/**
+ * Load countries that actually have numbers for this service+pool.
+ * Prefer stock > 0 when the upstream sends stock.
+ */
 export async function fetchCountries(pool: string, serviceCode: string): Promise<CatalogCountry[]> {
   if (!serviceCode) return FALLBACK_COUNTRIES;
   try {
@@ -84,17 +120,29 @@ export async function fetchCountries(pool: string, serviceCode: string): Promise
     const res = await fetch(`/api/vn/catalog?${qs}`);
     const data = await res.json().catch(() => ({}));
     if (data.ok && Array.isArray(data.countries) && data.countries.length > 0) {
-      const mapped: CatalogCountry[] = data.countries
+      let mapped: CatalogCountry[] = data.countries
         .map((c: any) => ({
           code: String(c.code || ""),
-          name: String(c.name || c.code || ""),
+          name: String(c.name || c.display_name || c.code || ""),
           flag: c.flag || "🌍",
           dial: c.dial || "",
-          grizzlyCode: c.grizzlyCode || c.code,
+          grizzlyCode: String(c.grizzlyCode || c.grizzly || c.code || ""),
           fromNgn: c.fromNgn != null ? Number(c.fromNgn) : undefined,
           stock: c.stock != null ? Number(c.stock) : undefined,
         }))
         .filter((c: CatalogCountry) => c.code && c.name);
+
+      const withStock = mapped.filter((c) => c.stock == null || c.stock > 0);
+      if (withStock.length > 0) mapped = withStock;
+
+      const popular = new Set(["GB", "US", "DE", "CA", "NG", "FR", "NL", "IN", "BR", "AU", "PH", "ID", "KE", "GH", "AE", "ZA", "PL", "UA"]);
+      mapped.sort((a, b) => {
+        const ap = popular.has(a.code) ? 0 : 1;
+        const bp = popular.has(b.code) ? 0 : 1;
+        if (ap !== bp) return ap - bp;
+        return a.name.localeCompare(b.name);
+      });
+
       if (mapped.length > 0) return mapped;
     }
   } catch {}
