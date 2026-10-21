@@ -28,6 +28,8 @@ export default function BottomNav() {
             <Link
               key={href}
               href={href}
+              prefetch={true}
+              scroll={false}
               className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] py-1 transition-colors ${
                 active ? "text-[#1877F2]" : "text-[#64748B]"
               }`}
