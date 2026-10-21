@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@/lib/supabase/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 
 export const runtime = "nodejs";
@@ -20,8 +21,7 @@ async function getUser(req: NextRequest) {
 }
 
 /**
- * Poll OTP status from Verxor (Grizzly).
- * Query: ?providerOrderId=...&provider=grizzly&orderId=...
+ * Poll OTP status from Verxor; persist otp_code on vn_orders when received.
  */
 export async function GET(req: NextRequest) {
   const { configured } = verxorConfig();
@@ -50,15 +50,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const qs = new URLSearchParams({
-      provider,
-      providerOrderId,
-    });
+    const qs = new URLSearchParams({ provider, providerOrderId });
     if (orderId) qs.set("orderId", orderId);
 
-    const res = await verxorFetch(`/numbers/status?${qs.toString()}`, {
-      method: "GET",
-    });
+    const res = await verxorFetch(`/numbers/status?${qs.toString()}`, { method: "GET" });
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || !data.ok) {
@@ -69,7 +64,35 @@ export async function GET(req: NextRequest) {
     }
 
     const otp = data.otp ? String(data.otp) : null;
-    const status = otp ? "received" : String(data.status || "waiting").toLowerCase();
+    const status = otp
+      ? "received"
+      : String(data.status || "waiting").toLowerCase();
+
+    // Persist OTP / status for this user
+    try {
+      const admin = createServerClient();
+      const patch: Record<string, unknown> = {
+        status: status === "received" ? "received" : status,
+        updated_at: new Date().toISOString(),
+      };
+      if (otp) patch.otp_code = otp;
+
+      if (orderId) {
+        await admin
+          .from("vn_orders")
+          .update(patch)
+          .eq("id", orderId)
+          .eq("user_id", user.id);
+      } else {
+        await admin
+          .from("vn_orders")
+          .update(patch)
+          .eq("provider_order_id", providerOrderId)
+          .eq("user_id", user.id);
+      }
+    } catch {
+      /* non-fatal */
+    }
 
     return NextResponse.json({
       ok: true,

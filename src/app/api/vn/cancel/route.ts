@@ -21,8 +21,7 @@ async function getUser(req: NextRequest) {
 }
 
 /**
- * Cancel a waiting VN order on Verxor and refund the end-user wallet on vernexdigital.
- * Body: { providerOrderId, orderId?, priceNgn, provider? }
+ * Cancel waiting VN on Verxor, refund end-user wallet, mark vn_orders cancelled/refunded.
  */
 export async function POST(req: NextRequest) {
   const { configured } = verxorConfig();
@@ -50,6 +49,8 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
+
+  const admin = createServerClient();
 
   try {
     const res = await verxorFetch("/numbers/cancel", {
@@ -81,7 +82,6 @@ export async function POST(req: NextRequest) {
 
     let refunded = false;
     if (priceNgn > 0) {
-      const admin = createServerClient();
       const { data: wallet } = await admin
         .from("wallets")
         .select("balance")
@@ -109,6 +109,26 @@ export async function POST(req: NextRequest) {
           },
         });
       }
+    }
+
+    // Update durable order row
+    try {
+      const patch = {
+        status: refunded ? "refunded" : "cancelled",
+        refunded,
+        updated_at: new Date().toISOString(),
+      };
+      if (orderId) {
+        await admin.from("vn_orders").update(patch).eq("id", orderId).eq("user_id", user.id);
+      } else {
+        await admin
+          .from("vn_orders")
+          .update(patch)
+          .eq("provider_order_id", providerOrderId)
+          .eq("user_id", user.id);
+      }
+    } catch {
+      /* non-fatal */
     }
 
     return NextResponse.json({

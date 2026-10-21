@@ -22,8 +22,7 @@ async function getUser(req: NextRequest) {
 }
 
 /**
- * Buy VN: debit end-user wallet on vernexdigital, then call Verxor panel buy.
- * Verxor debits panel linked wallet (wholesale). Panel keeps the markup spread.
+ * Buy VN: debit end-user wallet, call Verxor, persist to vn_orders.
  */
 export async function POST(req: NextRequest) {
   const { configured } = verxorConfig();
@@ -127,18 +126,58 @@ export async function POST(req: NextRequest) {
     }
 
     const order = data.order || {};
+    const providerOrderId = String(order.providerOrderId || order.id || "");
+    const phone = String(order.phone || "");
+
+    // Persist durable order row (service_role)
+    let savedId: string | null = null;
+    try {
+      const { data: row } = await admin
+        .from("vn_orders")
+        .insert({
+          user_id: user.id,
+          provider: "grizzly",
+          provider_order_id: providerOrderId,
+          phone,
+          service: serviceRaw || service,
+          country: order.country || country,
+          pool_id: uiPool || null,
+          price_ngn: priceNgn,
+          status: "waiting",
+          refunded: false,
+        })
+        .select("id")
+        .maybeSingle();
+      if (row?.id) savedId = String(row.id);
+    } catch {
+      /* table may lag; sessionStorage still works */
+    }
+
+    // Mark debit transaction completed
+    try {
+      await admin
+        .from("transactions")
+        .update({ status: "completed" })
+        .eq("user_id", user.id)
+        .eq("kind", "virtual_number")
+        .contains("meta", { ref });
+    } catch {
+      /* optional */
+    }
+
     return NextResponse.json({
       ok: true,
       order: {
-        id: order.id,
-        providerOrderId: order.providerOrderId,
-        phone: order.phone,
+        id: savedId || order.id || providerOrderId,
+        providerOrderId,
+        phone,
         service: order.service || service,
         country: order.country || country,
         poolId: uiPool,
         priceNgn,
         wholesaleNgn,
-        status: order.status || "waiting",
+        status: "waiting",
+        provider: "grizzly",
       },
     });
   } catch (e) {
