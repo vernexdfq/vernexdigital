@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   List,
@@ -15,6 +15,7 @@ import {
   ArrowLeftRight,
   Plus,
   Minus,
+  Loader2,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase/client";
 
@@ -28,9 +29,10 @@ type Txn = {
   status: string;
   when: string;
   kind: TxnKind;
+  createdAt: string;
 };
 
-const PAGE_SIZE = 8;
+const BATCH = 20;
 
 function naira(n: number) {
   const abs = Math.abs(n);
@@ -49,6 +51,20 @@ function mapKind(kind: string): TxnKind {
   if (k.includes("gift")) return "gift";
   if (k.includes("top") || k.includes("fund") || k.includes("deposit")) return "topup";
   return "other";
+}
+
+function mapStatusDisplay(status: string): { label: string; color: string } {
+  const s = (status || "").toLowerCase();
+  if (s === "success" || s === "completed" || s === "done") {
+    return { label: status || "success", color: "text-[#10B981]" };
+  }
+  if (s === "pending" || s === "waiting" || s === "processing") {
+    return { label: status || "pending", color: "text-[#F59E0B]" };
+  }
+  if (s === "failed" || s === "cancelled" || s === "canceled" || s === "refunded") {
+    return { label: status || "failed", color: "text-[#EF4444]" };
+  }
+  return { label: status || "pending", color: "text-[#64748B]" };
 }
 
 function TxnIcon({ kind }: { kind: TxnKind }) {
@@ -80,56 +96,77 @@ function TxnIcon({ kind }: { kind: TxnKind }) {
   );
 }
 
+function rowToTxn(row: {
+  id: string;
+  kind?: string | null;
+  title?: string | null;
+  amount?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+}): Txn {
+  return {
+    id: row.id,
+    title: row.title || row.kind || "Transaction",
+    amount: Number(row.amount) || 0,
+    status: row.status || "Success",
+    when: row.created_at
+      ? new Date(row.created_at).toLocaleString("en-NG", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "",
+    kind: mapKind(String(row.kind || "")),
+    createdAt: row.created_at || "",
+  };
+}
+
 export default function HistoryPage() {
   const [mode, setMode] = useState<HistMode>("list");
   const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
   const [txns, setTxns] = useState<Txn[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
+  const fetchBatch = useCallback(async (before?: string) => {
+    const supabase = createBrowserClient();
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) {
+      userIdRef.current = null;
+      return [];
+    }
+    userIdRef.current = auth.user.id;
+
+    let q = supabase
+      .from("transactions")
+      .select("id, kind, title, amount, status, created_at")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false })
+      .limit(BATCH);
+
+    if (before) {
+      q = q.lt("created_at", before);
+    }
+
+    const { data, error } = await q;
+    if (error || !data) return [];
+    return data.map(rowToTxn);
+  }, []);
+
+  // Initial load
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const supabase = createBrowserClient();
-        const { data: auth } = await supabase.auth.getUser();
-        if (!auth.user) {
-          if (!cancelled) {
-            setTxns([]);
-            setLoading(false);
-          }
-          return;
-        }
-
-        const { data, error } = await supabase
-          .from("transactions")
-          .select("id, kind, title, amount, status, created_at")
-          .eq("user_id", auth.user.id)
-          .order("created_at", { ascending: false })
-          .limit(200);
-
-        if (error || !data) {
-          if (!cancelled) setTxns([]);
-        } else if (!cancelled) {
-          setTxns(
-            data.map((row) => ({
-              id: row.id,
-              title: row.title || row.kind || "Transaction",
-              amount: Number(row.amount) || 0,
-              status: row.status || "Success",
-              when: row.created_at
-                ? new Date(row.created_at).toLocaleString("en-NG", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })
-                : "",
-              kind: mapKind(String(row.kind || "")),
-            }))
-          );
-        }
+        const batch = await fetchBatch();
+        if (cancelled) return;
+        setTxns(batch);
+        setHasMore(batch.length >= BATCH);
       } catch {
         if (!cancelled) setTxns([]);
       } finally {
@@ -139,7 +176,42 @@ export default function HistoryPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [fetchBatch]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || txns.length === 0) return;
+    setLoadingMore(true);
+    try {
+      const oldest = txns[txns.length - 1]?.createdAt;
+      const batch = await fetchBatch(oldest);
+      setTxns((prev) => {
+        const ids = new Set(prev.map((t) => t.id));
+        const fresh = batch.filter((t) => !ids.has(t.id));
+        return [...prev, ...fresh];
+      });
+      setHasMore(batch.length >= BATCH);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, hasMore, txns, fetchBatch]);
+
+  // Infinite scroll via IntersectionObserver
+  useEffect(() => {
+    if (mode !== "list") return;
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          loadMore();
+        }
+      },
+      { rootMargin: "200px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [mode, loadMore]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -151,9 +223,6 @@ export default function HistoryPage() {
         t.when.toLowerCase().includes(q)
     );
   }, [txns, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const topUps = txns.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const spent = txns.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
@@ -194,10 +263,7 @@ export default function HistoryPage() {
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
               <input
                 value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search transactions..."
                 className="w-full h-11 pl-9 pr-3 rounded-full bg-white border border-[#E2E8F0] text-sm focus:outline-none focus:border-[#1877F2]"
               />
@@ -211,62 +277,70 @@ export default function HistoryPage() {
               <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-8 text-center">
                 <p className="text-sm text-[#64748B]">Loading…</p>
               </div>
-            ) : pageItems.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="bg-white border border-[#E2E8F0] rounded-[12px] p-8 text-center">
                 <p className="text-sm text-[#64748B]">No transactions yet</p>
                 <p className="text-xs text-[#94A3B8] mt-1">Fund your wallet to get started</p>
               </div>
             ) : (
               <div className="space-y-2.5">
-                {pageItems.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="bg-white rounded-[14px] border border-[#E2E8F0] px-3.5 py-3 flex items-center gap-3"
-                  >
-                    <TxnIcon kind={tx.kind} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#0F172A] truncate">{tx.title}</p>
-                      <p className="text-[11px] text-[#94A3B8] mt-0.5">{tx.when}</p>
+                {filtered.map((tx) => {
+                  const st = mapStatusDisplay(tx.status);
+                  return (
+                    <div
+                      key={tx.id}
+                      className="bg-white rounded-[14px] border border-[#E2E8F0] px-3.5 py-3 flex items-center gap-3"
+                    >
+                      <TxnIcon kind={tx.kind} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#0F172A] truncate">{tx.title}</p>
+                        <p className="text-[11px] text-[#94A3B8] mt-0.5">{tx.when}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p
+                          className={`text-sm font-semibold tabular-nums ${
+                            tx.amount < 0 ? "text-[#EF4444]" : "text-[#10B981]"
+                          }`}
+                        >
+                          {naira(tx.amount)}
+                        </p>
+                        <span className={`inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium ${st.color}`}>
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              st.color.includes("10B981")
+                                ? "bg-[#10B981]"
+                                : st.color.includes("F59E0B")
+                                  ? "bg-[#F59E0B]"
+                                  : st.color.includes("EF4444")
+                                    ? "bg-[#EF4444]"
+                                    : "bg-[#94A3B8]"
+                            }`}
+                          />
+                          {st.label}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p
-                        className={`text-sm font-semibold tabular-nums ${
-                          tx.amount < 0 ? "text-[#EF4444]" : "text-[#10B981]"
-                        }`}
-                      >
-                        {naira(tx.amount)}
-                      </p>
-                      <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium text-[#10B981]">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                        {tx.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  );
+                })}
 
-            {filtered.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between mt-4 pb-2">
-                <button
-                  type="button"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-9 px-3 rounded-full border border-[#E2E8F0] bg-white text-sm text-[#64748B] disabled:opacity-40"
-                >
-                  ← Previous
-                </button>
-                <span className="text-sm text-[#64748B]">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-9 px-3 rounded-full border border-[#E2E8F0] bg-white text-sm text-[#64748B] disabled:opacity-40"
-                >
-                  Next →
-                </button>
+                {/* Infinite-scroll sentinel */}
+                {!search.trim() && (
+                  <div ref={sentinelRef} className="py-4 flex justify-center">
+                    {loadingMore ? (
+                      <Loader2 size={20} className="animate-spin text-[#1877F2]" />
+                    ) : hasMore ? (
+                      <button
+                        type="button"
+                        onClick={loadMore}
+                        className="text-sm font-medium text-[#1877F2] px-4 py-2 rounded-full border border-[#E2E8F0] bg-white"
+                      >
+                        Load older transactions
+                      </button>
+                    ) : txns.length > 0 ? (
+                      <p className="text-xs text-[#94A3B8]">You\u2019ve reached the end</p>
+                    ) : null}
+                  </div>
+                )}
               </div>
             )}
           </>
