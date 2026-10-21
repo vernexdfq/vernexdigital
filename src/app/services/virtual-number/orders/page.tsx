@@ -91,14 +91,51 @@ export default function VirtualNumberOrdersPage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem("vn_recent_orders");
-      if (raw) {
-        const parsed = JSON.parse(raw) as VnOrder[];
-        if (Array.isArray(parsed)) setOrders(parsed);
-      }
-    } catch {}
-    setLoading(false);
+    let cancelled = false;
+    async function load() {
+      try {
+        const raw = sessionStorage.getItem("vn_recent_orders");
+        if (raw) {
+          const parsed = JSON.parse(raw) as VnOrder[];
+          if (Array.isArray(parsed) && parsed.length) setOrders(parsed);
+        }
+      } catch {}
+
+      try {
+        const token = await getToken();
+        if (!token) {
+          if (!cancelled) setLoading(false);
+          return;
+        }
+        const res = await fetch("/api/vn/orders", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && data.ok && Array.isArray(data.orders) && data.orders.length) {
+          const mapped: VnOrder[] = data.orders.map((o: any) => ({
+            id: String(o.id),
+            phone: o.phone,
+            service: o.service,
+            country: o.country,
+            provider: o.provider || "Grizzly",
+            providerSlug: o.providerSlug || o.provider || "grizzly",
+            providerOrderId: o.providerOrderId,
+            status: o.status || "waiting",
+            code: o.code,
+            priceNgn: o.priceNgn,
+            refunded: o.refunded,
+            createdAt: o.createdAt,
+          }));
+          setOrders(mapped);
+          persistOrders(mapped);
+        }
+      } catch {}
+      if (!cancelled) setLoading(false);
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
