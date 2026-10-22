@@ -22,7 +22,8 @@ async function getUser(req: NextRequest) {
 }
 
 /**
- * Buy VN: debit end-user wallet, call Verxor, persist to vn_orders.
+ * Buy VN: debit end-user wallet, call Verxor (debits panel reseller_wallet),
+ * persist to vn_orders with wholesale for later dual refunds on cancel.
  */
 export async function POST(req: NextRequest) {
   const { configured } = verxorConfig();
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   const ref = `vn_${user.id.slice(0, 8)}_${Date.now()}`;
+  const panelCharge = wholesaleNgn > 0 ? wholesaleNgn : priceNgn;
   const newBal = Math.round((bal - priceNgn) * 100) / 100;
   const { error: debitErr } = await admin
     .from("wallets")
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
     title: `Virtual number · ${serviceRaw || service}`,
     amount: -priceNgn,
     status: "pending",
-    meta: { service, country, pool: uiPool, wholesaleNgn, ref },
+    meta: { service, country, pool: uiPool, wholesaleNgn: panelCharge, ref },
   });
 
   try {
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
         country,
         maxPriceUsd: maxPriceUsd > 0 ? maxPriceUsd : 1,
         poolId,
-        priceNgn: wholesaleNgn > 0 ? wholesaleNgn : priceNgn,
+        priceNgn: panelCharge,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -119,6 +121,7 @@ export async function POST(req: NextRequest) {
         status: "completed",
         meta: { ref, reason: data.error || "buy failed" },
       });
+      // Verxor buy already refunds reseller_wallet if it debited before provider fail
       return NextResponse.json(
         { ok: false, error: data.error || "Purchase failed at provider" },
         { status: 502 },
@@ -129,23 +132,26 @@ export async function POST(req: NextRequest) {
     const providerOrderId = String(order.providerOrderId || order.id || "");
     const phone = String(order.phone || "");
 
-    // Persist durable order row (service_role)
     let savedId: string | null = null;
     try {
+      const insertRow: Record<string, unknown> = {
+        user_id: user.id,
+        provider: "grizzly",
+        provider_order_id: providerOrderId,
+        phone,
+        service: serviceRaw || service,
+        country: order.country || country,
+        pool_id: uiPool || null,
+        price_ngn: priceNgn,
+        status: "waiting",
+        refunded: false,
+      };
+      // Optional column — ignore if migration not applied yet
+      if (panelCharge > 0) insertRow.wholesale_ngn = panelCharge;
+
       const { data: row } = await admin
         .from("vn_orders")
-        .insert({
-          user_id: user.id,
-          provider: "grizzly",
-          provider_order_id: providerOrderId,
-          phone,
-          service: serviceRaw || service,
-          country: order.country || country,
-          pool_id: uiPool || null,
-          price_ngn: priceNgn,
-          status: "waiting",
-          refunded: false,
-        })
+        .insert(insertRow)
         .select("id")
         .maybeSingle();
       if (row?.id) savedId = String(row.id);
@@ -153,11 +159,20 @@ export async function POST(req: NextRequest) {
       /* table may lag; sessionStorage still works */
     }
 
-    // Mark debit transaction completed
     try {
       await admin
         .from("transactions")
-        .update({ status: "completed" })
+        .update({
+          status: "completed",
+          meta: {
+            service,
+            country,
+            pool: uiPool,
+            wholesaleNgn: panelCharge,
+            providerOrderId,
+            ref,
+          },
+        })
         .eq("user_id", user.id)
         .eq("kind", "virtual_number")
         .contains("meta", { ref });
@@ -175,7 +190,7 @@ export async function POST(req: NextRequest) {
         country: order.country || country,
         poolId: uiPool,
         priceNgn,
-        wholesaleNgn,
+        wholesaleNgn: panelCharge,
         status: "waiting",
         provider: "grizzly",
       },
