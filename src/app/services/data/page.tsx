@@ -41,7 +41,7 @@ const PLANS: Plan[] = [
   { id: "glo-2gb", networkId: "glo", tab: "Best Offers", data: "2GB", validity: "2 DAYS", price: 480, originalPrice: 550 },
 ];
 
-const TABS = ["Best Offers", "Daily", "Weekly", "Monthly"];
+const TABS = ["Hot", "Daily", "Weekly", "Monthly", "Yearly"];
 
 function formatNaira(n: number) {
   return "\u20a6" + n.toLocaleString("en-NG");
@@ -51,7 +51,7 @@ export default function DataPage() {
   const [phone, setPhone] = useState("");
   const [networkId, setNetworkId] = useState<NetworkId>("mtn");
   const [netOpen, setNetOpen] = useState(false);
-  const [tab, setTab] = useState("Best Offers");
+  const [tab, setTab] = useState("Hot");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [buying, setBuying] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -62,14 +62,10 @@ export default function DataPage() {
   }, [phone]);
 
   const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? NETWORKS[0];
-  const filteredPlans = useMemo(
-    () => PLANS.filter((p) => p.networkId === networkId && p.tab === tab),
-    [networkId, tab]
-  );
-  const featuredPlan = useMemo(
-    () => PLANS.find((p) => p.networkId === networkId && p.featured) || PLANS.find((p) => p.networkId === networkId && p.tab === "Best Offers"),
-    [networkId]
-  );
+  const filteredPlans = useMemo(() => {
+    const catalogTab = tab === "Hot" ? "Best Offers" : tab;
+    return PLANS.filter((p) => p.networkId === networkId && p.tab === catalogTab);
+  }, [networkId, tab]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28">
@@ -113,50 +109,40 @@ export default function DataPage() {
           )}
         </div>
 
-        {featuredPlan && (
-          <button
-            type="button"
-            onClick={() => { setSelectedPlan(featuredPlan); setBuying(true); }}
-            className="w-full rounded-[14px] bg-gradient-to-r from-[#1877F2] to-[#0B5ED7] p-4 text-left text-white shadow-md"
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">Best Offer</p>
-            <p className="mt-1 text-lg font-bold">{featuredPlan.data} · {featuredPlan.validity}</p>
-            <p className="mt-1 text-sm">{formatNaira(featuredPlan.price)}</p>
-          </button>
-        )}
 
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`h-8 px-3 rounded-full text-[11px] font-semibold shrink-0 ${tab === t ? "bg-[#1877F2] text-white" : "bg-white border border-[#E2E8F0] text-[#64748B]"}`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max min-w-full gap-2">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`h-10 min-w-[76px] px-4 rounded-full text-xs font-semibold shrink-0 ${tab === t ? "bg-[#1877F2] text-white shadow-sm" : "bg-white border border-[#E2E8F0] text-[#64748B]"}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-3 gap-2">
           {filteredPlans.length === 0 ? (
-            <p className="text-center text-sm text-[#94A3B8] py-10">No plans for this tab</p>
+            <p className="col-span-3 text-center text-sm text-[#94A3B8] py-10">No plans for this tab</p>
           ) : (
             filteredPlans.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => { setSelectedPlan(p); setBuying(true); }}
-                className="w-full bg-white rounded-[12px] border border-[#E2E8F0] p-3.5 flex items-center justify-between text-left"
-              >
+              <div key={p.id} className="min-w-0 rounded-[14px] bg-white border border-[#E2E8F0] p-2.5 flex flex-col gap-2">
                 <div>
-                  <p className="text-sm font-semibold text-[#0F172A]">{p.data}</p>
-                  <p className="text-[11px] text-[#94A3B8]">{p.validity}</p>
+                  <p className="text-lg leading-tight font-extrabold tracking-tight text-[#0F172A]">{p.data}</p>
+                  <p className="mt-1 text-[11px] leading-tight text-[#64748B]">{p.validity}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-[#1877F2] tabular-nums">{formatNaira(p.price)}</p>
-                </div>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPlan(p); setBuying(true); }}
+                  className="w-full rounded-[9px] bg-[#EFF6FF] px-1.5 py-2 text-[11px] leading-tight font-bold text-[#1877F2] tabular-nums"
+                >
+                  Pay {formatNaira(p.price)}
+                </button>
+              </div>
             ))
           )}
         </div>
