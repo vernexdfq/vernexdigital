@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   Bell,
   ChevronDown,
-  Phone,
   Search,
   ShoppingCart,
   X,
