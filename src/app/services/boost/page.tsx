@@ -171,7 +171,7 @@ export default function BoostAccountPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28">
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#E2E8F0]">
-        <div className="h-14 px-4 flex items-center justify-between">
+        <div className="h-14 px-3 flex items-center justify-between">
           <Link href="/home" className="flex items-center gap-1.5 text-sm font-medium text-[#0F172A]">
             <ArrowLeft size={18} />
             Back
@@ -181,7 +181,7 @@ export default function BoostAccountPage() {
         </div>
       </header>
 
-      <div className="px-4 pt-4 space-y-4">
+      <div className="w-full px-3 pt-4 space-y-4">
         <div className="rounded-[14px] bg-gradient-to-br from-[#0B1220] to-[#152238] p-4 flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-[12px] bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
             <Rocket size={22} className="text-white" strokeWidth={1.8} />
