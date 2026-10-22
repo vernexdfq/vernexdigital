@@ -21,7 +21,11 @@ async function getUser(req: NextRequest) {
 }
 
 /**
- * Cancel waiting VN on Verxor, refund end-user wallet, mark vn_orders cancelled/refunded.
+ * Cancel waiting VN on Verxor, refund end-user wallet AND partner reseller_wallet,
+ * mark vn_orders cancelled/refunded.
+ *
+ * - priceNgn (retail) → credited back to the end-user on this panel
+ * - wholesaleNgn → sent to Verxor so the panel wholesale balance is restored
  */
 export async function POST(req: NextRequest) {
   const { configured } = verxorConfig();
@@ -40,7 +44,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const providerOrderId = String(body.providerOrderId || "").trim();
   const orderId = String(body.orderId || "").trim();
-  const priceNgn = Math.round(Number(body.priceNgn) || 0);
+  let priceNgn = Math.round(Number(body.priceNgn) || 0);
+  let wholesaleNgn = Math.round(Number(body.wholesaleNgn) || 0);
   const provider = String(body.provider || "grizzly").trim().toLowerCase();
 
   if (!providerOrderId) {
@@ -52,13 +57,76 @@ export async function POST(req: NextRequest) {
 
   const admin = createServerClient();
 
+  // Resolve retail + wholesale from durable order / transaction if client omitted them
+  try {
+    let orderRow: {
+      price_ngn?: number;
+      wholesale_ngn?: number;
+      id?: string;
+    } | null = null;
+
+    if (orderId) {
+      const { data } = await admin
+        .from("vn_orders")
+        .select("id, price_ngn, wholesale_ngn")
+        .eq("id", orderId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      orderRow = data;
+    }
+    if (!orderRow && providerOrderId) {
+      const { data } = await admin
+        .from("vn_orders")
+        .select("id, price_ngn, wholesale_ngn")
+        .eq("provider_order_id", providerOrderId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      orderRow = data;
+    }
+
+    if (orderRow) {
+      if (priceNgn <= 0 && Number(orderRow.price_ngn) > 0) {
+        priceNgn = Math.round(Number(orderRow.price_ngn));
+      }
+      if (wholesaleNgn <= 0 && Number(orderRow.wholesale_ngn) > 0) {
+        wholesaleNgn = Math.round(Number(orderRow.wholesale_ngn));
+      }
+    }
+
+    if (wholesaleNgn <= 0) {
+      const { data: tx } = await admin
+        .from("transactions")
+        .select("meta, amount")
+        .eq("user_id", user.id)
+        .eq("kind", "virtual_number")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      const match = (tx || []).find((t: { meta?: { providerOrderId?: string; wholesaleNgn?: number } }) => {
+        const m = t.meta || {};
+        return (
+          String(m.providerOrderId || "") === providerOrderId ||
+          Number(m.wholesaleNgn) > 0
+        );
+      });
+      if (match?.meta && Number((match.meta as { wholesaleNgn?: number }).wholesaleNgn) > 0) {
+        wholesaleNgn = Math.round(Number((match.meta as { wholesaleNgn?: number }).wholesaleNgn));
+      }
+    }
+  } catch {
+    /* best-effort lookup */
+  }
+
+  // Fallback: if we only know retail, still tell Verxor something so panel is not stuck
+  const panelRefundNgn = wholesaleNgn > 0 ? wholesaleNgn : priceNgn;
+
   try {
     const res = await verxorFetch("/numbers/cancel", {
       method: "POST",
       body: JSON.stringify({
         providerOrderId,
         orderId: orderId || undefined,
-        priceNgn: 0,
+        // Wholesale amount → Verxor credits reseller_wallet (partner fund)
+        priceNgn: panelRefundNgn,
         provider,
       }),
     });
@@ -80,6 +148,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Refund end-user retail balance on this panel
     let refunded = false;
     if (priceNgn > 0) {
       const { data: wallet } = await admin
@@ -105,13 +174,14 @@ export async function POST(req: NextRequest) {
           meta: {
             providerOrderId,
             orderId: orderId || null,
+            wholesaleNgn: panelRefundNgn,
+            panelRefunded: Boolean(data.refunded),
             reason: "user_cancel",
           },
         });
       }
     }
 
-    // Update durable order row
     try {
       const patch = {
         status: refunded ? "refunded" : "cancelled",
@@ -135,7 +205,9 @@ export async function POST(req: NextRequest) {
       ok: true,
       cancelled: true,
       refunded,
+      panelRefunded: Boolean(data.refunded),
       priceNgn,
+      wholesaleNgn: panelRefundNgn,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Cancel failed";
