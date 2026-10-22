@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Bell,
@@ -71,22 +72,12 @@ type Order = {
   priceNgn?: number;
   wholesaleNgn?: number;
   expiresAt?: number;
-  /** Cancel enabled after this (Grizzly max early-cancel ~5 min) */
   cancelAvailableAt?: number;
   refunded?: boolean;
 };
 
 const OTP_TTL_MS = 20 * 60 * 1000;
-/** Grizzly max early-cancel window is ~5 min — after this Cancel is reliable */
 const CANCEL_LOCK_MS = 5 * 60 * 1000;
-const OTP_POLL_MS = 5000;
-
-function formatTimer(ms: number) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(s / 60);
-  const r = s % 60;
-  return `${m}:${r.toString().padStart(2, "0")}`;
-}
 
 async function getAuthToken(): Promise<string | null> {
   try {
@@ -178,6 +169,7 @@ function SearchSheet({
 
 export default function VirtualNumberPage() {
   const { wallet, refresh } = useUser();
+  const router = useRouter();
   const balance = wallet?.balance ?? 0;
 
   const [provider, setProvider] = useState<ProviderId>("usa-s1");
@@ -194,12 +186,7 @@ export default function VirtualNumberPage() {
   const [loadingPrices, setLoadingPrices] = useState(false);
   const [buying, setBuying] = useState(false);
   const [buyError, setBuyError] = useState("");
-  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
-  const [otpBusy, setOtpBusy] = useState(false);
-  const [otpMsg, setOtpMsg] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [tick, setTick] = useState(0);
 
   const needsCountry = PROVIDERS.find((p) => p.id === provider)?.needsCountry ?? false;
   const currentTier = PROVIDERS.find((p) => p.id === provider)?.tier ?? "Economy";
@@ -209,11 +196,7 @@ export default function VirtualNumberPage() {
       const raw = sessionStorage.getItem("vn_recent_orders");
       if (raw) {
         const parsed = JSON.parse(raw) as Order[];
-        if (Array.isArray(parsed) && parsed.length) {
-          setRecentOrders(parsed);
-          const waiting = parsed.find((o) => o.status === "waiting");
-          if (waiting) setActiveOrder(waiting);
-        }
+        if (Array.isArray(parsed) && parsed.length) setRecentOrders(parsed);
       }
     } catch {}
   }, []);
@@ -300,162 +283,9 @@ export default function VirtualNumberPage() {
     };
   }, [service, country, provider, needsCountry]);
 
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (!activeOrder || activeOrder.status !== "waiting" || !activeOrder.providerOrderId) return;
-    let cancelled = false;
-    const poll = async () => {
-      try {
-        const token = await getAuthToken();
-        if (!token || cancelled) return;
-        const qs = new URLSearchParams({
-          providerOrderId: activeOrder.providerOrderId!,
-          provider: activeOrder.providerSlug || "grizzly",
-        });
-        if (activeOrder.id) qs.set("orderId", activeOrder.id);
-        const res = await fetch(`/api/vn/status?${qs}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (cancelled || !data.ok) return;
-        if (data.otp || data.code) {
-          patchOrder(activeOrder.id || activeOrder.providerOrderId, {
-            code: String(data.otp || data.code),
-            status: "received",
-          });
-        } else if (data.status === "cancelled" || data.status === "expired") {
-          patchOrder(activeOrder.id || activeOrder.providerOrderId, { status: data.status });
-        }
-      } catch {}
-    };
-    const id = setInterval(poll, OTP_POLL_MS);
-    void poll();
-    return () => {
-      cancelled = true;
-      clearInterval(id);
-    };
-  }, [activeOrder?.providerOrderId, activeOrder?.status]);
-
-  useEffect(() => {
-    if (!activeOrder || activeOrder.status !== "waiting") return;
-    const now = Date.now();
-    if (activeOrder.expiresAt && activeOrder.expiresAt <= now) {
-      patchOrder(activeOrder.id || activeOrder.providerOrderId, { status: "expired" });
-    }
-  }, [tick, activeOrder]);
-
   function persist(list: Order[]) {
     try {
       sessionStorage.setItem("vn_recent_orders", JSON.stringify(list.slice(0, 30)));
-    } catch {}
-  }
-
-  function patchOrder(id: string | undefined, patch: Partial<Order>) {
-    if (!id) return;
-    setActiveOrder((prev) => (prev && (prev.id === id || prev.providerOrderId === id) ? { ...prev, ...patch } : prev));
-    setRecentOrders((prev) => {
-      const next = prev.map((o) =>
-        o.id === id || o.providerOrderId === id ? { ...o, ...patch } : o,
-      );
-      persist(next);
-      return next;
-    });
-  }
-
-  async function handleCheckOtp() {
-    if (!activeOrder?.providerOrderId) return;
-    setOtpBusy(true);
-    setOtpMsg("");
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        setOtpMsg("Sign in again");
-        return;
-      }
-      const qs = new URLSearchParams({
-        providerOrderId: activeOrder.providerOrderId,
-        provider: activeOrder.providerSlug || "grizzly",
-      });
-      if (activeOrder.id) qs.set("orderId", activeOrder.id);
-      const res = await fetch(`/api/vn/status?${qs}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.ok) {
-        setOtpMsg(data.error || "Could not check OTP");
-        return;
-      }
-      if (data.otp || data.code) {
-        patchOrder(activeOrder.id || activeOrder.providerOrderId, {
-          code: String(data.otp || data.code),
-          status: "received",
-        });
-        setOtpMsg("OTP received!");
-      } else setOtpMsg("Still waiting for SMS…");
-    } catch {
-      setOtpMsg("Network error");
-    } finally {
-      setOtpBusy(false);
-    }
-  }
-
-  async function handleCancelOrder() {
-    if (!activeOrder?.providerOrderId) return;
-    if (activeOrder.cancelAvailableAt && Date.now() < activeOrder.cancelAvailableAt) {
-      setOtpMsg(`Cancel available in ${formatTimer(activeOrder.cancelAvailableAt - Date.now())}`);
-      return;
-    }
-    setOtpBusy(true);
-    setOtpMsg("");
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        setOtpMsg("Sign in again");
-        return;
-      }
-      const res = await fetch("/api/vn/cancel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          providerOrderId: activeOrder.providerOrderId,
-          orderId: activeOrder.id,
-          priceNgn: activeOrder.priceNgn || 0,
-          wholesaleNgn: activeOrder.wholesaleNgn || 0,
-          provider: activeOrder.providerSlug || "grizzly",
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.earlyDenied) {
-        setOtpMsg(data.error || "Cancel not available yet — wait a moment");
-        return;
-      }
-      if (!res.ok || !data.ok) {
-        setOtpMsg(data.error || "Cancel failed");
-        return;
-      }
-      patchOrder(activeOrder.id || activeOrder.providerOrderId, {
-        status: data.refunded ? "refunded" : "cancelled",
-        refunded: Boolean(data.refunded),
-      });
-      setOtpMsg(data.refunded ? "Cancelled & refunded to wallet" : "Order cancelled");
-      void refresh();
-    } catch {
-      setOtpMsg("Network error");
-    } finally {
-      setOtpBusy(false);
-    }
-  }
-
-  async function copyActiveCode() {
-    if (!activeOrder?.code) return;
-    try {
-      await navigator.clipboard.writeText(activeOrder.code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1800);
     } catch {}
   }
 
@@ -491,26 +321,31 @@ export default function VirtualNumberPage() {
         return;
       }
       const now = Date.now();
+      const providerOrderId = String(data.order?.providerOrderId || "");
       const order: Order = {
-        id: data.order?.id,
+        id: String(data.order?.id || providerOrderId || `local_${now}`),
         phone: data.order?.phone || "",
         service: service.name,
         provider: "Grizzly",
         providerSlug: "grizzly",
-        providerOrderId: data.order?.providerOrderId,
+        providerOrderId: providerOrderId || undefined,
         status: "waiting",
         priceNgn: selectedPrice.priceNgn,
         wholesaleNgn: selectedPrice.wholesaleNgn,
         expiresAt: now + OTP_TTL_MS,
         cancelAvailableAt: now + CANCEL_LOCK_MS,
       };
-      setActiveOrder(order);
       setRecentOrders((prev) => {
-        const next = [order, ...prev].slice(0, 30);
+        const next = [
+          order,
+          ...prev.filter((o) => o.providerOrderId !== providerOrderId),
+        ].slice(0, 30);
         persist(next);
         return next;
       });
       void refresh();
+      // Receive code on the orders page (stable list — no disappearing active card)
+      router.push("/services/virtual-number/orders");
     } catch {
       setBuyError("Network error");
     } finally {
@@ -526,8 +361,6 @@ export default function VirtualNumberPage() {
     () => liveCountries.filter((c) => countryMatchesQuery(c, countryQuery)),
     [liveCountries, countryQuery],
   );
-
-  void tick;
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28">
@@ -657,60 +490,6 @@ export default function VirtualNumberPage() {
           </button>
         </div>
 
-        {activeOrder && activeOrder.status === "waiting" ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-[#0F172A]">Active order</h3>
-              <span className="text-xs font-medium text-amber-600">Waiting for SMS</span>
-            </div>
-            <p className="text-sm text-[#0F172A] font-mono tabular-nums">{activeOrder.phone}</p>
-            <p className="text-xs text-[#64748B]">{activeOrder.service}</p>
-            {activeOrder.expiresAt ? (
-              <p className="text-xs text-[#94A3B8]">
-                Expires in {formatTimer(activeOrder.expiresAt - Date.now())}
-              </p>
-            ) : null}
-            {otpMsg ? <p className="text-sm text-[#1877F2]">{otpMsg}</p> : null}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={otpBusy}
-                onClick={() => void handleCheckOtp()}
-                className="flex-1 h-10 rounded-xl border border-[#E2E8F0] text-sm font-medium disabled:opacity-50"
-              >
-                Check OTP
-              </button>
-              <button
-                type="button"
-                disabled={otpBusy}
-                onClick={() => void handleCancelOrder()}
-                className="flex-1 h-10 rounded-xl border border-red-200 text-red-600 text-sm font-medium disabled:opacity-50"
-              >
-                Cancel
-              </button>
-            </div>
-            {activeOrder.cancelAvailableAt && Date.now() < activeOrder.cancelAvailableAt ? (
-              <p className="text-[11px] text-[#94A3B8]">
-                Cancel available in {formatTimer(activeOrder.cancelAvailableAt - Date.now())}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        {activeOrder && activeOrder.status === "received" && activeOrder.code ? (
-          <div className="bg-white border border-[#E2E8F0] rounded-2xl p-4 space-y-3">
-            <h3 className="text-[15px] font-semibold text-[#0F172A]">OTP received</h3>
-            <p className="text-2xl font-bold tracking-widest text-[#0F172A]">{activeOrder.code}</p>
-            <button
-              type="button"
-              onClick={() => void copyActiveCode()}
-              className="w-full h-10 rounded-xl bg-[#1877F2] text-white text-sm font-semibold"
-            >
-              {copied ? "Copied" : "Copy code"}
-            </button>
-          </div>
-        ) : null}
-
         <div>
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-[15px] font-semibold text-[#0F172A]">Recent Orders</h2>
@@ -727,18 +506,38 @@ export default function VirtualNumberPage() {
           ) : (
             <div className="space-y-2">
               {recentOrders.slice(0, 5).map((o, i) => (
-                <button
+                <Link
                   key={o.id || o.providerOrderId || i}
-                  type="button"
-                  onClick={() => setActiveOrder(o)}
+                  href="/services/virtual-number/orders"
                   className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-3 flex items-center justify-between text-left"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-[#0F172A]">{o.service}</p>
-                    <p className="text-xs text-[#1877F2] font-mono tabular-nums">{o.phone}</p>
+                    <p className="text-xs text-[#1877F2] font-mono tabular-nums truncate">{o.phone}</p>
+                    {o.status === "received" && o.code ? (
+                      <p className="text-[12px] font-semibold text-emerald-700 mt-0.5 tracking-wider">
+                        Code {o.code}
+                      </p>
+                    ) : o.status === "waiting" ? (
+                      <p className="text-[11px] text-amber-600 mt-0.5">Waiting for SMS…</p>
+                    ) : null}
                   </div>
-                  <span className="text-[11px] font-semibold text-[#64748B]">{o.status}</span>
-                </button>
+                  <span
+                    className={`text-[11px] font-semibold shrink-0 ${
+                      o.status === "waiting"
+                        ? "text-amber-600"
+                        : o.status === "received"
+                          ? "text-emerald-600"
+                          : "text-[#64748B]"
+                    }`}
+                  >
+                    {o.status === "waiting"
+                      ? "Waiting"
+                      : o.status === "received"
+                        ? "Code ready"
+                        : o.status}
+                  </span>
+                </Link>
               ))}
             </div>
           )}
