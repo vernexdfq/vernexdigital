@@ -5,53 +5,138 @@ import { useUser } from "@/lib/useUser";
 import Link from "next/link";
 import {
   ArrowLeft,
-  Rocket,
   Search,
   X,
-  Info,
   Link2,
-  RefreshCw,
+  Check,
+  ChevronRight,
+  ChevronDown,
   Package,
+  ClipboardPaste,
+  ShieldCheck,
+  Zap,
+  Lock,
+  RefreshCw,
+  BadgeCheck,
+  TrendingUp,
 } from "lucide-react";
 
-const CATEGORIES = [
-  { id: "instagram", name: "Instagram" },
-  { id: "facebook", name: "Facebook" },
-  { id: "tiktok", name: "TikTok" },
-  { id: "youtube", name: "YouTube" },
-  { id: "twitter", name: "Twitter / X" },
-  { id: "audiomack", name: "Audiomack" },
-  { id: "telegram", name: "Telegram" },
-  { id: "spotify", name: "Spotify" },
+/* ---------------------------------- data ---------------------------------- */
+/* Same data model as before — swap these arrays for provider API responses later. */
+
+type Platform = {
+  id: string;
+  name: string;
+  color: string; // brand color for the tile
+  initial: string;
+};
+
+const PLATFORMS: Platform[] = [
+  { id: "instagram", name: "Instagram", color: "#E1306C", initial: "IG" },
+  { id: "facebook", name: "Facebook", color: "#1877F2", initial: "FB" },
+  { id: "tiktok", name: "TikTok", color: "#111827", initial: "TT" },
+  { id: "youtube", name: "YouTube", color: "#FF0000", initial: "YT" },
+  { id: "twitter", name: "Twitter / X", color: "#0F172A", initial: "X" },
+  { id: "audiomack", name: "Audiomack", color: "#FFA200", initial: "AM" },
+  { id: "telegram", name: "Telegram", color: "#2AABEE", initial: "TG" },
+  { id: "spotify", name: "Spotify", color: "#1DB954", initial: "SP" },
 ];
 
 type Service = {
   id: string;
   categoryId: string;
+  group: string; // Followers / Likes / Views ...
   name: string;
   ratePer1000: number;
   min: number;
   max: number;
+  speed: string;
 };
 
 const SERVICES: Service[] = [
-  { id: "ig-followers", categoryId: "instagram", name: "Instagram Followers [HQ] [Non Drop]", ratePer1000: 1850, min: 100, max: 500000 },
-  { id: "ig-likes", categoryId: "instagram", name: "Instagram Likes [Real] [Fast]", ratePer1000: 420, min: 50, max: 100000 },
-  { id: "ig-views", categoryId: "instagram", name: "Instagram Views [Instant]", ratePer1000: 180, min: 100, max: 1000000 },
-  { id: "fb-page-followers", categoryId: "facebook", name: "Facebook Page Followers", ratePer1000: 2100, min: 100, max: 200000 },
-  { id: "fb-page-likes", categoryId: "facebook", name: "Facebook Page Likes", ratePer1000: 1950, min: 50, max: 100000 },
-  { id: "tt-followers", categoryId: "tiktok", name: "TikTok Followers [Stable]", ratePer1000: 2400, min: 100, max: 300000 },
-  { id: "tt-likes", categoryId: "tiktok", name: "TikTok Likes [Fast]", ratePer1000: 550, min: 50, max: 500000 },
-  { id: "yt-subs", categoryId: "youtube", name: "YouTube Subscribers [Real]", ratePer1000: 8900, min: 50, max: 50000 },
-  { id: "yt-views", categoryId: "youtube", name: "YouTube Views [Retention]", ratePer1000: 980, min: 500, max: 1000000 },
-  { id: "x-followers", categoryId: "twitter", name: "Twitter / X Followers", ratePer1000: 3200, min: 100, max: 100000 },
-  { id: "am-likes", categoryId: "audiomack", name: "Audiomack Likes [Worldwide] [Non Drop]", ratePer1000: 2122.07, min: 100, max: 10000000 },
-  { id: "tg-members", categoryId: "telegram", name: "Telegram Channel Members", ratePer1000: 1650, min: 100, max: 200000 },
-  { id: "sp-plays", categoryId: "spotify", name: "Spotify Plays", ratePer1000: 1100, min: 1000, max: 500000 },
+  { id: "ig-followers", categoryId: "instagram", group: "Followers", name: "Instagram Followers [HQ] [Non Drop]", ratePer1000: 1850, min: 100, max: 500000, speed: "1K / day" },
+  { id: "ig-likes", categoryId: "instagram", group: "Likes", name: "Instagram Likes [Real] [Fast]", ratePer1000: 420, min: 50, max: 100000, speed: "Instant" },
+  { id: "ig-views", categoryId: "instagram", group: "Views", name: "Instagram Views [Instant]", ratePer1000: 180, min: 100, max: 1000000, speed: "Instant" },
+  { id: "fb-page-followers", categoryId: "facebook", group: "Followers", name: "Facebook Page Followers", ratePer1000: 2100, min: 100, max: 200000, speed: "500 / day" },
+  { id: "fb-page-likes", categoryId: "facebook", group: "Likes", name: "Facebook Page Likes", ratePer1000: 1950, min: 50, max: 100000, speed: "500 / day" },
+  { id: "tt-followers", categoryId: "tiktok", group: "Followers", name: "TikTok Followers [Stable]", ratePer1000: 2400, min: 100, max: 300000, speed: "1K / day" },
+  { id: "tt-likes", categoryId: "tiktok", group: "Likes", name: "TikTok Likes [Fast]", ratePer1000: 550, min: 50, max: 500000, speed: "10K / day" },
+  { id: "yt-subs", categoryId: "youtube", group: "Subscribers", name: "YouTube Subscribers [Real]", ratePer1000: 8900, min: 50, max: 50000, speed: "100 / day" },
+  { id: "yt-views", categoryId: "youtube", group: "Views", name: "YouTube Views [Retention]", ratePer1000: 980, min: 500, max: 1000000, speed: "5K / day" },
+  { id: "x-followers", categoryId: "twitter", group: "Followers", name: "Twitter / X Followers", ratePer1000: 3200, min: 100, max: 100000, speed: "500 / day" },
+  { id: "am-likes", categoryId: "audiomack", group: "Likes", name: "Audiomack Likes [Worldwide] [Non Drop]", ratePer1000: 2122.07, min: 100, max: 10000000, speed: "5K / day" },
+  { id: "tg-members", categoryId: "telegram", group: "Members", name: "Telegram Channel Members", ratePer1000: 1650, min: 100, max: 200000, speed: "1K / day" },
+  { id: "sp-plays", categoryId: "spotify", group: "Plays", name: "Spotify Plays", ratePer1000: 1100, min: 1000, max: 500000, speed: "10K / day" },
 ];
 
+const QTY_CHIPS = [500, 1000, 2500, 5000];
+
 function formatNaira(n: number) {
-  return `₦${n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return "₦" + n.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/* --------------------------------- pieces --------------------------------- */
+
+function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="mb-2 flex items-baseline justify-between">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">{children}</span>
+      {hint ? <span className="text-[11px] text-slate-400 tabular-nums">{hint}</span> : null}
+    </div>
+  );
+}
+
+function SelectRow({
+  label,
+  value,
+  placeholder,
+  icon,
+  right,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  value: string | null;
+  placeholder: string;
+  icon: React.ReactNode;
+  right?: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <SectionLabel>{label}</SectionLabel>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className={
+          "w-full min-h-[56px] rounded-2xl border bg-white px-4 py-3 text-left transition-colors " +
+          (disabled
+            ? "border-slate-100 opacity-50"
+            : "border-slate-200 hover:border-slate-300 active:border-[#1877F2]")
+        }
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {icon}
+            <span
+              className={
+                "truncate text-[14px] font-medium leading-snug " +
+                (value ? "text-slate-900" : "text-slate-400 font-normal")
+              }
+            >
+              {value ?? placeholder}
+            </span>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {right}
+            <ChevronDown size={16} className="text-slate-400" />
+          </div>
+        </div>
+      </button>
+    </div>
+  );
 }
 
 function Sheet({
@@ -60,6 +145,7 @@ function Sheet({
   onClose,
   search,
   onSearch,
+  searchPlaceholder,
   children,
 }: {
   title: string;
@@ -67,101 +153,122 @@ function Sheet({
   onClose: () => void;
   search: string;
   onSearch: (v: string) => void;
+  searchPlaceholder: string;
   children: React.ReactNode;
 }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      <button type="button" className="absolute inset-0 bg-black/40" aria-label="Close" onClick={onClose} />
-      <div className="relative bg-white rounded-t-[20px] max-h-[78vh] flex flex-col shadow-xl">
-        <div className="flex items-center justify-between px-4 pt-4 pb-2">
-          <h3 className="text-base font-semibold text-[#0F172A]">{title}</h3>
-          <button type="button" onClick={onClose} className="w-8 h-8 rounded-full bg-[#F1F5F9] flex items-center justify-center text-[#64748B]">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" />
+      <div className="relative flex max-h-[82vh] flex-col rounded-t-[24px] bg-white shadow-2xl">
+        <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" />
+        <div className="flex items-center justify-between px-5 pt-3 pb-2">
+          <h3 className="text-[16px] font-semibold text-slate-900">{title}</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+          >
             <X size={16} />
           </button>
         </div>
-        <div className="px-4 pb-3">
+        <div className="px-5 pb-3">
           <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(e) => onSearch(e.target.value)}
-              placeholder="Search..."
-              className="w-full h-11 pl-9 pr-3 rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/15"
+              placeholder={searchPlaceholder}
               autoFocus
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/10"
             />
           </div>
         </div>
-        <div className="overflow-y-auto px-2 pb-6">{children}</div>
+        <div className="max-h-[58vh] overflow-y-auto px-3 pb-7">{children}</div>
       </div>
     </div>
   );
 }
 
+function PlatformBadge({ platform, size = 40 }: { platform: Platform; size?: number }) {
+  return (
+    <span
+      className="flex items-center justify-center rounded-xl text-[12px] font-bold text-white"
+      style={{ background: platform.color, width: size, height: size, fontSize: size >= 40 ? 13 : 11 }}
+    >
+      {platform.initial}
+    </span>
+  );
+}
+
+/* ---------------------------------- page ---------------------------------- */
+
 export default function BoostAccountPage() {
   const { wallet } = useUser();
   const balance = wallet.balance;
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+
+  const [platformId, setPlatformId] = useState<string | null>(null);
+  const [group, setGroup] = useState<string>("All Services");
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [link, setLink] = useState("");
   const [qty, setQty] = useState("");
-  const [catOpen, setCatOpen] = useState(false);
-  const [svcOpen, setSvcOpen] = useState(false);
-  const [catSearch, setCatSearch] = useState("");
-  const [svcSearch, setSvcSearch] = useState("");
-  const [orders, setOrders] = useState<
-    { id: string; service: string; qty: number; total: number; status: string }[]
-  >([]);
+  const [placed, setPlaced] = useState<{ id: string; service: string; qty: number; total: number; status: string }[]>([]);
 
-  const category = CATEGORIES.find((c) => c.id === categoryId) ?? null;
+  const [platformOpen, setPlatformOpen] = useState(false);
+  const [groupOpen, setGroupOpen] = useState(false);
+  const [serviceOpen, setServiceOpen] = useState(false);
+  const [pSearch, setPSearch] = useState("");
+  const [sSearch, setSSearch] = useState("");
+
+  const platform = PLATFORMS.find((p) => p.id === platformId) ?? null;
   const service = SERVICES.find((s) => s.id === serviceId) ?? null;
 
-  const filteredCats = useMemo(() => {
-    const q = catSearch.trim().toLowerCase();
-    if (!q) return CATEGORIES;
-    return CATEGORIES.filter((c) => c.name.toLowerCase().includes(q));
-  }, [catSearch]);
+  const filteredPlatforms = useMemo(() => {
+    const q = pSearch.trim().toLowerCase();
+    return q ? PLATFORMS.filter((p) => p.name.toLowerCase().includes(q)) : PLATFORMS;
+  }, [pSearch]);
 
-  const filteredSvcs = useMemo(() => {
-    const list = categoryId ? SERVICES.filter((s) => s.categoryId === categoryId) : SERVICES;
-    const q = svcSearch.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((s) => s.name.toLowerCase().includes(q));
-  }, [categoryId, svcSearch]);
+  const groups = useMemo(() => {
+    if (!platformId) return [];
+    const set = new Set(SERVICES.filter((s) => s.categoryId === platformId).map((s) => s.group));
+    return ["All Services", ...Array.from(set)];
+  }, [platformId]);
+
+  const platformServices = useMemo(() => {
+    const list = platformId ? SERVICES.filter((s) => s.categoryId === platformId) : SERVICES;
+    const q = sSearch.trim().toLowerCase();
+    const filtered = group === "All Services" ? list : list.filter((s) => s.group === group);
+    return q ? filtered.filter((s) => s.name.toLowerCase().includes(q)) : filtered;
+  }, [platformId, group, sSearch]);
 
   const quantity = Number(qty) || 0;
   const total = service && quantity > 0 ? (service.ratePer1000 / 1000) * quantity : 0;
-  const insufficient = total > 0 && total > balance;
+  const shortfall = total > 0 && total > balance ? total - balance : 0;
+  const insufficient = shortfall > 0;
   const canOrder =
-    !!service &&
-    link.trim().length > 5 &&
-    quantity >= (service?.min ?? 0) &&
-    quantity <= (service?.max ?? 0) &&
-    !insufficient;
+    !!service && link.trim().length > 5 && quantity >= (service?.min ?? 0) && quantity <= (service?.max ?? 0) && !insufficient;
 
-  function selectCategory(id: string) {
-    setCategoryId(id);
+  function selectPlatform(id: string) {
+    setPlatformId(id);
     setServiceId(null);
-    setCatOpen(false);
-    setCatSearch("");
+    setGroup("All Services");
+    setPlatformOpen(false);
+    setPSearch("");
   }
 
-  function selectService(id: string) {
-    setServiceId(id);
-    setSvcOpen(false);
-    setSvcSearch("");
+  async function pasteLink() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setLink(text.trim());
+    } catch {
+      /* clipboard unavailable — user can still type */
+    }
   }
 
   function placeOrder() {
     if (!canOrder || !service) return;
-    setOrders((prev) => [
-      {
-        id: `ORD-${Date.now().toString().slice(-6)}`,
-        service: service.name,
-        qty: quantity,
-        total,
-        status: "Pending",
-      },
+    setPlaced((prev) => [
+      { id: "ORD-" + Date.now().toString().slice(-6), service: service.name, qty: quantity, total, status: "Pending" },
       ...prev,
     ]);
     setLink("");
@@ -169,171 +276,248 @@ export default function BoostAccountPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-28">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#E2E8F0]">
-        <div className="h-14 px-3 flex items-center justify-between">
-          <Link href="/home" className="flex items-center gap-1.5 text-sm font-medium text-[#0F172A]">
+    <div className="min-h-screen bg-[#F6F8FB] pb-32">
+      {/* header */}
+      <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur">
+        <div className="flex h-14 items-center justify-between px-4">
+          <button type="button" onClick={() => history.back()} className="flex items-center gap-1 text-[14px] font-medium text-slate-900">
             <ArrowLeft size={18} />
             Back
+          </button>
+          <h1 className="text-[14px] font-semibold text-slate-900">Boost Account</h1>
+          <Link href="/fund" className="flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[13px] font-semibold text-emerald-700 tabular-nums">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            {formatNaira(balance)}
           </Link>
-          <h1 className="text-sm font-semibold text-[#0F172A]">Boost Account</h1>
-          <span className="text-sm font-semibold text-[#16A34A] tabular-nums">{formatNaira(balance)}</span>
         </div>
       </header>
 
-      <div className="w-full px-3 pt-4 space-y-4">
-        <div className="rounded-[14px] bg-gradient-to-br from-[#0B1220] to-[#152238] p-4 flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-[12px] bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
-            <Rocket size={22} className="text-white" strokeWidth={1.8} />
-          </div>
-          <div>
-            <p className="text-[15px] font-semibold text-white leading-tight">Boost Your Account</p>
-            <p className="text-[12px] text-slate-300 mt-0.5 leading-snug">
-              Followers, likes, views & more — delivered fast
-            </p>
-          </div>
-        </div>
-
-        <div className="flex gap-2.5 rounded-[12px] bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-3">
-          <Info size={16} className="text-[#1877F2] shrink-0 mt-0.5" />
-          <p className="text-[12px] text-[#1E3A5F] leading-relaxed">
-            Select a category, choose a service, then enter your link and quantity.
+      <div className="mx-auto max-w-lg space-y-5 px-4 pt-5">
+        {/* hero */}
+        <section>
+          <h2 className="text-[22px] font-bold leading-tight tracking-tight text-slate-900">Boost Your Account</h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
+            Social media growth &amp; engagement. Select a platform, pick a category, choose a service, then enter your link and quantity.
           </p>
-        </div>
+        </section>
 
-        <div>
-          <label className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase">Category</label>
-          <button
-            type="button"
-            onClick={() => setCatOpen(true)}
-            className="mt-1.5 w-full h-12 px-3.5 rounded-[12px] bg-white border border-[#E2E8F0] flex items-center justify-between text-left"
-          >
-            <span className={`text-sm ${category ? "text-[#0F172A] font-medium" : "text-[#94A3B8]"}`}>
-              {category ? category.name : "Select a category"}
-            </span>
-            <span className="text-[#94A3B8] text-xs">▼</span>
-          </button>
-        </div>
+        {/* selectors */}
+        <section className="space-y-4">
+          <SelectRow
+            label="Platform"
+            value={platform ? platform.name : null}
+            placeholder="Select a platform"
+            onClick={() => setPlatformOpen(true)}
+            icon={
+              platform ? (
+                <PlatformBadge platform={platform} size={36} />
+              ) : (
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
+                  <TrendingUp size={16} />
+                </span>
+              )
+            }
+            right={platform ? <Check size={16} className="text-[#1877F2]" /> : null}
+          />
 
-        <div>
-          <label className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase">Service</label>
-          <button
-            type="button"
-            onClick={() => setSvcOpen(true)}
-            disabled={!categoryId}
-            className="mt-1.5 w-full min-h-12 px-3.5 py-2.5 rounded-[12px] bg-white border border-[#E2E8F0] flex items-center justify-between text-left disabled:opacity-50"
-          >
-            <span className={`text-sm pr-2 ${service ? "text-[#0F172A] font-medium" : "text-[#94A3B8]"}`}>
-              {service ? service.name : "Select a service"}
-            </span>
-            <span className="text-[#94A3B8] text-xs shrink-0">▼</span>
-          </button>
-        </div>
+          {platform && (
+            <SelectRow
+              label="Category"
+              value={group}
+              placeholder="Select a category"
+              onClick={() => setGroupOpen(true)}
+              icon={
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1877F2]">
+                  <BadgeCheck size={16} />
+                </span>
+              }
+            />
+          )}
 
-        <div>
-          <label className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase">Details</label>
-          <div className="mt-1.5 space-y-2.5">
-            <div className="relative">
-              <Link2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-              <input
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-                placeholder="Paste your post or profile link"
-                className="w-full h-12 pl-10 pr-3 rounded-[12px] bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1877F2]"
-              />
-            </div>
+          {platform && (
+            <SelectRow
+              label="Service"
+              value={service ? service.name : null}
+              placeholder="Select a service"
+              onClick={() => setServiceOpen(true)}
+              icon={
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                  <Package size={16} />
+                </span>
+              }
+              right={
+                service ? (
+                  <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-[#1877F2] tabular-nums">
+                    {formatNaira(service.ratePer1000)} / 1K
+                  </span>
+                ) : null
+              }
+            />
+          )}
+        </section>
+
+        {/* details */}
+        {service && (
+          <section className="space-y-4">
             <div>
-              <input
-                value={qty}
-                onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
-                inputMode="numeric"
-                placeholder="Enter quantity"
-                className="w-full h-12 px-3.5 rounded-[12px] bg-white border border-[#E2E8F0] text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1877F2]"
-              />
-              {service && (
-                <p className="mt-1.5 text-[11px] text-[#94A3B8]">
-                  Min: {service.min.toLocaleString()} · Max: {service.max.toLocaleString()}
-                </p>
+              <SectionLabel>Link</SectionLabel>
+              <div className="flex items-stretch gap-2">
+                <div className="relative flex-1">
+                  <Link2 size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={link}
+                    onChange={(e) => setLink(e.target.value)}
+                    placeholder="Paste your post or profile link"
+                    className="h-[52px] w-full rounded-2xl border border-slate-200 bg-white pl-10 pr-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/10"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={pasteLink}
+                  className="flex h-[52px] shrink-0 items-center gap-1.5 rounded-2xl bg-slate-900 px-4 text-[13px] font-semibold text-white active:opacity-80"
+                >
+                  <ClipboardPaste size={15} />
+                  Paste
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <SectionLabel hint={"Min " + service.min.toLocaleString() + " · Max " + service.max.toLocaleString()}>Quantity</SectionLabel>
+              <div className="flex h-[52px] items-center rounded-2xl border border-slate-200 bg-white pl-4">
+                <span className="text-[15px] font-semibold text-slate-400">#</span>
+                <input
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value.replace(/[^0-9]/g, ""))}
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="h-full w-full bg-transparent px-2 text-[15px] font-semibold text-slate-900 placeholder:text-slate-300 focus:outline-none"
+                />
+                {qty && <button type="button" onClick={() => setQty("")} className="px-3 text-slate-400"><X size={14} /></button>}
+              </div>
+              <div className="mt-2 grid grid-cols-4 gap-2">
+                {QTY_CHIPS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setQty(String(q))}
+                    disabled={q < service.min || q > service.max}
+                    className={
+                      "h-9 rounded-xl border text-[12px] font-semibold tabular-nums transition-colors disabled:opacity-30 " +
+                      (Number(qty) === q
+                        ? "border-[#1877F2] bg-[#1877F2] text-white"
+                        : "border-slate-200 bg-white text-slate-600")
+                    }
+                  >
+                    {q.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* order summary */}
+        {service && (
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="border-b border-slate-100 px-5 py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">Order Summary</span>
+                <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                  <Zap size={11} /> {service.speed}
+                </span>
+              </div>
+              <div className="mt-3 space-y-2.5">
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-slate-500">Rate per 1,000</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{formatNaira(service.ratePer1000)}</span>
+                </div>
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-slate-500">Quantity</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{quantity.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-[#0B1220] to-[#1B2B45] px-5 py-5">
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Total Cost</p>
+                  <p className="mt-1 text-[26px] font-bold leading-none text-white tabular-nums">{formatNaira(total)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-400">Wallet</p>
+                  <p className="text-[13px] font-semibold text-emerald-400 tabular-nums">{formatNaira(balance)}</p>
+                </div>
+              </div>
+
+              {insufficient ? (
+                <Link
+                  href="/fund"
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-orange-500 text-[13px] font-semibold text-white active:opacity-90"
+                >
+                  Fund Wallet · Need {formatNaira(shortfall)}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canOrder}
+                  onClick={placeOrder}
+                  className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1877F2] text-[13px] font-semibold text-white transition-opacity disabled:opacity-40"
+                >
+                  <Zap size={15} />
+                  Place Order
+                </button>
               )}
             </div>
-          </div>
-        </div>
+          </section>
+        )}
 
-        <div>
-          <label className="text-[11px] font-semibold tracking-wide text-[#64748B] uppercase">Order Summary</label>
-          <div className="mt-1.5 rounded-[14px] bg-white border border-[#E2E8F0] overflow-hidden">
-            {service && quantity > 0 ? (
-              <>
-                <div className="px-4 py-3 space-y-2.5">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#64748B]">Rate per 1,000</span>
-                    <span className="font-medium text-[#0F172A] tabular-nums">{formatNaira(service.ratePer1000)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#64748B]">Min / Max</span>
-                    <span className="font-medium text-[#0F172A] tabular-nums">
-                      {service.min.toLocaleString()} – {service.max.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="bg-gradient-to-br from-[#0B1220] to-[#152238] px-4 py-4">
-                  <p className="text-[11px] font-medium tracking-wide text-slate-400 uppercase">Total Cost</p>
-                  <p className="text-2xl font-semibold text-white tabular-nums mt-1">{formatNaira(total)}</p>
-                  {insufficient && (
-                    <p className="mt-2 text-[12px] text-red-400 flex items-center gap-1.5">
-                      <span>⚠</span> Insufficient wallet balance
-                    </p>
-                  )}
-                  <div className="mt-3 flex items-center justify-between text-[12px]">
-                    <span className="text-slate-400">Wallet Balance</span>
-                    <span className="text-emerald-400 font-medium tabular-nums">{formatNaira(balance)}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="px-4 py-10 text-center">
-                <Package size={28} className="mx-auto text-[#CBD5E1]" />
-                <p className="mt-2 text-sm text-[#94A3B8]">Select a service and enter quantity to see price</p>
-              </div>
-            )}
+        {/* trust */}
+        <section className="rounded-2xl border border-slate-200 bg-white px-5 py-5">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={16} className="text-[#1877F2]" />
+            <h3 className="text-[14px] font-semibold text-slate-900">Vernex Boost Guarantee</h3>
           </div>
-        </div>
+          <ul className="mt-3 space-y-2.5">
+            {[
+              { icon: <Lock size={13} />, text: "100% safe & private — no password required, ever" },
+              { icon: <RefreshCw size={13} />, text: "Automatic refill or refund if counts drop" },
+              { icon: <Zap size={13} />, text: "Fast delivery — most orders start within minutes" },
+              { icon: <ShieldCheck size={13} />, text: "Secure wallet — pay only for what you order" },
+            ].map((item, i) => (
+              <li key={i} className="flex items-start gap-2.5 text-[13px] leading-relaxed text-slate-600">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[#1877F2]">
+                  {item.icon}
+                </span>
+                {item.text}
+              </li>
+            ))}
+          </ul>
+        </section>
 
-        <button
-          type="button"
-          disabled={!canOrder}
-          onClick={placeOrder}
-          className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
-        >
-          <Rocket size={18} strokeWidth={2} />
-          Place Order
-        </button>
-
-        <div className="pt-2">
-          <div className="flex items-center justify-between mb-2.5">
-            <h2 className="text-sm font-semibold text-[#0F172A] flex items-center gap-1.5">
-              <RefreshCw size={14} className="text-[#64748B]" />
-              My Orders
-            </h2>
-          </div>
-          {orders.length === 0 ? (
-            <div className="rounded-[12px] bg-white border border-[#E2E8F0] py-10 text-center">
-              <p className="text-sm text-[#94A3B8]">No orders yet</p>
+        {/* recent orders */}
+        {placed.length > 0 && (
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500">My Orders</span>
+              <Link href="/history" className="flex items-center gap-0.5 text-[12px] font-medium text-[#1877F2]">
+                View all <ChevronRight size={12} />
+              </Link>
             </div>
-          ) : (
             <div className="space-y-2">
-              {orders.map((o) => (
-                <div key={o.id} className="rounded-[12px] bg-white border border-[#E2E8F0] px-3.5 py-3">
-                  <div className="flex items-start justify-between gap-2">
+              {placed.map((o) => (
+                <div key={o.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#0F172A] truncate">{o.service}</p>
-                      <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                      <p className="truncate text-[13px] font-medium text-slate-900">{o.service}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-400 tabular-nums">
                         {o.id} · Qty {o.qty.toLocaleString()}
                       </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-[#0F172A] tabular-nums">{formatNaira(o.total)}</p>
-                      <span className="inline-block mt-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                    <div className="shrink-0 text-right">
+                      <p className="text-[13px] font-semibold text-slate-900 tabular-nums">{formatNaira(o.total)}</p>
+                      <span className="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
                         {o.status}
                       </span>
                     </div>
@@ -341,44 +525,100 @@ export default function BoostAccountPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </section>
+        )}
       </div>
 
-      <Sheet title="Select Category" open={catOpen} onClose={() => { setCatOpen(false); setCatSearch(""); }} search={catSearch} onSearch={setCatSearch}>
-        {filteredCats.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => selectCategory(c.id)}
-            className={`w-full text-left px-3 py-3.5 rounded-[10px] text-sm flex items-center gap-3 ${
-              categoryId === c.id ? "bg-[#EFF6FF] text-[#1877F2] font-medium" : "text-[#0F172A]"
-            }`}
-          >
-            <span className="w-8 h-8 rounded-[8px] bg-[#F1F5F9] flex items-center justify-center text-xs font-semibold text-[#64748B]">
-              {c.name.slice(0, 1)}
-            </span>
-            {c.name}
-          </button>
-        ))}
-        {filteredCats.length === 0 && <p className="text-center text-sm text-[#94A3B8] py-8">No results</p>}
+      {/* sheets */}
+      <Sheet
+        title="Select Platform"
+        open={platformOpen}
+        onClose={() => { setPlatformOpen(false); setPSearch(""); }}
+        search={pSearch}
+        onSearch={setPSearch}
+        searchPlaceholder="Search platforms..."
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {filteredPlatforms.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => selectPlatform(p.id)}
+              className={
+                "flex items-center gap-3 rounded-xl border p-3 text-left transition-colors " +
+                (platformId === p.id
+                  ? "border-[#1877F2] bg-blue-50/60"
+                  : "border-slate-100 bg-white hover:border-slate-300")
+              }
+            >
+              <PlatformBadge platform={p} size={38} />
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold text-slate-900">{p.name}</p>
+                <p className="text-[11px] text-slate-400">
+                  {SERVICES.filter((s) => s.categoryId === p.id).length} services
+                </p>
+              </div>
+              {platformId === p.id && <Check size={15} className="ml-auto shrink-0 text-[#1877F2]" />}
+            </button>
+          ))}
+        </div>
+        {filteredPlatforms.length === 0 && <p className="py-8 text-center text-[13px] text-slate-400">No results</p>}
       </Sheet>
 
-      <Sheet title="Select Service" open={svcOpen} onClose={() => { setSvcOpen(false); setSvcSearch(""); }} search={svcSearch} onSearch={setSvcSearch}>
-        {filteredSvcs.map((s) => (
+      <Sheet
+        title={"Select " + (platform?.name ?? "") + " Category"}
+        open={groupOpen}
+        onClose={() => setGroupOpen(false)}
+        search=""
+        onSearch={() => {}}
+        searchPlaceholder=""
+      >
+        {groups.map((g) => (
+          <button
+            key={g}
+            type="button"
+            onClick={() => { setGroup(g); setGroupOpen(false); }}
+            className={
+              "flex w-full items-center justify-between rounded-xl px-3 py-3.5 text-left text-[14px] " +
+              (group === g ? "bg-blue-50 font-semibold text-[#1877F2]" : "text-slate-700")
+            }
+          >
+            {g}
+            {group === g && <Check size={16} className="text-[#1877F2]" />}
+          </button>
+        ))}
+      </Sheet>
+
+      <Sheet
+        title={"Select " + (platform?.name ?? "") + " Package"}
+        open={serviceOpen}
+        onClose={() => { setServiceOpen(false); setSSearch(""); }}
+        search={sSearch}
+        onSearch={setSSearch}
+        searchPlaceholder="Search services..."
+      >
+        {platformServices.map((s) => (
           <button
             key={s.id}
             type="button"
-            onClick={() => selectService(s.id)}
-            className={`w-full text-left px-3 py-3.5 rounded-[10px] ${
-              serviceId === s.id ? "bg-[#EFF6FF]" : ""
-            }`}
+            onClick={() => { setServiceId(s.id); setServiceOpen(false); setSSearch(""); }}
+            className={
+              "w-full rounded-xl border p-3.5 text-left transition-colors " +
+              (serviceId === s.id ? "border-[#1877F2] bg-blue-50/60" : "border-slate-100 hover:border-slate-300")
+            }
           >
-            <p className={`text-sm ${serviceId === s.id ? "text-[#1877F2] font-medium" : "text-[#0F172A]"}`}>{s.name}</p>
-            <p className="text-[11px] text-[#94A3B8] mt-0.5">{formatNaira(s.ratePer1000)} per 1,000 · Min {s.min.toLocaleString()}</p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-[13px] font-semibold leading-snug text-slate-900">{s.name}</p>
+              <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-[#1877F2] tabular-nums">
+                {formatNaira(s.ratePer1000)} / 1K
+              </span>
+            </div>
+            <p className="mt-1.5 text-[11px] text-slate-400 tabular-nums">
+              {s.group} · Min {s.min.toLocaleString()} – Max {s.max.toLocaleString()} · {s.speed}
+            </p>
           </button>
         ))}
-        {filteredSvcs.length === 0 && <p className="text-center text-sm text-[#94A3B8] py-8">No results</p>}
+        {platformServices.length === 0 && <p className="py-8 text-center text-[13px] text-slate-400">No results</p>}
       </Sheet>
     </div>
   );
