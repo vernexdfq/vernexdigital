@@ -18,7 +18,6 @@ import {
   Lock,
   RefreshCw,
   BadgeCheck,
-  TrendingUp,
 } from "lucide-react";
 
 /* ---------------------------------- data ---------------------------------- */
@@ -172,18 +171,19 @@ function Sheet({
             <X size={16} />
           </button>
         </div>
-        <div className="px-5 pb-3">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              value={search}
-              onChange={(e) => onSearch(e.target.value)}
-              placeholder={searchPlaceholder}
-              autoFocus
-              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/10"
-            />
+        {searchPlaceholder ? (
+          <div className="px-5 pb-3">
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                value={search}
+                onChange={(e) => onSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/10"
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
         <div className="max-h-[58vh] overflow-y-auto px-3 pb-7">{children}</div>
       </div>
     </div>
@@ -193,7 +193,7 @@ function Sheet({
 function PlatformBadge({ platform, size = 40 }: { platform: Platform; size?: number }) {
   return (
     <span
-      className="flex items-center justify-center rounded-xl text-[12px] font-bold text-white"
+      className="flex items-center justify-center rounded-xl text-white"
       style={{ background: platform.color, width: size, height: size, fontSize: size >= 40 ? 13 : 11 }}
     >
       {platform.initial}
@@ -214,19 +214,12 @@ export default function BoostAccountPage() {
   const [qty, setQty] = useState("");
   const [placed, setPlaced] = useState<{ id: string; service: string; qty: number; total: number; status: string }[]>([]);
 
-  const [platformOpen, setPlatformOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
   const [serviceOpen, setServiceOpen] = useState(false);
-  const [pSearch, setPSearch] = useState("");
   const [sSearch, setSSearch] = useState("");
 
   const platform = PLATFORMS.find((p) => p.id === platformId) ?? null;
   const service = SERVICES.find((s) => s.id === serviceId) ?? null;
-
-  const filteredPlatforms = useMemo(() => {
-    const q = pSearch.trim().toLowerCase();
-    return q ? PLATFORMS.filter((p) => p.name.toLowerCase().includes(q)) : PLATFORMS;
-  }, [pSearch]);
 
   const groups = useMemo(() => {
     if (!platformId) return [];
@@ -237,7 +230,7 @@ export default function BoostAccountPage() {
   const platformServices = useMemo(() => {
     const list = platformId ? SERVICES.filter((s) => s.categoryId === platformId) : SERVICES;
     const q = sSearch.trim().toLowerCase();
-    const filtered = group === "All Services" ? list : list.filter((s) => s.group === group);
+    const filtered = group === "All Services" || !platformId ? list : list.filter((s) => s.group === group);
     return q ? filtered.filter((s) => s.name.toLowerCase().includes(q)) : filtered;
   }, [platformId, group, sSearch]);
 
@@ -252,8 +245,6 @@ export default function BoostAccountPage() {
     setPlatformId(id);
     setServiceId(null);
     setGroup("All Services");
-    setPlatformOpen(false);
-    setPSearch("");
   }
 
   async function pasteLink() {
@@ -297,63 +288,78 @@ export default function BoostAccountPage() {
         <section>
           <h2 className="text-[22px] font-bold leading-tight tracking-tight text-slate-900">Boost Your Account</h2>
           <p className="mt-1 text-[13px] leading-relaxed text-slate-500">
-            Social media growth &amp; engagement. Select a platform, pick a category, choose a service, then enter your link and quantity.
+            Social media growth &amp; engagement. Pick a platform below, then choose a category and service.
           </p>
         </section>
 
-        {/* selectors */}
+        {/* platform grid — fully visible, click to select */}
+        <section>
+          <SectionLabel hint={platformId ? PLATFORMS.find((p) => p.id === platformId)?.name + " selected" : undefined}>
+            Select Platform
+          </SectionLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {PLATFORMS.map((p) => {
+              const selected = platformId === p.id;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => selectPlatform(p.id)}
+                  className={
+                    "flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors " +
+                    (selected
+                      ? "border-[#1877F2] bg-blue-50/60 ring-1 ring-[#1877F2]/30"
+                      : "border-slate-200 bg-white hover:border-slate-300 active:border-[#1877F2]/50")
+                  }
+                >
+                  <PlatformBadge platform={p} size={38} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-semibold text-slate-900">{p.name}</p>
+                    <p className="text-[11px] text-slate-400 tabular-nums">
+                      {SERVICES.filter((s) => s.categoryId === p.id).length} services
+                    </p>
+                  </div>
+                  {selected && <Check size={15} className="shrink-0 text-[#1877F2]" />}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* category + service rows — visible from the start, enabled once platform is chosen */}
         <section className="space-y-4">
           <SelectRow
-            label="Platform"
-            value={platform ? platform.name : null}
-            placeholder="Select a platform"
-            onClick={() => setPlatformOpen(true)}
+            label="Category"
+            value={platformId ? group : null}
+            placeholder={platformId ? group : "Select a platform first"}
+            onClick={() => setGroupOpen(true)}
+            disabled={!platformId}
             icon={
-              platform ? (
-                <PlatformBadge platform={platform} size={36} />
-              ) : (
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
-                  <TrendingUp size={16} />
-                </span>
-              )
+              <span className={"flex h-9 w-9 items-center justify-center rounded-xl " + (platformId ? "bg-blue-50 text-[#1877F2]" : "bg-slate-100 text-slate-400")}>
+                <BadgeCheck size={16} />
+              </span>
             }
-            right={platform ? <Check size={16} className="text-[#1877F2]" /> : null}
           />
 
-          {platform && (
-            <SelectRow
-              label="Category"
-              value={group}
-              placeholder="Select a category"
-              onClick={() => setGroupOpen(true)}
-              icon={
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#1877F2]">
-                  <BadgeCheck size={16} />
+          <SelectRow
+            label="Service"
+            value={service ? service.name : null}
+            placeholder={platformId ? "Select a service" : "Select a platform first"}
+            onClick={() => setServiceOpen(true)}
+            disabled={!platformId}
+            icon={
+              <span className={"flex h-9 w-9 items-center justify-center rounded-xl " + (service ? "bg-blue-50 text-[#1877F2]" : "bg-slate-100 text-slate-400")}>
+                <Package size={16} />
+              </span>
+            }
+            right={
+              service ? (
+                <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-[#1877F2] tabular-nums">
+                  {formatNaira(service.ratePer1000)} / 1K
                 </span>
-              }
-            />
-          )}
-
-          {platform && (
-            <SelectRow
-              label="Service"
-              value={service ? service.name : null}
-              placeholder="Select a service"
-              onClick={() => setServiceOpen(true)}
-              icon={
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
-                  <Package size={16} />
-                </span>
-              }
-              right={
-                service ? (
-                  <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-[#1877F2] tabular-nums">
-                    {formatNaira(service.ratePer1000)} / 1K
-                  </span>
-                ) : null
-              }
-            />
-          )}
+              ) : null
+            }
+          />
         </section>
 
         {/* details */}
@@ -530,41 +536,6 @@ export default function BoostAccountPage() {
       </div>
 
       {/* sheets */}
-      <Sheet
-        title="Select Platform"
-        open={platformOpen}
-        onClose={() => { setPlatformOpen(false); setPSearch(""); }}
-        search={pSearch}
-        onSearch={setPSearch}
-        searchPlaceholder="Search platforms..."
-      >
-        <div className="grid grid-cols-2 gap-2">
-          {filteredPlatforms.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => selectPlatform(p.id)}
-              className={
-                "flex items-center gap-3 rounded-xl border p-3 text-left transition-colors " +
-                (platformId === p.id
-                  ? "border-[#1877F2] bg-blue-50/60"
-                  : "border-slate-100 bg-white hover:border-slate-300")
-              }
-            >
-              <PlatformBadge platform={p} size={38} />
-              <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-slate-900">{p.name}</p>
-                <p className="text-[11px] text-slate-400">
-                  {SERVICES.filter((s) => s.categoryId === p.id).length} services
-                </p>
-              </div>
-              {platformId === p.id && <Check size={15} className="ml-auto shrink-0 text-[#1877F2]" />}
-            </button>
-          ))}
-        </div>
-        {filteredPlatforms.length === 0 && <p className="py-8 text-center text-[13px] text-slate-400">No results</p>}
-      </Sheet>
-
       <Sheet
         title={"Select " + (platform?.name ?? "") + " Category"}
         open={groupOpen}
