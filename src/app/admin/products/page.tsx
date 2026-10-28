@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import {
   Check,
@@ -13,8 +13,10 @@ import {
   X,
 } from "lucide-react";
 import {
-  loadShopProducts,
-  saveShopProducts,
+  createShopProduct,
+  deleteShopProduct,
+  fetchShopProducts,
+  updateShopProductStock,
   SHOP_CATEGORIES,
   SHOP_CONDITIONS,
   type ShopAdminProduct,
@@ -81,6 +83,8 @@ export default function AdminShoppingPage() {
   const [priceText, setPriceText] = useState("");
   const [stockText, setStockText] = useState("1");
   const [images, setImages] = useState<string[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [posting, setPosting] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState("");
@@ -90,9 +94,18 @@ export default function AdminShoppingPage() {
   const [deleteTarget, setDeleteTarget] = useState<ShopAdminProduct | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setProducts(loadShopProducts());
+  const reload = useCallback(async () => {
+    try {
+      const rows = await fetchShopProducts({ includeInactive: true });
+      setProducts(rows);
+    } catch {
+      /* not signed in or offline — list stays as-is */
+    }
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
   useEffect(() => {
     if (!toast) return;
@@ -108,14 +121,16 @@ export default function AdminShoppingPage() {
     setUploading(true);
     try {
       const room = MAX_IMAGES - images.length;
-      const picked = Array.from(files).slice(0, Math.max(0, room));
+      const picked = Array.from(files)
+        .filter((f) => f.type.startsWith("image/"))
+        .slice(0, Math.max(0, room));
       const urls: string[] = [];
       for (const file of picked) {
-        if (!file.type.startsWith("image/")) continue;
         urls.push(await fileToDataUrl(file));
       }
       if (urls.length > 0) {
         setImages((prev) => [...prev, ...urls]);
+        setImageFiles((prev) => [...prev, ...picked]);
         setErrors((prev) => ({ ...prev, images: false }));
       }
     } finally {
@@ -126,6 +141,7 @@ export default function AdminShoppingPage() {
 
   function removeImage(index: number) {
     setImages((prev) => prev.filter((_, i) => i !== index));
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
   function moveFirst(index: number) {
@@ -135,9 +151,15 @@ export default function AdminShoppingPage() {
       next.unshift(item);
       return next;
     });
+    setImageFiles((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.unshift(item);
+      return next;
+    });
   }
 
-  function postProduct() {
+  async function postProduct() {
     const nextErrors: FormErrors = {
       title: title.trim().length < 3,
       category: !category,
@@ -148,46 +170,57 @@ export default function AdminShoppingPage() {
     };
     setErrors(nextErrors);
     if (Object.values(nextErrors).some(Boolean)) return;
+    if (posting) return;
 
-    const product: ShopAdminProduct = {
-      id: "P" + Date.now().toString(36).toUpperCase(),
-      title: title.trim(),
-      category: category!,
-      images,
-      condition: condition!,
-      description: description.trim(),
-      price,
-      stock: stock > 0 ? stock : 1,
-      createdAt: Date.now(),
-    };
-    const next = [product, ...products];
-    setProducts(next);
-    saveShopProducts(next);
-    setTitle("");
-    setCategory(null);
-    setCondition(null);
-    setDescription("");
-    setPriceText("");
-    setStockText("1");
-    setImages([]);
-    setErrors({});
-    setToast("Product posted — live on the Shopping page");
+    setPosting(true);
+    try {
+      const created = await createShopProduct({
+        title: title.trim(),
+        category: category!,
+        condition: condition!,
+        description: description.trim(),
+        price,
+        stock: stock > 0 ? stock : 1,
+        files: imageFiles,
+      });
+      setProducts((prev) => [created, ...prev]);
+      setTitle("");
+      setCategory(null);
+      setCondition(null);
+      setDescription("");
+      setPriceText("");
+      setStockText("1");
+      setImages([]);
+      setImageFiles([]);
+      setErrors({});
+      setToast("Product posted — live on the Shopping page");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Could not post product");
+    } finally {
+      setPosting(false);
+    }
   }
 
   function changeStock(product: ShopAdminProduct, delta: number) {
     const nextStock = Math.max(0, product.stock + delta);
-    const next = products.map((p) => (p.id === product.id ? { ...p, stock: nextStock } : p));
-    setProducts(next);
-    saveShopProducts(next);
+    setProducts((prev) => prev.map((p) => (p.id === product.id ? { ...p, stock: nextStock } : p)));
+    updateShopProductStock(product.id, nextStock).catch(() => {
+      setToast("Could not update stock");
+      reload();
+    });
   }
 
   function confirmDelete() {
     if (!deleteTarget) return;
-    const next = products.filter((p) => p.id !== deleteTarget.id);
-    setProducts(next);
-    saveShopProducts(next);
-    setToast("Product deleted");
+    const target = deleteTarget;
+    setProducts((prev) => prev.filter((p) => p.id !== target.id));
     setDeleteTarget(null);
+    deleteShopProduct(target)
+      .then(() => setToast("Product deleted"))
+      .catch((e) => {
+        setToast(e instanceof Error ? e.message : "Could not delete product");
+        reload();
+      });
   }
 
   const err = (flag?: boolean) => (flag ? "This field is required" : null);
@@ -424,10 +457,11 @@ export default function AdminShoppingPage() {
           <button
             type="button"
             onClick={postProduct}
-            className="mt-5 flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1877F2] text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(24,119,242,0.3)] transition active:scale-[0.99]"
+            disabled={posting}
+            className="mt-5 flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1877F2] text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(24,119,242,0.3)] transition active:scale-[0.99] disabled:opacity-60"
           >
             <Plus size={18} strokeWidth={2.6} />
-            Post Product
+            {posting ? "Posting…" : "Post Product"}
           </button>
         </section>
 

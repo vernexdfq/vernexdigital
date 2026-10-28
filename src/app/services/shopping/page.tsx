@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,7 +15,8 @@ import {
   ChevronRight,
   ImageIcon,
 } from "lucide-react";
-import { loadShopProducts, type ShopAdminProduct } from "@/lib/shopProducts";
+import { fetchShopProducts, placeShopOrder, type ShopAdminProduct } from "@/lib/shopProducts";
+import { useUser } from "@/lib/useUser";
 
 /**
  * Admin image upload sizes (document for admin panel):
@@ -215,14 +216,30 @@ export default function ShoppingPage() {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [adminProducts, setAdminProducts] = useState<ShopAdminProduct[]>([]);
+  const [placing, setPlacing] = useState(false);
+  const [notice, setNotice] = useState("");
+  const requestRef = useRef("");
+  const { profile, wallet, refresh: refreshWallet } = useUser();
 
-  /* products posted from the admin Shopping dashboard (live-synced) */
-  useEffect(() => {
-    const sync = () => setAdminProducts(loadShopProducts());
-    sync();
-    window.addEventListener("vernex-shop-products-updated", sync);
-    return () => window.removeEventListener("vernex-shop-products-updated", sync);
+  /* products posted from the admin Shopping dashboard (Supabase) */
+  const reloadProducts = useCallback(async () => {
+    try {
+      const rows = await fetchShopProducts();
+      setAdminProducts(rows);
+    } catch {
+      /* offline — keep whatever is already loaded */
+    }
   }, []);
+
+  useEffect(() => {
+    reloadProducts();
+  }, [reloadProducts]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const catalog: ShopProduct[] = useMemo(() => {
     const mapped: ShopProduct[] = adminProducts.map((p) => ({
@@ -271,6 +288,44 @@ export default function ShoppingPage() {
     setQty(1);
     setPhotoIndex(0);
     setGalleryOpen(false);
+    setNotice("");
+    requestRef.current = crypto.randomUUID();
+  }
+
+  async function placeOrder() {
+    if (!selected || placing) return;
+    if (!profile) {
+      setNotice("Sign in to place an order");
+      return;
+    }
+    const isRealProduct = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selected.id);
+    if (!isRealProduct) {
+      setNotice("Demo product — not available for purchase yet");
+      return;
+    }
+    if (qty > selected.stock) {
+      setNotice("Not enough stock available");
+      return;
+    }
+    if (wallet.balance < total) {
+      setNotice("Insufficient wallet balance — fund your wallet to continue");
+      return;
+    }
+    if (!requestRef.current) requestRef.current = crypto.randomUUID();
+    setPlacing(true);
+    try {
+      await placeShopOrder(selected.id, qty, requestRef.current);
+      requestRef.current = crypto.randomUUID();
+      setSelected(null);
+      setQty(1);
+      setNotice("Order placed — it is now pending in your History");
+      refreshWallet();
+      await reloadProducts();
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Could not place order");
+    } finally {
+      setPlacing(false);
+    }
   }
 
   const photos = selected
@@ -575,10 +630,12 @@ export default function ShoppingPage() {
               </div>
               <button
                 type="button"
-                className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition"
+                onClick={placeOrder}
+                disabled={placing}
+                className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-60"
               >
                 <ShieldCheck size={18} />
-                Continue to checkout · {formatNaira(total)}
+                {placing ? "Placing order…" : "Continue to checkout · " + formatNaira(total)}
               </button>
             </div>
           </div>
@@ -647,6 +704,15 @@ export default function ShoppingPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {notice && (
+        <div
+          className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-[#0F172A] px-4 py-2.5 text-[13px] font-medium text-white shadow-lg"
+          role="status"
+        >
+          {notice}
         </div>
       )}
     </div>
