@@ -45,152 +45,6 @@ type ShopProduct = {
   specs?: string[];
 };
 
-const PRODUCTS: ShopProduct[] = [
-  {
-    id: "iphone-17-pro-max",
-    category: "Phones",
-    name: "iPhone 17 Pro Max",
-    subtitle: "256GB · Natural Titanium",
-    description:
-      "Latest Apple flagship. Factory sealed, full warranty. Storage 256GB, Natural Titanium finish. Includes original box and accessories.",
-    bullets: [
-      "Factory sealed · Apple warranty",
-      "256GB storage",
-      "Natural Titanium",
-      "Nationwide delivery available",
-    ],
-    tags: ["Apple", "Flagship", "New"],
-    price: 1850000,
-    stock: 6,
-    delivery: "1–3 days",
-    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&h=800&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=800&h=800&fit=crop",
-    ],
-    specs: ["Display 6.9\"", "A19 Pro", "48MP system", "USB-C"],
-  },
-  {
-    id: "airpods-pro-2",
-    category: "Audio",
-    name: "AirPods Pro (2nd gen)",
-    subtitle: "USB-C · ANC",
-    description:
-      "Apple AirPods Pro 2 with USB-C case. Active noise cancellation, adaptive audio, and spatial audio. Sealed unit.",
-    bullets: [
-      "Active noise cancellation",
-      "USB-C charging case",
-      "Spatial audio",
-      "Sealed retail box",
-    ],
-    tags: ["Apple", "ANC"],
-    price: 285000,
-    stock: 24,
-    delivery: "1–2 days",
-    image: "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&h=800&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=800&h=800&fit=crop",
-    ],
-    specs: ["ANC", "USB-C", "MagSafe"],
-  },
-  {
-    id: "macbook-air-m3",
-    category: "Laptops",
-    name: "MacBook Air M3",
-    subtitle: "13\" · 16GB · 512GB",
-    description:
-      "MacBook Air 13-inch with M3 chip, 16GB unified memory and 512GB SSD. Midnight colour. Ideal for work and school.",
-    bullets: [
-      "Apple M3 chip",
-      "16GB unified memory",
-      "512GB SSD",
-      "Up to 18 hours battery",
-    ],
-    tags: ["Apple", "M3"],
-    price: 1450000,
-    stock: 4,
-    delivery: "2–4 days",
-    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=800&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=800&h=800&fit=crop",
-    ],
-    specs: ["13.6\" Liquid Retina", "M3", "16GB RAM", "512GB"],
-  },
-  {
-    id: "samsung-s25-ultra",
-    category: "Phones",
-    name: "Samsung Galaxy S25 Ultra",
-    subtitle: "512GB · Titanium Gray",
-    description:
-      "Samsung flagship with S Pen, 200MP camera and long battery life. 512GB storage, Titanium Gray.",
-    bullets: [
-      "S Pen included",
-      "200MP main camera",
-      "512GB storage",
-      "Full Samsung warranty",
-    ],
-    tags: ["Samsung", "Flagship"],
-    price: 1680000,
-    stock: 9,
-    delivery: "1–3 days",
-    image: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=800&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=800&h=800&fit=crop",
-      "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&h=800&fit=crop",
-    ],
-    specs: ["6.8\" Dynamic AMOLED", "S Pen", "200MP", "512GB"],
-  },
-  {
-    id: "ipad-air-m2",
-    category: "Tablets",
-    name: "iPad Air M2",
-    subtitle: "11\" · 128GB · Wi-Fi",
-    description:
-      "iPad Air with M2 chip, 11-inch Liquid Retina display, 128GB. Perfect for notes, streaming and light creative work.",
-    bullets: [
-      "Apple M2 chip",
-      "11\" Liquid Retina",
-      "128GB storage",
-      "Supports Apple Pencil Pro",
-    ],
-    tags: ["Apple", "Tablet"],
-    price: 720000,
-    stock: 11,
-    delivery: "1–3 days",
-    image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=800&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=800&h=800&fit=crop",
-    ],
-    specs: ["11\"", "M2", "128GB", "Wi-Fi"],
-  },
-  {
-    id: "powerbank-20000",
-    category: "Accessories",
-    name: "20000mAh Power Bank",
-    subtitle: "45W PD · Dual port",
-    description:
-      "High-capacity 20000mAh power bank with 45W USB-C PD. Charges phones and tablets fast. Airline-safe capacity.",
-    bullets: [
-      "20000mAh capacity",
-      "45W USB-C Power Delivery",
-      "Dual ports",
-      "LED charge indicator",
-    ],
-    tags: ["Charging", "Travel"],
-    price: 28500,
-    stock: 80,
-    delivery: "Same day (Lagos)",
-    image: "https://images.unsplash.com/photo-1609091839311-b140b7d1b0a9?w=800&h=800&fit=crop",
-    gallery: [
-      "https://images.unsplash.com/photo-1609091839311-b140b7d1b0a9?w=800&h=800&fit=crop",
-    ],
-    specs: ["20000mAh", "45W PD", "USB-C + USB-A"],
-  },
-];
-
 const FILTERS = [
   "All",
   "Laptops & Computers",
@@ -257,7 +111,7 @@ export default function ShoppingPage() {
       gallery: p.images,
       specs: [],
     }));
-    return [...mapped, ...PRODUCTS];
+    return mapped;
   }, [adminProducts]);
 
   const list = useMemo(() => {
@@ -296,11 +150,6 @@ export default function ShoppingPage() {
     if (!selected || placing) return;
     if (!profile) {
       setNotice("Sign in to place an order");
-      return;
-    }
-    const isRealProduct = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selected.id);
-    if (!isRealProduct) {
-      setNotice("Demo product — not available for purchase yet");
       return;
     }
     if (qty > selected.stock) {
