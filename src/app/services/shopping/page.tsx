@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Search,
@@ -15,7 +16,8 @@ import {
   ChevronRight,
   ImageIcon,
 } from "lucide-react";
-import { fetchShopProducts, placeShopOrder, type ShopAdminProduct } from "@/lib/shopProducts";
+import { fetchShopProducts, type ShopAdminProduct } from "@/lib/shopProducts";
+import { createOrderRequest } from "@/lib/shopRequests";
 import { useUser } from "@/lib/useUser";
 
 /**
@@ -72,8 +74,11 @@ export default function ShoppingPage() {
   const [adminProducts, setAdminProducts] = useState<ShopAdminProduct[]>([]);
   const [placing, setPlacing] = useState(false);
   const [notice, setNotice] = useState("");
-  const requestRef = useRef("");
-  const { profile, wallet, refresh: refreshWallet } = useUser();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [locationText, setLocationText] = useState("");
+  const { profile } = useUser();
+  const router = useRouter();
 
   /* products posted from the admin Shopping dashboard (Supabase) */
   const reloadProducts = useCallback(async () => {
@@ -143,11 +148,10 @@ export default function ShoppingPage() {
     setPhotoIndex(0);
     setGalleryOpen(false);
     setNotice("");
-    requestRef.current = crypto.randomUUID();
   }
 
-  async function placeOrder() {
-    if (!selected || placing) return;
+  function openCheckout() {
+    if (!selected) return;
     if (!profile) {
       setNotice("Sign in to place an order");
       return;
@@ -156,22 +160,37 @@ export default function ShoppingPage() {
       setNotice("Not enough stock available");
       return;
     }
-    if (wallet.balance < total) {
-      setNotice("Insufficient wallet balance — fund your wallet to continue");
+    if (!whatsapp.trim() && profile.phone) setWhatsapp(profile.phone);
+    setCheckoutOpen(true);
+  }
+
+  async function submitRequest() {
+    if (!selected || placing) return;
+    if (whatsapp.trim().length < 7) {
+      setNotice("Enter your WhatsApp number");
       return;
     }
-    if (!requestRef.current) requestRef.current = crypto.randomUUID();
+    if (locationText.trim().length < 4) {
+      setNotice("Enter your delivery location");
+      return;
+    }
     setPlacing(true);
     try {
-      await placeShopOrder(selected.id, qty, requestRef.current);
-      requestRef.current = crypto.randomUUID();
+      await createOrderRequest({
+        productId: selected.id,
+        productTitle: selected.name,
+        quantity: qty,
+        unitPrice: selected.price,
+        whatsapp: whatsapp.trim(),
+        location: locationText.trim(),
+      });
+      setCheckoutOpen(false);
       setSelected(null);
       setQty(1);
-      setNotice("Order placed — it is now pending in your History");
-      refreshWallet();
-      await reloadProducts();
+      setNotice("Order sent — the admin will reply with your delivery cost");
+      router.push("/services/shopping/orders");
     } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Could not place order");
+      setNotice(e instanceof Error ? e.message : "Could not send order");
     } finally {
       setPlacing(false);
     }
@@ -479,12 +498,12 @@ export default function ShoppingPage() {
               </div>
               <button
                 type="button"
-                onClick={placeOrder}
+                onClick={openCheckout}
                 disabled={placing}
                 className="w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] transition disabled:opacity-60"
               >
                 <ShieldCheck size={18} />
-                {placing ? "Placing order…" : "Continue to checkout · " + formatNaira(total)}
+                {"Continue to checkout · " + formatNaira(total)}
               </button>
             </div>
           </div>
@@ -552,6 +571,109 @@ export default function ShoppingPage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {checkoutOpen && selected && (
+        <div className="fixed inset-0 z-[110] flex flex-col justify-end">
+          <button
+            type="button"
+            aria-label="Close checkout"
+            onClick={() => setCheckoutOpen(false)}
+            className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
+          />
+          <div className="relative rounded-t-2xl bg-white shadow-2xl">
+            <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-slate-200" />
+            <div className="flex items-center justify-between px-4 pt-2.5">
+              <h3 className="text-[15px] font-extrabold text-slate-900">Checkout</h3>
+              <button
+                type="button"
+                onClick={() => setCheckoutOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500"
+                aria-label="Close"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="mt-3 px-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                <div className="flex gap-3">
+                  <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={selected.image} alt="" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-bold text-slate-900">{selected.name}</p>
+                    <p className="text-[11px] text-slate-400">{selected.subtitle}</p>
+                    <p className="mt-0.5 text-[13px] font-extrabold text-slate-900">{"₦" + (selected.price * qty).toLocaleString("en-NG")}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus size={14} />
+                    </button>
+                    <span className="w-6 text-center text-[13px] font-bold text-slate-900 tabular-nums">{qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQty((q) => Math.min(selected.stock, q + 1))}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="text-[12px] font-semibold text-slate-700">
+                  WhatsApp number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  value={whatsapp}
+                  inputMode="tel"
+                  maxLength={20}
+                  onChange={(e) => setWhatsapp(e.target.value.replace(/[^0-9+ ]/g, ""))}
+                  placeholder="e.g. 0801 234 5678"
+                  className="mt-1.5 h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-[14px] font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+
+              <div className="mt-3.5">
+                <label className="text-[12px] font-semibold text-slate-700">
+                  Delivery location <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={locationText}
+                  maxLength={300}
+                  onChange={(e) => setLocationText(e.target.value)}
+                  placeholder="Where should it be delivered? e.g. 12 Allen Avenue, Ikeja, Lagos"
+                  rows={3}
+                  className="mt-1.5 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+                <p className="mt-1.5 text-[11px] leading-snug text-slate-400">
+                  The admin will reply in chat with the delivery cost for your location.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-slate-100 px-4 pb-5 pt-3.5">
+              <button
+                type="button"
+                onClick={submitRequest}
+                disabled={placing}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#1877F2] text-[14px] font-bold text-white transition active:scale-[0.99] disabled:opacity-60"
+              >
+                <ShieldCheck size={18} />
+                {placing ? "Sending…" : "Send order request"}
+              </button>
+            </div>
           </div>
         </div>
       )}

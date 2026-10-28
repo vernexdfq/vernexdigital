@@ -8,6 +8,7 @@ import {
   X,
   LayoutDashboard,
   ShoppingBag,
+  MessageSquare,
   Smartphone,
   Rocket,
   ScrollText,
@@ -26,6 +27,7 @@ const MAIN: NavItem[] = [
 
 const SERVICES: NavItem[] = [
   { href: "/admin/products", label: "Shopping", icon: <ShoppingBag size={18} strokeWidth={2.2} /> },
+  { href: "/admin/shopping-inbox", label: "Shopping inbox", icon: <MessageSquare size={18} strokeWidth={2.2} /> },
   { href: "/admin/virtual-number", label: "Virtual numbers", icon: <Smartphone size={18} strokeWidth={2.2} /> },
   { href: "/services/boost", label: "Boost account", icon: <Rocket size={18} strokeWidth={2.2} /> },
   { href: "/services/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
