@@ -47,6 +47,14 @@ type ShopProductRow = {
 const SELECT_COLUMNS =
   "id, title, category, condition, description, price, stock, images, is_active, created_at";
 
+/** Turn raw Supabase errors into messages customers/admins can act on. */
+function friendlyError(message: string): string {
+  if (message.toLowerCase().includes("row-level security")) {
+    return "This account is not flagged as admin in Supabase. Sign in with your admin account (or run the admin setup SQL), then try again.";
+  }
+  return message;
+}
+
 function rowToProduct(row: ShopProductRow): ShopAdminProduct {
   return {
     id: row.id,
@@ -100,7 +108,7 @@ export async function createShopProduct(input: {
       const { error: uploadError } = await supabase.storage
         .from(SHOP_PRODUCTS_BUCKET)
         .upload(path, file, { contentType: file.type, upsert: false });
-      if (uploadError) throw new Error(uploadError.message);
+      if (uploadError) throw new Error(friendlyError(uploadError.message));
       uploadedPaths.push(path);
       const { data } = supabase.storage.from(SHOP_PRODUCTS_BUCKET).getPublicUrl(path);
       imageUrls.push(data.publicUrl);
@@ -121,7 +129,7 @@ export async function createShopProduct(input: {
       .select(SELECT_COLUMNS)
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(friendlyError(error.message));
     return rowToProduct(data as ShopProductRow);
   } catch (error) {
     if (uploadedPaths.length > 0) {
