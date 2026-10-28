@@ -192,14 +192,15 @@ const PRODUCTS: ShopProduct[] = [
 
 const FILTERS = [
   "All",
-  "Phones",
-  "Laptops",
-  "Audio",
-  "Tablets",
-  "Accessories",
   "Laptops & Computers",
   "Mobile Phones",
   "Electronics",
+  "Airpods & Audio",
+  "Power Banks & Chargers",
+  "Smart Watches",
+  "Tablets",
+  "Gaming",
+  "Phone Accessories",
 ];
 
 function formatNaira(n: number) {

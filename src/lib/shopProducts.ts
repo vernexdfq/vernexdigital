@@ -16,6 +16,12 @@ export const SHOP_CATEGORIES = [
   "Laptops & Computers",
   "Mobile Phones",
   "Electronics",
+  "Airpods & Audio",
+  "Power Banks & Chargers",
+  "Smart Watches",
+  "Tablets",
+  "Gaming",
+  "Phone Accessories",
 ] as const;
 
 export const SHOP_CONDITIONS: ShopCondition[] = ["Brand New", "Refurbished", "Used"];
