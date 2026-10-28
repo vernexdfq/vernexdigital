@@ -1,648 +1,597 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import {
-  ArrowLeft,
-  Plus,
-  Search,
-  Image as ImageIcon,
-  X,
   Check,
-  HardDrive,
-  Upload,
-  Loader2,
-  Cloud,
+  ChevronDown,
+  ImagePlus,
+  Minus,
+  Package,
+  Plus,
+  Trash2,
+  X,
 } from "lucide-react";
+import {
+  loadShopProducts,
+  saveShopProducts,
+  SHOP_CATEGORIES,
+  SHOP_CONDITIONS,
+  type ShopAdminProduct,
+  type ShopCondition,
+} from "@/lib/shopProducts";
 
-type ProductStatus = "draft" | "published" | "out";
-
-type Product = {
-  id: string;
-  title: string;
-  category: string;
-  specs: string;
-  description: string;
-  price: number;
-  delivery: string;
-  stock: string;
-  images: string[];
-  status: ProductStatus;
-};
-
-const CATEGORIES = ["Phones", "Laptops", "Audio", "Tablets", "Accessories"];
-const DRIVE_KEY = "vernex_admin_drive_connected";
-
-const SEED: Product[] = [
-  {
-    id: "P1",
-    title: "iPhone 17 Pro Max",
-    category: "Phones",
-    specs: "256GB · Natural Titanium",
-    description: "Latest Apple flagship. Sealed unit with full warranty.",
-    price: 1850000,
-    delivery: "1–3 days",
-    stock: "In stock",
-    images: ["https://placehold.co/400x400/0F172A/FFFFFF/png?text=iPhone"],
-    status: "published",
-  },
-  {
-    id: "P2",
-    title: "MacBook Air M3",
-    category: "Laptops",
-    specs: "16GB · 512GB SSD",
-    description: "Lightweight powerhouse for work and school.",
-    price: 1450000,
-    delivery: "2–4 days",
-    stock: "Limited",
-    images: ["https://placehold.co/400x400/1877F2/FFFFFF/png?text=MBA"],
-    status: "published",
-  },
-  {
-    id: "P3",
-    title: "AirPods Pro 3",
-    category: "Audio",
-    specs: "USB-C · ANC",
-    description: "Crystal clear sound with active noise cancel.",
-    price: 320000,
-    delivery: "Same day (Lagos)",
-    stock: "In stock",
-    images: ["https://placehold.co/400x400/BE185D/FFFFFF/png?text=AirPods"],
-    status: "draft",
-  },
-];
+const MAX_IMAGES = 8;
+const MIN_IMAGES = 3;
 
 function naira(n: number) {
-  return `₦${n.toLocaleString()}`;
+  return "\u20A6" + n.toLocaleString("en-NG");
 }
 
-const emptyForm = (): Omit<Product, "id"> => ({
-  title: "",
-  category: "Phones",
-  specs: "",
-  description: "",
-  price: 0,
-  delivery: "1–3 days",
-  stock: "In stock",
-  images: [],
-  status: "draft",
-});
+/* resize an image file to a compact data URL so it fits in local storage */
+async function fileToDataUrl(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 
-export default function AdminProductsPage() {
-  const [products, setProducts] = useState(SEED);
-  const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | ProductStatus>("all");
-  const [editor, setEditor] = useState<null | { mode: "add" | "edit"; product: Product | null }>(
-    null
-  );
-  const [form, setForm] = useState(emptyForm());
-  const [savedFlash, setSavedFlash] = useState(false);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = dataUrl;
+    });
+    const MAX = 900;
+    const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } catch {
+    return dataUrl;
+  }
+}
 
-  const [driveConnected, setDriveConnected] = useState(false);
-  const [showDriveModal, setShowDriveModal] = useState(false);
-  const [connecting, setConnecting] = useState(false);
+type FormErrors = {
+  title?: boolean;
+  category?: boolean;
+  images?: boolean;
+  condition?: boolean;
+  description?: boolean;
+  price?: boolean;
+};
+
+export default function AdminShoppingPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  /* form state */
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<string | null>(null);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [condition, setCondition] = useState<ShopCondition | null>(null);
+  const [description, setDescription] = useState("");
+  const [priceText, setPriceText] = useState("");
+  const [stockText, setStockText] = useState("1");
+  const [images, setImages] = useState<string[]>([]);
+  const [errors, setErrors] = useState<FormErrors>({});
   const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState("");
+
+  /* catalog state */
+  const [products, setProducts] = useState<ShopAdminProduct[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<ShopAdminProduct | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    try {
-      setDriveConnected(localStorage.getItem(DRIVE_KEY) === "1");
-    } catch {
-      // ignore
-    }
+    setProducts(loadShopProducts());
   }, []);
 
-  const list = useMemo(() => {
-    return products.filter((p) => {
-      const matchQ =
-        !q ||
-        [p.title, p.category, p.specs].some((x) => x.toLowerCase().includes(q.toLowerCase()));
-      const matchF = filter === "all" || p.status === filter;
-      return matchQ && matchF;
-    });
-  }, [products, q, filter]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
-  function openAdd() {
-    setForm(emptyForm());
-    setEditor({ mode: "add", product: null });
-  }
+  const price = Math.round(Number(priceText) || 0);
+  const stock = Math.max(0, Math.round(Number(stockText) || 0));
 
-  function openEdit(p: Product) {
-    setForm({
-      title: p.title,
-      category: p.category,
-      specs: p.specs,
-      description: p.description,
-      price: p.price,
-      delivery: p.delivery,
-      stock: p.stock,
-      images: [...p.images],
-      status: p.status,
-    });
-    setEditor({ mode: "edit", product: p });
-  }
-
-  function onAddImagesClick() {
-    if (!driveConnected) {
-      setShowDriveModal(true);
-      return;
-    }
-    fileRef.current?.click();
-  }
-
-  function connectDrive() {
-    setConnecting(true);
-    // When Google OAuth is live:
-    // window.location = `/api/admin/drive/oauth` or open Google consent
-    // For now: simulate successful connect so the upload UX works in demo
-    setTimeout(() => {
-      try {
-        localStorage.setItem(DRIVE_KEY, "1");
-      } catch {
-        // ignore
-      }
-      setDriveConnected(true);
-      setConnecting(false);
-      setShowDriveModal(false);
-      // Open picker right after connect
-      setTimeout(() => fileRef.current?.click(), 200);
-    }, 900);
-  }
-
-  async function onFilesSelected(files: FileList | null) {
+  async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
-
-    // Production path:
-    // 1. Upload each file to the seller's Google Drive via Drive API (folder: Vernex Products)
-    // 2. Make file readable via link
-    // 3. Store only the Drive file URL / id in our DB — never the binary on our servers
-    // Demo path: local object URLs for preview so the flow is visible today
-    const added: string[] = [];
-    for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
-      // Simulate upload latency to Drive
-      await new Promise((r) => setTimeout(r, 350));
-      const url = URL.createObjectURL(file);
-      added.push(url);
+    try {
+      const room = MAX_IMAGES - images.length;
+      const picked = Array.from(files).slice(0, Math.max(0, room));
+      const urls: string[] = [];
+      for (const file of picked) {
+        if (!file.type.startsWith("image/")) continue;
+        urls.push(await fileToDataUrl(file));
+      }
+      if (urls.length > 0) {
+        setImages((prev) => [...prev, ...urls]);
+        setErrors((prev) => ({ ...prev, images: false }));
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-
-    setForm((f) => ({ ...f, images: [...f.images, ...added] }));
-    setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
   }
 
-  function removeImage(i: number) {
-    setForm((f) => {
-      const next = f.images.filter((_, idx) => idx !== i);
-      return { ...f, images: next };
+  function removeImage(index: number) {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function moveFirst(index: number) {
+    setImages((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.unshift(item);
+      return next;
     });
   }
 
-  function save(as: ProductStatus) {
-    if (!form.title.trim() || !form.price) return;
-    const payload = { ...form, status: as };
-    if (editor?.mode === "edit" && editor.product) {
-      setProducts((prev) =>
-        prev.map((p) => (p.id === editor.product!.id ? { ...p, ...payload } : p))
-      );
-    } else {
-      setProducts((prev) => [{ id: `P${Date.now()}`, ...payload }, ...prev]);
-    }
-    setEditor(null);
-    setSavedFlash(true);
-    setTimeout(() => setSavedFlash(false), 2000);
-  }
-
-  function togglePublish(p: Product) {
-    setProducts((prev) =>
-      prev.map((x) =>
-        x.id === p.id
-          ? { ...x, status: x.status === "published" ? "draft" : "published" }
-          : x
-      )
-    );
-  }
-
-  function removeProduct(id: string) {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-  }
-
-  function disconnectDrive() {
-    try {
-      localStorage.removeItem(DRIVE_KEY);
-    } catch {
-      // ignore
-    }
-    setDriveConnected(false);
-  }
-
-  const statusChip = (s: ProductStatus) => {
-    const map = {
-      published: "bg-emerald-50 text-emerald-700 border-emerald-100",
-      draft: "bg-slate-100 text-slate-600 border-slate-200",
-      out: "bg-red-50 text-red-700 border-red-100",
+  function postProduct() {
+    const nextErrors: FormErrors = {
+      title: title.trim().length < 3,
+      category: !category,
+      images: images.length < MIN_IMAGES,
+      condition: !condition,
+      description: description.trim().length < 10,
+      price: price <= 0,
     };
-    const label = s === "out" ? "Out of stock" : s[0].toUpperCase() + s.slice(1);
-    return (
-      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${map[s]}`}>
-        {label}
-      </span>
-    );
-  };
+    setErrors(nextErrors);
+    if (Object.values(nextErrors).some(Boolean)) return;
+
+    const product: ShopAdminProduct = {
+      id: "P" + Date.now().toString(36).toUpperCase(),
+      title: title.trim(),
+      category: category!,
+      images,
+      condition: condition!,
+      description: description.trim(),
+      price,
+      stock: stock > 0 ? stock : 1,
+      createdAt: Date.now(),
+    };
+    const next = [product, ...products];
+    setProducts(next);
+    saveShopProducts(next);
+    setTitle("");
+    setCategory(null);
+    setCondition(null);
+    setDescription("");
+    setPriceText("");
+    setStockText("1");
+    setImages([]);
+    setErrors({});
+    setToast("Product posted — live on the Shopping page");
+  }
+
+  function changeStock(product: ShopAdminProduct, delta: number) {
+    const nextStock = Math.max(0, product.stock + delta);
+    const next = products.map((p) => (p.id === product.id ? { ...p, stock: nextStock } : p));
+    setProducts(next);
+    saveShopProducts(next);
+  }
+
+  function confirmDelete() {
+    if (!deleteTarget) return;
+    const next = products.filter((p) => p.id !== deleteTarget.id);
+    setProducts(next);
+    saveShopProducts(next);
+    setToast("Product deleted");
+    setDeleteTarget(null);
+  }
+
+  const err = (flag?: boolean) => (flag ? "This field is required" : null);
+  const listedCount = useMemo(() => products.length, [products]);
 
   return (
-    <div className="min-h-screen bg-[#F4F7FB] pb-20">
-      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-[#E2E8F0] px-4 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="text-[#64748B]">
-            <ArrowLeft size={20} />
-          </Link>
-          <h1 className="text-base font-semibold text-[#0F172A]">Products</h1>
+    <div className="min-h-screen bg-[#F6F8FB] pb-16">
+      <AdminSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+
+      <header className="sticky top-0 z-20 border-b border-[#E2E8F0] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-lg items-center gap-2.5 px-4">
+          <AdminMenuButton onClick={() => setMenuOpen(true)} />
+          <div className="min-w-0">
+            <h1 className="text-[16px] font-extrabold tracking-tight text-[#0F172A]">Shopping</h1>
+            <p className="text-[11px] font-semibold text-[#64748B] truncate">
+              Post products for your customers
+            </p>
+          </div>
+          <span className="ml-auto shrink-0 rounded-full bg-[#EFF6FF] px-3 py-1 text-[11px] font-bold text-[#1877F2] tabular-nums">
+            {listedCount} listed
+          </span>
         </div>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="h-9 px-3 rounded-full bg-[#1877F2] text-white text-xs font-semibold flex items-center gap-1"
-        >
-          <Plus size={14} /> Add
-        </button>
       </header>
 
-      <div className="px-4 pt-4 max-w-lg mx-auto space-y-3">
-        {/* Drive status strip */}
-        <div
-          className={`rounded-[12px] border px-3.5 py-3 flex items-start gap-3 ${
-            driveConnected
-              ? "bg-emerald-50 border-emerald-100"
-              : "bg-[#EFF6FF] border-[#BFDBFE]"
-          }`}
-        >
-          <HardDrive
-            size={18}
-            className={`shrink-0 mt-0.5 ${driveConnected ? "text-emerald-600" : "text-[#1877F2]"}`}
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-[#0F172A]">
-              {driveConnected ? "Google Drive connected" : "Photos backup to Google Drive"}
-            </p>
-            <p className="text-[11px] text-[#64748B] mt-0.5 leading-relaxed">
-              {driveConnected
-                ? "Uploads from your phone go to your Drive. Vernex only stores links — zero image storage cost on our servers."
-                : "First time you add images, you’ll connect Drive. All product photos live on your account, not ours."}
-            </p>
+      <div className="mx-auto max-w-lg space-y-4 px-4 pt-4">
+        {/* ------------------------------ post form ------------------------------ */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-[15px] font-bold text-slate-900">Post Product</h2>
+          <p className="mt-0.5 text-[12px] text-slate-400">
+            Fill the details below — your product goes live on the Shopping page instantly.
+          </p>
+
+          {/* title */}
+          <div className="mt-5">
+            <div className="flex items-baseline justify-between">
+              <label className="text-[12px] font-semibold text-slate-700">
+                Title <span className="text-red-500">*</span>
+              </label>
+              <span className="text-[11px] text-slate-400 tabular-nums">{title.length} / 70</span>
+            </div>
+            <input
+              value={title}
+              maxLength={70}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                setErrors((prev) => ({ ...prev, title: false }));
+              }}
+              placeholder="e.g. iPhone 17 Pro Max 256GB"
+              className={
+                "mt-1.5 h-[48px] w-full rounded-xl border bg-slate-50 px-3.5 text-[14px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 " +
+                (errors.title ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-[#1877F2] focus:ring-blue-100")
+              }
+            />
+            {err(errors.title) && <p className="mt-1 text-[12px] font-medium text-red-500">{err(errors.title)}</p>}
           </div>
-          {driveConnected && (
+
+          {/* category */}
+          <div className="mt-4">
+            <label className="text-[12px] font-semibold text-slate-700">
+              Category <span className="text-red-500">*</span>
+            </label>
             <button
               type="button"
-              onClick={disconnectDrive}
-              className="text-[10px] font-semibold text-[#64748B] shrink-0"
+              onClick={() => setCategoryPickerOpen(true)}
+              className={
+                "mt-1.5 flex h-[48px] w-full items-center justify-between rounded-xl border bg-slate-50 px-3.5 text-left text-[14px] focus:outline-none " +
+                (errors.category && !category ? "border-red-300" : "border-slate-200")
+              }
             >
-              Disconnect
+              <span className={category ? "font-medium text-slate-900" : "text-slate-400"}>
+                {category ?? "Select a category"}
+              </span>
+              <ChevronDown size={16} className="text-slate-400" />
             </button>
-          )}
-        </div>
-
-        {savedFlash && (
-          <div className="flex items-center gap-2 rounded-[12px] bg-emerald-50 border border-emerald-100 px-3 py-2 text-sm text-emerald-700">
-            <Check size={16} /> Product saved
+            {errors.category && !category && <p className="mt-1 text-[12px] font-medium text-red-500">This field is required</p>}
           </div>
-        )}
 
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search products"
-            className="w-full h-11 pl-9 pr-3 rounded-[12px] border border-[#E2E8F0] bg-white text-sm outline-none focus:border-[#1877F2]"
-          />
-        </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {(["all", "published", "draft", "out"] as const).map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={`shrink-0 h-8 px-3 rounded-full text-xs font-semibold border ${
-                filter === f
-                  ? "bg-[#1877F2] text-white border-[#1877F2]"
-                  : "bg-white text-[#64748B] border-[#E2E8F0]"
-              }`}
-            >
-              {f === "all" ? "All" : f === "out" ? "Out of stock" : f[0].toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-2.5">
-          {list.map((p) => (
-            <div key={p.id} className="bg-white border border-[#E2E8F0] rounded-[14px] p-3.5">
-              <div className="flex gap-3">
-                <div className="w-16 h-16 rounded-[10px] bg-[#F1F5F9] overflow-hidden shrink-0 flex items-center justify-center">
-                  {p.images[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.images[0]} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon size={20} className="text-[#CBD5E1]" />
+          {/* photos */}
+          <div className="mt-4">
+            <label className="text-[12px] font-semibold text-slate-700">
+              Add at least {MIN_IMAGES} photos <span className="text-red-500">*</span>
+            </label>
+            <p className="mt-0.5 text-[11px] text-slate-400">
+              First picture is the title picture. JPG, PNG, WEBP.
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {images.map((src, index) => (
+                <div key={index} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-200">
+                  <img src={src} alt={"Photo " + (index + 1)} className="h-full w-full object-cover" />
+                  {index === 0 && (
+                    <span className="absolute left-1.5 top-1.5 rounded-md bg-[#0B1220]/85 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                      Title photo
+                    </span>
                   )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-semibold text-[#0F172A] truncate">{p.title}</p>
-                    {statusChip(p.status)}
-                  </div>
-                  <p className="text-xs text-[#64748B] mt-0.5">
-                    {p.category} · {p.specs}
-                    {p.images.length > 1 ? ` · ${p.images.length} photos` : ""}
-                  </p>
-                  <p className="text-sm font-semibold text-[#1877F2] mt-1">{naira(p.price)}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEdit(p)}
-                  className="flex-1 h-9 rounded-full border border-[#E2E8F0] text-xs font-semibold text-[#0F172A]"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  onClick={() => togglePublish(p)}
-                  className="flex-1 h-9 rounded-full bg-[#EFF6FF] text-[#1877F2] text-xs font-semibold"
-                >
-                  {p.status === "published" ? "Unpublish" : "Release"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeProduct(p.id)}
-                  className="h-9 px-3 rounded-full border border-red-100 text-red-600 text-xs font-semibold"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-          {list.length === 0 && (
-            <p className="text-center text-sm text-[#94A3B8] py-12">No products yet. Tap Add to create one.</p>
-          )}
-        </div>
-      </div>
-
-      {/* Hidden multi-file picker — phone gallery / camera */}
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*"
-        multiple
-        className="hidden"
-        onChange={(e) => onFilesSelected(e.target.files)}
-      />
-
-      {/* Editor modal */}
-      {editor && (
-        <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setEditor(null)}
-            aria-label="Close"
-          />
-          <div className="relative w-full max-w-lg bg-white rounded-t-[20px] sm:rounded-[20px] max-h-[92vh] overflow-y-auto p-5 pb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-[#0F172A]">
-                {editor.mode === "add" ? "Add product" : "Edit product"}
-              </h2>
-              <button type="button" onClick={() => setEditor(null)} className="text-[#94A3B8]">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <Field label="Title">
-                <input
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  placeholder="e.g. iPhone 17 Pro Max"
-                  className="w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
-                />
-              </Field>
-
-              <Field label="Category">
-                <select
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2] bg-white"
-                >
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="Short specs">
-                <input
-                  value={form.specs}
-                  onChange={(e) => setForm({ ...form, specs: e.target.value })}
-                  placeholder="256GB · Natural Titanium"
-                  className="w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
-                />
-              </Field>
-
-              <Field label="Full description">
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  rows={3}
-                  className="w-full px-3 py-2.5 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2] resize-none"
-                />
-              </Field>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Price (₦)">
-                  <input
-                    type="number"
-                    value={form.price || ""}
-                    onChange={(e) => setForm({ ...form, price: Number(e.target.value) || 0 })}
-                    className="w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
-                  />
-                </Field>
-                <Field label="Delivery">
-                  <input
-                    value={form.delivery}
-                    onChange={(e) => setForm({ ...form, delivery: e.target.value })}
-                    placeholder="1–3 days"
-                    className="w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2]"
-                  />
-                </Field>
-              </div>
-
-              <Field label="Stock">
-                <select
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                  className="w-full h-11 px-3 rounded-[12px] border border-[#E2E8F0] text-sm outline-none focus:border-[#1877F2] bg-white"
-                >
-                  <option>In stock</option>
-                  <option>Limited</option>
-                  <option>Out of stock</option>
-                </select>
-              </Field>
-
-              {/* Images — phone upload → seller Drive */}
-              <div>
-                <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide">
-                  Images ({form.images.length}) · backed up to your Drive
-                </span>
-                <div className="mt-1.5 space-y-2">
                   <button
                     type="button"
-                    onClick={onAddImagesClick}
-                    disabled={uploading}
-                    className="w-full h-12 rounded-[12px] border-2 border-dashed border-[#BFDBFE] bg-[#EFF6FF]/50 text-[#1877F2] text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60"
+                    onClick={() => removeImage(index)}
+                    aria-label={"Remove photo " + (index + 1)}
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm"
                   >
-                    {uploading ? (
-                      <>
-                        <Loader2 size={18} className="animate-spin" />
-                        Uploading to Drive…
-                      </>
-                    ) : (
-                      <>
-                        <Upload size={18} />
-                        {driveConnected ? "Add photos from phone" : "Connect Drive & add photos"}
-                      </>
-                    )}
+                    <X size={13} strokeWidth={2.6} />
                   </button>
-
-                  <p className="text-[11px] text-[#94A3B8] leading-relaxed">
-                    Tap to pick any number of photos from your gallery or camera. Files are stored on{" "}
-                    <span className="font-medium text-[#64748B]">your Google Drive</span> — Vernex only keeps the links.
-                  </p>
-
-                  {form.images.length > 0 && (
-                    <div className="flex gap-2 flex-wrap pt-1">
-                      {form.images.map((src, i) => (
-                        <div
-                          key={i}
-                          className="relative w-16 h-16 rounded-lg overflow-hidden bg-[#F1F5F9] border border-[#E2E8F0]"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={src} alt="" className="w-full h-full object-cover" />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(i)}
-                            className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                  {index !== 0 && (
+                    <button
+                      type="button"
+                      onClick={() => moveFirst(index)}
+                      className="absolute bottom-1.5 right-1.5 rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold text-slate-600 shadow-sm"
+                    >
+                      Make first
+                    </button>
                   )}
                 </div>
-              </div>
+              ))}
 
-              <div className="grid grid-cols-2 gap-2.5 pt-2">
+              {images.length < MAX_IMAGES && (
                 <button
                   type="button"
-                  onClick={() => save("draft")}
-                  className="h-11 rounded-full border border-[#E2E8F0] text-sm font-semibold text-[#0F172A]"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 text-slate-400 transition hover:border-[#1877F2] hover:text-[#1877F2] disabled:opacity-60"
                 >
-                  Save draft
+                  <Plus size={22} strokeWidth={2.4} />
+                  <span className="text-[10px] font-semibold">{uploading ? "Loading…" : "Add photo"}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => save("published")}
-                  className="h-11 rounded-full bg-[#1877F2] text-white text-sm font-semibold"
-                >
-                  Release
-                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+            <p className="mt-1.5 text-[11px] tabular-nums " + (errors.images ? "font-semibold text-red-500" : "text-slate-400")>
+              {images.length} / {MIN_IMAGES} minimum{" "}
+              {errors.images ? "— add at least " + MIN_IMAGES + " photos" : ""}
+            </p>
+          </div>
+
+          {/* condition */}
+          <div className="mt-4">
+            <label className="text-[12px] font-semibold text-slate-700">
+              Condition <span className="text-red-500">*</span>
+            </label>
+            <div className="mt-1.5 grid grid-cols-3 gap-2">
+              {SHOP_CONDITIONS.map((option) => {
+                const active = condition === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setCondition(option);
+                      setErrors((prev) => ({ ...prev, condition: false }));
+                    }}
+                    className={
+                      "h-10 rounded-xl border text-[12px] font-semibold transition " +
+                      (active
+                        ? "border-[#1877F2] bg-[#1877F2] text-white"
+                        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+                    }
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+            {errors.condition && !condition && <p className="mt-1 text-[12px] font-medium text-red-500">This field is required</p>}
+          </div>
+
+          {/* description */}
+          <div className="mt-4">
+            <div className="flex items-baseline justify-between">
+              <label className="text-[12px] font-semibold text-slate-700">
+                Description <span className="text-red-500">*</span>
+              </label>
+              <span className="text-[11px] text-slate-400 tabular-nums">{description.length} / 1000</span>
+            </div>
+            <textarea
+              value={description}
+              maxLength={1000}
+              onChange={(e) => {
+                setDescription(e.target.value);
+                setErrors((prev) => ({ ...prev, description: false }));
+              }}
+              placeholder="Describe the product: what it is, what is included, and anything the buyer should know."
+              rows={6}
+              className={
+                "mt-1.5 min-h-[130px] w-full resize-y rounded-xl border bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 " +
+                (errors.description ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-[#1877F2] focus:ring-blue-100")
+              }
+            />
+            {err(errors.description) && <p className="mt-1 text-[12px] font-medium text-red-500">{err(errors.description)}</p>}
+          </div>
+
+          {/* price + stock */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[12px] font-semibold text-slate-700">
+                Price <span className="text-red-500">*</span>
+              </label>
+              <div className="relative mt-1.5">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-slate-400">{"\u20A6"}</span>
+                <input
+                  value={priceText}
+                  inputMode="numeric"
+                  onChange={(e) => {
+                    setPriceText(e.target.value.replace(/[^0-9]/g, ""));
+                    setErrors((prev) => ({ ...prev, price: false }));
+                  }}
+                  placeholder="0"
+                  className={
+                    "h-[48px] w-full rounded-xl border bg-slate-50 pl-8 pr-3 text-[14px] font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none focus:ring-2 " +
+                    (errors.price ? "border-red-300 focus:ring-red-100" : "border-slate-200 focus:border-[#1877F2] focus:ring-blue-100")
+                  }
+                />
               </div>
+              {errors.price && <p className="mt-1 text-[12px] font-medium text-red-500">This field is required</p>}
+            </div>
+            <div>
+              <label className="text-[12px] font-semibold text-slate-700">Stock</label>
+              <input
+                value={stockText}
+                inputMode="numeric"
+                onChange={(e) => setStockText(e.target.value.replace(/[^0-9]/g, ""))}
+                placeholder="e.g. 5"
+                className="mt-1.5 h-[48px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-[14px] font-semibold text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              <p className="mt-1 text-[11px] text-slate-400">How many are in stock</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={postProduct}
+            className="mt-5 flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1877F2] text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(24,119,242,0.3)] transition active:scale-[0.99]"
+          >
+            <Plus size={18} strokeWidth={2.6} />
+            Post Product
+          </button>
+        </section>
+
+        {/* ---------------------------- products list ---------------------------- */}
+        <section>
+          <div className="mb-2 flex items-center justify-between px-1">
+            <h2 className="text-[13px] font-bold text-slate-900">Your Products</h2>
+            <span className="text-[11px] font-semibold text-slate-400 tabular-nums">{listedCount} total</span>
+          </div>
+
+          {products.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <Package size={22} />
+              </span>
+              <p className="mt-3 text-[13px] font-semibold text-slate-500">No products yet</p>
+              <p className="mt-0.5 text-[12px] text-slate-400">Post your first product with the form above.</p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {products.map((product) => {
+                const out = product.stock <= 0;
+                return (
+                  <div key={product.id} className="rounded-2xl border border-slate-200 bg-white p-3.5">
+                    <div className="flex gap-3">
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+                        {product.images[0] ? (
+                          <img src={product.images[0]} alt={product.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="flex h-full w-full items-center justify-center text-slate-300">
+                            <ImagePlus size={18} />
+                          </span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-bold text-slate-900">{product.title}</p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                          {product.category} · {product.condition}
+                        </p>
+                        <p className="mt-1 text-[13px] font-extrabold text-slate-900 tabular-nums">{naira(product.price)}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end justify-between">
+                        <span
+                          className={
+                            "rounded-full px-2 py-0.5 text-[10px] font-bold " +
+                            (out ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600")
+                          }
+                        >
+                          {out ? "Out of stock" : product.stock + " in stock"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(product)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-500 active:bg-red-50"
+                          aria-label={"Delete " + product.title}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* stock stepper */}
+                    <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                      <span className="text-[11px] font-semibold text-slate-500">Stock count</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => changeStock(product, -1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 active:scale-95"
+                          aria-label="Decrease stock"
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <span className="w-8 text-center text-[13px] font-bold text-slate-900 tabular-nums">{product.stock}</span>
+                        <button
+                          type="button"
+                          onClick={() => changeStock(product, 1)}
+                          className="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 active:scale-95"
+                          aria-label="Increase stock"
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* category picker */}
+      {categoryPickerOpen && (
+        <div className="fixed inset-0 z-50 flex items-end" onClick={() => setCategoryPickerOpen(false)}>
+          <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" />
+          <div className="relative w-full rounded-t-[24px] bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200" />
+            <h3 className="text-[15px] font-bold text-slate-900">Select Category</h3>
+            <div className="mt-3 space-y-1.5">
+              {SHOP_CATEGORIES.map((option) => {
+                const active = category === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => {
+                      setCategory(option);
+                      setCategoryPickerOpen(false);
+                      setErrors((prev) => ({ ...prev, category: false }));
+                    }}
+                    className={
+                      "flex w-full items-center justify-between rounded-xl border px-4 py-3 text-[14px] font-medium transition " +
+                      (active ? "border-[#1877F2] bg-blue-50 text-[#1877F2]" : "border-slate-200 text-slate-700")
+                    }
+                  >
+                    {option}
+                    {active && <Check size={16} strokeWidth={2.6} />}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCategoryPickerOpen(false)}
+              className="mt-3 h-11 w-full rounded-xl text-[13px] font-semibold text-slate-500"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* delete confirm */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setDeleteTarget(null)}>
+          <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" />
+          <div className="relative w-full max-w-xs rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 text-red-500">
+              <Trash2 size={18} />
+              <h3 className="text-[15px] font-bold text-slate-900">Delete product?</h3>
+            </div>
+            <p className="mt-1.5 text-[12px] leading-relaxed text-slate-500">
+              {deleteTarget.title} will be removed from the Shopping page. This cannot be undone.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setDeleteTarget(null)} className="h-11 flex-1 rounded-xl bg-slate-100 text-[13px] font-semibold text-slate-600">
+                Cancel
+              </button>
+              <button type="button" onClick={confirmDelete} className="h-11 flex-1 rounded-xl bg-red-500 text-[13px] font-bold text-white active:opacity-90">
+                Delete
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Connect Google Drive modal */}
-      {showDriveModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setShowDriveModal(false)}
-            aria-label="Close"
-          />
-          <div className="relative w-full max-w-md bg-white rounded-t-[20px] sm:rounded-[20px] p-6 pb-8">
-            <div className="flex justify-center">
-              <div className="w-14 h-14 rounded-2xl bg-[#EFF6FF] flex items-center justify-center text-[#1877F2]">
-                <Cloud size={28} />
-              </div>
-            </div>
-            <h3 className="mt-4 text-center text-lg font-bold text-[#0F172A]">
-              Backup photos to Google Drive
-            </h3>
-            <p className="mt-2 text-center text-sm text-[#64748B] leading-relaxed">
-              Connect once. Every product photo you upload from your phone is saved to{" "}
-              <span className="font-semibold text-[#0F172A]">your Drive</span>. Our site only stores the link — we never hold the image files, so it costs you no storage on Vernex.
-            </p>
-            <ul className="mt-4 space-y-2 text-sm text-[#334155]">
-              <li className="flex gap-2">
-                <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                Upload directly from gallery or camera
-              </li>
-              <li className="flex gap-2">
-                <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                As many images as you need per product
-              </li>
-              <li className="flex gap-2">
-                <Check size={16} className="text-emerald-600 shrink-0 mt-0.5" />
-                Storage & backup stay on your Google account
-              </li>
-            </ul>
-            <button
-              type="button"
-              onClick={connectDrive}
-              disabled={connecting}
-              className="mt-5 w-full h-12 rounded-full bg-[#1877F2] text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-70"
-            >
-              {connecting ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  Connecting…
-                </>
-              ) : (
-                <>
-                  <HardDrive size={18} />
-                  Connect Google Drive
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowDriveModal(false)}
-              className="mt-2 w-full h-11 rounded-full text-sm font-semibold text-[#64748B]"
-            >
-              Not now
-            </button>
-            <p className="mt-2 text-center text-[10px] text-[#94A3B8]">
-              Demo connect for preview. Live Google OAuth wires when API keys are set.
-            </p>
-          </div>
+      {/* toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-lg" role="status">
+          <Check size={15} className="text-emerald-400" strokeWidth={2.6} />
+          {toast}
         </div>
       )}
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide">{label}</span>
-      <div className="mt-1.5">{children}</div>
-    </label>
   );
 }

@@ -25,7 +25,7 @@ const MAIN: NavItem[] = [
 ];
 
 const SERVICES: NavItem[] = [
-  { href: "/services/shopping", label: "Shopping", icon: <ShoppingBag size={18} strokeWidth={2.2} /> },
+  { href: "/admin/products", label: "Shopping", icon: <ShoppingBag size={18} strokeWidth={2.2} /> },
   { href: "/services/virtual-number", label: "Virtual number", icon: <Smartphone size={18} strokeWidth={2.2} /> },
   { href: "/services/boost", label: "Boost account", icon: <Rocket size={18} strokeWidth={2.2} /> },
   { href: "/services/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
@@ -34,7 +34,6 @@ const SERVICES: NavItem[] = [
   { href: "/services/electricity", label: "Electricity", icon: <Zap size={18} strokeWidth={2.2} /> },
 ];
 
-/* Black square menu trigger — sits top-left in the admin header */
 export function AdminMenuButton({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -105,7 +104,6 @@ export default function AdminSidebar({ open, onClose }: { open: boolean; onClose
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true">
-      {/* backdrop */}
       <button
         type="button"
         aria-label="Close menu"
@@ -113,9 +111,7 @@ export default function AdminSidebar({ open, onClose }: { open: boolean; onClose
         className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]"
       />
 
-      {/* drawer */}
       <div className="absolute inset-y-0 left-0 flex w-[280px] max-w-[85vw] flex-col bg-white shadow-2xl">
-        {/* header */}
         <div className="flex items-center justify-between border-b border-slate-100 px-4 py-4">
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0B1220] text-white">
@@ -136,7 +132,6 @@ export default function AdminSidebar({ open, onClose }: { open: boolean; onClose
           </button>
         </div>
 
-        {/* nav */}
         <nav className="flex-1 overflow-y-auto px-2.5 py-3">
           {MAIN.map(navItem)}
 
@@ -146,7 +141,6 @@ export default function AdminSidebar({ open, onClose }: { open: boolean; onClose
           {SERVICES.map(navItem)}
         </nav>
 
-        {/* footer */}
         <div className="border-t border-slate-100 px-2.5 py-3">
           <button
             type="button"
