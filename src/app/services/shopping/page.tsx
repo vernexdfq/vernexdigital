@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ImageIcon,
 } from "lucide-react";
+import { loadShopProducts, type ShopAdminProduct } from "@/lib/shopProducts";
 
 /**
  * Admin image upload sizes (document for admin panel):
@@ -189,10 +190,20 @@ const PRODUCTS: ShopProduct[] = [
   },
 ];
 
-const FILTERS = ["All", "Phones", "Laptops", "Audio", "Tablets", "Accessories"];
+const FILTERS = [
+  "All",
+  "Phones",
+  "Laptops",
+  "Audio",
+  "Tablets",
+  "Accessories",
+  "Laptops & Computers",
+  "Mobile Phones",
+  "Electronics",
+];
 
 function formatNaira(n: number) {
-  return `₦${n.toLocaleString("en-NG")}`;
+  return "₦" + n.toLocaleString("en-NG");
 }
 
 export default function ShoppingPage() {
@@ -202,10 +213,38 @@ export default function ShoppingPage() {
   const [qty, setQty] = useState(1);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [adminProducts, setAdminProducts] = useState<ShopAdminProduct[]>([]);
+
+  /* products posted from the admin Shopping dashboard (live-synced) */
+  useEffect(() => {
+    const sync = () => setAdminProducts(loadShopProducts());
+    sync();
+    window.addEventListener("vernex-shop-products-updated", sync);
+    return () => window.removeEventListener("vernex-shop-products-updated", sync);
+  }, []);
+
+  const catalog: ShopProduct[] = useMemo(() => {
+    const mapped: ShopProduct[] = adminProducts.map((p) => ({
+      id: p.id,
+      category: p.category,
+      name: p.title,
+      subtitle: p.condition,
+      description: p.description,
+      bullets: [],
+      tags: [p.condition, p.category],
+      price: p.price,
+      stock: p.stock,
+      delivery: "1–3 days",
+      image: p.images[0] ?? "",
+      gallery: p.images,
+      specs: [],
+    }));
+    return [...mapped, ...PRODUCTS];
+  }, [adminProducts]);
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return PRODUCTS.filter((p) => {
+    return catalog.filter((p) => {
       if (filter !== "All" && p.category !== filter) return false;
       if (!q) return true;
       return (
@@ -215,7 +254,7 @@ export default function ShoppingPage() {
         p.tags.some((t) => t.toLowerCase().includes(q))
       );
     });
-  }, [query, filter]);
+  }, [query, filter, catalog]);
 
   useEffect(() => {
     if (!selected) return;
@@ -280,20 +319,22 @@ export default function ShoppingPage() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-medium transition ${
-                filter === f
-                  ? "bg-[#1877F2] text-white"
-                  : "bg-white border border-[#E2E8F0] text-[#475569]"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+          {FILTERS.map((f) => {
+            const chipClass =
+              filter === f
+                ? "bg-[#1877F2] text-white"
+                : "bg-white border border-[#E2E8F0] text-[#475569]";
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                className={`shrink-0 h-8 px-3.5 rounded-full text-xs font-medium transition ${chipClass}`}
+              >
+                {f}
+              </button>
+            );
+          })}
         </div>
 
         {list.length === 0 ? (
@@ -399,14 +440,16 @@ export default function ShoppingPage() {
                       <ChevronRight size={18} />
                     </button>
                     <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1.5">
-                      {photos.map((_, i) => (
-                        <span
-                          key={i}
-                          className={`h-1.5 rounded-full transition-all ${
-                            i === photoIndex ? "w-4 bg-white" : "w-1.5 bg-white/50"
-                          }`}
-                        />
-                      ))}
+                      {photos.map((_, i) => {
+                        const dotClass =
+                          i === photoIndex ? "w-4 bg-white" : "w-1.5 bg-white/50";
+                        return (
+                          <span
+                            key={i}
+                            className={`h-1.5 rounded-full transition-all ${dotClass}`}
+                          />
+                        );
+                      })}
                     </div>
                   </>
                 )}
@@ -587,19 +630,21 @@ export default function ShoppingPage() {
             )}
           </div>
           <div className="px-4 pb-8 flex gap-2 overflow-x-auto">
-            {photos.map((src, i) => (
-              <button
-                key={src + i}
-                type="button"
-                onClick={() => setPhotoIndex(i)}
-                className={`shrink-0 w-16 h-16 rounded-[10px] overflow-hidden border-2 ${
-                  i === photoIndex ? "border-white" : "border-transparent opacity-70"
-                }`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="w-full h-full object-cover" />
-              </button>
-            ))}
+            {photos.map((src, i) => {
+              const thumbClass =
+                i === photoIndex ? "border-white" : "border-transparent opacity-70";
+              return (
+                <button
+                  key={src + i}
+                  type="button"
+                  onClick={() => setPhotoIndex(i)}
+                  className={`shrink-0 w-16 h-16 rounded-[10px] overflow-hidden border-2 ${thumbClass}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
