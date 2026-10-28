@@ -25,49 +25,45 @@ export default function AdminLoginPage() {
     try {
       const emailNorm = email.trim().toLowerCase();
 
-      try {
-        const partnerRes = await fetch("/api/admin/partner-login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ email: emailNorm, password }),
-        });
-        const partnerData = await partnerRes.json().catch(() => ({}));
-        if (partnerRes.ok && partnerData.ok) {
-          try { sessionStorage.setItem("vernex_admin", "1"); } catch {}
-          router.replace("/admin");
-          return;
-        }
-      } catch { /* fall through */ }
-
+      /* 1) Supabase admin sign-in — the database only recognizes this session */
       const supabase = createBrowserClient();
       const { data, error: signError } = await supabase.auth.signInWithPassword({
         email: emailNorm,
         password,
       });
-      if (signError) {
-        setError(signError.message || "Invalid email or password");
-        setLoading(false);
-        return;
-      }
-      if (!data.user) {
-        setError("Could not sign in");
-        setLoading(false);
-        return;
-      }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", data.user.id)
-        .maybeSingle();
-      if (!profile?.is_admin) {
+
+      if (!signError && data.user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (profile?.is_admin) {
+          /* best-effort: also set the partner cookie so admin APIs keep working */
+          try {
+            await fetch("/api/admin/partner-login", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ email: emailNorm, password }),
+            });
+          } catch { /* optional */ }
+          try { sessionStorage.setItem("vernex_admin", "1"); } catch {}
+          router.replace("/admin");
+          return;
+        }
+
+        /* signed in, but not an admin */
         await supabase.auth.signOut();
         setError("This account is not an admin. Access denied.");
         setLoading(false);
         return;
       }
-      try { sessionStorage.setItem("vernex_admin", "1"); } catch {}
-      router.replace("/admin");
+
+      /* 2) Supabase rejected the credentials */
+      setError(signError?.message || "Invalid email or password");
+      setLoading(false);
     } catch {
       setError("Something went wrong. Try again.");
       setLoading(false);
