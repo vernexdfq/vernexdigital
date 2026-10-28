@@ -322,7 +322,7 @@ export default function AdminShoppingPage() {
               hidden
               onChange={(e) => handleFiles(e.target.files)}
             />
-            <p className="mt-1.5 text-[11px] tabular-nums " + (errors.images ? "font-semibold text-red-500" : "text-slate-400")>
+            <p className={"mt-1.5 text-[11px] tabular-nums " + (errors.images ? "font-semibold text-red-500" : "text-slate-400")}>
               {images.length} / {MIN_IMAGES} minimum{" "}
               {errors.images ? "— add at least " + MIN_IMAGES + " photos" : ""}
             </p>
