@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Building2,
   Copy,
@@ -12,11 +11,8 @@ import {
   Loader2,
   Clock,
   Wallet,
-  LogOut,
-  Settings,
 } from "lucide-react";
-import Link from "next/link";
-import { createBrowserClient } from "@/lib/supabase/client";
+import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 
 type VirtualAccount = {
   bankName: string;
@@ -88,6 +84,7 @@ function DetailRow({
   value: string;
   mono?: boolean;
 }) {
+  const valueClass = mono ? "tabular-nums tracking-wide" : "";
   return (
     <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#E8EEF5] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex min-w-0 items-center gap-3">
@@ -98,11 +95,7 @@ function DetailRow({
           <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
             {label}
           </p>
-          <p
-            className={`mt-0.5 truncate text-[15px] font-extrabold text-[#0F172A] ${
-              mono ? "tabular-nums tracking-wide" : ""
-            }`}
-          >
+          <p className={`mt-0.5 truncate text-[15px] font-extrabold text-[#0F172A] ${valueClass}`}>
             {value}
           </p>
         </div>
@@ -133,7 +126,7 @@ function useExpireCountdown(expireAt?: string | null) {
       const totalSec = Math.floor(ms / 1000);
       const m = Math.floor(totalSec / 60);
       const s = totalSec % 60;
-      setLeft(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+      setLeft(String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0"));
     };
     tick();
     const id = window.setInterval(tick, 1000);
@@ -143,11 +136,11 @@ function useExpireCountdown(expireAt?: string | null) {
 }
 
 export default function AdminPartnerFundPage() {
-  const router = useRouter();
   const [state, setState] = useState<FundState>({ status: "idle" });
   const [amountInput, setAmountInput] = useState("10000");
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const expireLeft = useExpireCountdown(
     state.status === "ready" ? state.account.expireAt : null,
@@ -230,21 +223,6 @@ export default function AdminPartnerFundPage() {
     }
   }, [amountInput]);
 
-  async function handleLogout() {
-    try {
-      const supabase = createBrowserClient();
-      await supabase.auth.signOut();
-    } catch {
-      /* ignore */
-    }
-    try {
-      sessionStorage.removeItem("vernex_admin");
-    } catch {
-      /* ignore */
-    }
-    router.replace("/admin/login");
-  }
-
   const amountLabel = useMemo(() => {
     const n = Math.round(Number(amountInput.replace(/,/g, "")));
     if (!Number.isFinite(n) || n <= 0) return null;
@@ -253,12 +231,12 @@ export default function AdminPartnerFundPage() {
 
   return (
     <div className="min-h-screen bg-[#F1F5F9] pb-28">
+      <AdminSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
+
       <header className="sticky top-0 z-20 border-b border-[#E2E8F0] bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-lg items-center justify-between gap-3 px-4">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0B1220] text-white">
-              <Shield size={16} strokeWidth={2.4} />
-            </div>
+            <AdminMenuButton onClick={() => setMenuOpen(true)} />
             <div className="min-w-0">
               <h1 className="text-[16px] font-extrabold tracking-tight text-[#0F172A] truncate">
                 Partner Fund
@@ -267,23 +245,6 @@ export default function AdminPartnerFundPage() {
                 Verxor · {PANEL_SLUG}
               </p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin/settings"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E2E8F0] bg-white text-[#64748B]"
-              aria-label="Settings"
-            >
-              <Settings size={16} />
-            </Link>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex h-9 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-2.5 text-[11px] font-bold text-[#64748B]"
-            >
-              <LogOut size={13} />
-              Log out
-            </button>
           </div>
         </div>
       </header>
@@ -300,11 +261,11 @@ export default function AdminPartnerFundPage() {
           <p className="mt-2 text-[34px] font-extrabold leading-none tracking-tight tabular-nums">
             {balanceLoading || balance === null
               ? "₦…"
-              : `₦${formatNgn(balance)}`}
+              : "₦" + formatNgn(balance)}
           </p>
           <p className="mt-3.5 flex items-center gap-2 text-[12px] font-semibold text-emerald-300">
             <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
-            Used to fulfill your users' Verxor orders
+            Used to fulfill your users&apos; Verxor orders
           </p>
         </div>
 
@@ -356,16 +317,15 @@ export default function AdminPartnerFundPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               {QUICK_AMOUNTS.map((a) => {
                 const active = String(a) === amountInput;
+                const chipClass = active
+                  ? "border-[#1877F2] bg-[#1877F2] text-white shadow-sm"
+                  : "border-[#E2E8F0] bg-white text-[#0F172A]";
                 return (
                   <button
                     key={a}
                     type="button"
                     onClick={() => setAmountInput(String(a))}
-                    className={`h-10 rounded-xl border px-3.5 text-[12px] font-bold transition active:scale-[0.97] ${
-                      active
-                        ? "border-[#1877F2] bg-[#1877F2] text-white shadow-sm"
-                        : "border-[#E2E8F0] bg-white text-[#0F172A]"
-                    }`}
+                    className={`h-10 rounded-xl border px-3.5 text-[12px] font-bold transition active:scale-[0.97] ${chipClass}`}
                   >
                     ₦{a.toLocaleString("en-NG")}
                   </button>
@@ -388,9 +348,7 @@ export default function AdminPartnerFundPage() {
                 <>
                   <span className="text-xl leading-none">+</span>
                   Generate OPay Account
-                  {amountLabel
-                    ? ` · ₦${amountLabel.toLocaleString("en-NG")}`
-                    : ""}
+                  {amountLabel ? " · ₦" + amountLabel.toLocaleString("en-NG") : ""}
                 </>
               )}
             </button>
@@ -441,11 +399,7 @@ export default function AdminPartnerFundPage() {
             </div>
 
             <p className="mt-4 text-center text-[13px] font-semibold leading-snug text-[#475569]">
-              Transfer{" "}
-              <span className="font-extrabold text-[#0F172A]">
-                ₦{formatNgn(state.account.amount)}
-              </span>{" "}
-              to this account. Panel balance credits automatically.
+              Transfer <span className="font-extrabold text-[#0F172A]">{"₦" + formatNgn(state.account.amount)}</span> to this account. Panel balance credits automatically.
             </p>
 
             <button
@@ -488,8 +442,7 @@ export default function AdminPartnerFundPage() {
           />
           <p className="text-[12px] leading-relaxed text-[#1E3A5F]">
             <span className="font-extrabold text-[#0F172A]">Instant & Secure:</span>{" "}
-            Account name is always{" "}
-            <span className="font-extrabold">{ACCOUNT_NAME}</span> — not a personal
+            Account name is always <span className="font-extrabold">{ACCOUNT_NAME}</span> — not a personal
             name. Funds credit the panel wholesale wallet used for Verxor virtual
             numbers and services.
           </p>
