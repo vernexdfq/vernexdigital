@@ -86,19 +86,14 @@ export async function fetchUserTransactions(userId: string): Promise<AdminTxn[]>
   const supabase = createBrowserClient();
   const { data, error } = await supabase
     .from("transactions")
-    .select("*")
+    .select("id, kind, title, amount, status, meta, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(20);
   if (error) throw new Error(error.message);
   return (data ?? []).map((t: Record<string, unknown>, i: number) => ({
     id: str(t.id, String(i)),
-    label:
-      str(t.description) ||
-      str(t.type) ||
-      str(t.reference) ||
-      str(t.narration) ||
-      "Transaction",
+    label: str(t.title) || str(t.kind) || "Transaction",
     amount: Number(t.amount ?? 0),
     createdAt: (t.created_at as string) ?? null,
   }));
