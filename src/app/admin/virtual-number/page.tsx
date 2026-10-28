@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import {
   Check,
+  ChevronDown,
   Crown,
   Gauge,
   Info,
   Layers,
+  Minus,
+  Plus,
   Save,
   Zap,
 } from "lucide-react";
@@ -67,7 +70,7 @@ function saveVnPricing(config: VnPricingConfig) {
 }
 
 function naira(n: number) {
-  return "\u20A6" + Math.round(n).toLocaleString("en-NG");
+  return "₦" + Math.round(n).toLocaleString("en-NG") + ".00";
 }
 
 type TierDraft = { min: string; max: string; markup: string };
@@ -78,6 +81,7 @@ type TierMeta = {
   blurb: string;
   icon: React.ReactNode;
   tile: string;
+  accent: string;
   chipBg: string;
   chipText: string;
   hasMin: boolean;
@@ -91,6 +95,7 @@ const TIERS: TierMeta[] = [
     blurb: "Cheapest pools — best for low-cost verifications",
     icon: <Gauge size={18} strokeWidth={2.3} />,
     tile: "bg-emerald-50 text-emerald-600",
+    accent: "text-emerald-600",
     chipBg: "bg-emerald-50",
     chipText: "text-emerald-600",
     hasMin: false,
@@ -102,6 +107,7 @@ const TIERS: TierMeta[] = [
     blurb: "Balanced price and success rate",
     icon: <Layers size={18} strokeWidth={2.3} />,
     tile: "bg-blue-50 text-[#1877F2]",
+    accent: "text-[#1877F2]",
     chipBg: "bg-blue-50",
     chipText: "text-[#1877F2]",
     hasMin: true,
@@ -113,6 +119,7 @@ const TIERS: TierMeta[] = [
     blurb: "Quick OTP delivery on popular services",
     icon: <Zap size={18} strokeWidth={2.3} />,
     tile: "bg-violet-50 text-violet-600",
+    accent: "text-violet-600",
     chipBg: "bg-violet-50",
     chipText: "text-violet-600",
     hasMin: true,
@@ -121,9 +128,10 @@ const TIERS: TierMeta[] = [
   {
     id: "premium",
     label: "Premium",
-    blurb: "Highest success rate, all countries and services",
+    blurb: "Highest success rate — all countries and services",
     icon: <Crown size={18} strokeWidth={2.3} />,
     tile: "bg-amber-50 text-amber-600",
+    accent: "text-amber-600",
     chipBg: "bg-amber-50",
     chipText: "text-amber-600",
     hasMin: true,
@@ -158,6 +166,14 @@ export default function VnPricingAdminPage() {
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], [field]: clean } }));
   }
 
+  function nudgeMarkup(id: VnTierId, delta: number) {
+    setDrafts((prev) => {
+      const current = Number(prev[id].markup);
+      const next = Math.min(10, Math.max(1.05, Math.round(((Number.isFinite(current) ? current : 2) + delta) * 100) / 100));
+      return { ...prev, [id]: { ...prev[id], markup: String(next) } };
+    });
+  }
+
   const markupPct = (markup: string) => {
     const m = Number(markup);
     if (!Number.isFinite(m) || m <= 1) return "--";
@@ -171,11 +187,20 @@ export default function VnPricingAdminPage() {
     if (meta.hasMax) {
       const max = Number(d.max);
       if (!Number.isFinite(max) || max <= 0) return "--";
-      return "< " + naira(Math.ceil(max * markup));
+      return "< " + naira(max * markup);
     }
     const min = Number(d.min);
     if (!Number.isFinite(min) || min <= 0) return "--";
-    return "from " + naira(Math.ceil(min * markup));
+    return "> " + naira(min * markup);
+  };
+
+  const bandLabel = (meta: TierMeta) => {
+    const d = drafts[meta.id];
+    if (meta.hasMin && meta.hasMax) {
+      return naira(Number(d.min) || 0) + " – " + naira(Number(d.max) || 0);
+    }
+    if (meta.hasMax) return "< " + naira(Number(d.max) || 0);
+    return "> " + naira(Number(d.min) || 0);
   };
 
   const sampleLabel = (meta: TierMeta) => {
@@ -184,7 +209,7 @@ export default function VnPricingAdminPage() {
     if (!Number.isFinite(markup) || markup <= 0) return null;
     const base = meta.hasMax && Number(d.max) > 0 ? Math.round(Number(d.max) * 0.8) : Number(d.min) > 0 ? Number(d.min) * 2 : 0;
     if (!base) return null;
-    return "Base " + naira(base) + " \u2192 customer pays " + naira(Math.ceil(base * markup));
+    return "Base " + naira(base) + " → customer pays " + naira(base * markup);
   };
 
   const valid = useMemo(() => {
@@ -212,7 +237,7 @@ export default function VnPricingAdminPage() {
         },
       };
       saveVnPricing(config);
-      setToast("Pricing saved \u2014 customer prices updated");
+      setToast("Pricing saved — customer prices updated");
     } finally {
       setSaving(false);
     }
@@ -256,61 +281,91 @@ export default function VnPricingAdminPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-500">Base cost (wholesale)</p>
-                  <div className="mt-1.5 flex items-center gap-1.5">
-                    {meta.hasMin ? (
-                      <div className="relative flex-1">
-                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">{"\u20A6"}</span>
-                        <input
-                          value={d.min}
-                          inputMode="numeric"
-                          onChange={(e) => setDraft(meta.id, "min", e.target.value)}
-                          aria-label={meta.label + " base cost minimum"}
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-6 pr-2 text-[13px] font-semibold tabular-nums text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                      </div>
-                    ) : null}
-                    {meta.hasMin && meta.hasMax ? <span className="text-[12px] font-semibold text-slate-300">to</span> : null}
-                    {meta.hasMax ? (
-                      <div className="relative flex-1">
-                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">{"\u20A6"}</span>
-                        <input
-                          value={d.max}
-                          inputMode="numeric"
-                          onChange={(e) => setDraft(meta.id, "max", e.target.value)}
-                          aria-label={meta.label + " base cost maximum"}
-                          className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-6 pr-2 text-[13px] font-semibold tabular-nums text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
-                        />
-                      </div>
-                    ) : null}
-                    {meta.hasMin && !meta.hasMax ? <span className="text-[12px] font-semibold text-slate-400">and above</span> : null}
-                    {!meta.hasMin && meta.hasMax ? <span className="text-[12px] font-semibold text-slate-400">and below</span> : null}
-                  </div>
+              {/* base cost band — full width, bold */}
+              <div className="mt-4">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Base cost (wholesale)</p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  {meta.hasMin ? (
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[15px] font-extrabold text-slate-400">₦</span>
+                      <input
+                        value={d.min}
+                        inputMode="numeric"
+                        onChange={(e) => setDraft(meta.id, "min", e.target.value)}
+                        aria-label={meta.label + " base cost minimum"}
+                        className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-2 text-[15px] font-bold tabular-nums text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                  ) : null}
+                  {meta.hasMin && meta.hasMax ? (
+                    <span className="text-[13px] font-bold text-slate-300">to</span>
+                  ) : null}
+                  {meta.hasMax ? (
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[15px] font-extrabold text-slate-400">₦</span>
+                      <input
+                        value={d.max}
+                        inputMode="numeric"
+                        onChange={(e) => setDraft(meta.id, "max", e.target.value)}
+                        aria-label={meta.label + " base cost maximum"}
+                        className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-2 text-[15px] font-bold tabular-nums text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      />
+                    </div>
+                  ) : null}
+                  {meta.hasMin && !meta.hasMax ? (
+                    <span className="text-[13px] font-bold text-slate-500">and above</span>
+                  ) : null}
+                  {!meta.hasMin && meta.hasMax ? (
+                    <span className="text-[13px] font-bold text-slate-500">and below</span>
+                  ) : null}
                 </div>
+              </div>
 
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-500">Your markup</p>
-                  <div className="relative mt-1.5">
-                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[13px] font-bold text-slate-400">\u00D7</span>
+              {/* markup — the star of the card: big bold input with +/- steppers */}
+              <div className="mt-3.5">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Your markup</p>
+                <div className="mt-1.5 flex items-stretch gap-2">
+                  <button
+                    type="button"
+                    onClick={() => nudgeMarkup(meta.id, -0.05)}
+                    aria-label={"Decrease " + meta.label + " markup"}
+                    className="flex h-12 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 active:scale-95"
+                  >
+                    <Minus size={16} strokeWidth={2.6} />
+                  </button>
+                  <div className="relative flex-1">
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[16px] font-extrabold text-slate-400">×</span>
                     <input
                       value={d.markup}
                       inputMode="decimal"
                       onChange={(e) => setDraft(meta.id, "markup", e.target.value)}
                       aria-label={meta.label + " markup multiplier"}
-                      className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-6 pr-2 text-[13px] font-semibold tabular-nums text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                      className="h-12 w-full rounded-xl border-2 border-slate-200 bg-white pl-8 pr-9 text-center text-[18px] font-extrabold tabular-nums text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
                     />
+                    <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-300" />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => nudgeMarkup(meta.id, 0.05)}
+                    aria-label={"Increase " + meta.label + " markup"}
+                    className="flex h-12 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 active:scale-95"
+                  >
+                    <Plus size={16} strokeWidth={2.6} />
+                  </button>
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">API price (customer pays)</p>
-                  <p className="mt-0.5 text-[14px] font-extrabold tabular-nums text-slate-900">{apiPriceLabel(meta)}</p>
+              {/* API price — big, bold, accent color */}
+              <div className="mt-3.5 rounded-xl border border-slate-100 bg-slate-50 px-3.5 py-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">API price (customer pays)</p>
+                  <span className={"text-[10px] font-bold " + meta.accent}>{markupPct(d.markup)} markup</span>
                 </div>
-                {sample && <p className="max-w-[45%] text-right text-[10px] leading-snug text-slate-400">{sample}</p>}
+                <p className={"mt-0.5 text-[20px] font-extrabold tabular-nums " + meta.accent}>{apiPriceLabel(meta)}</p>
+                <div className="mt-1 flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-slate-400">{bandLabel(meta)} base</p>
+                  {sample && <p className="text-[11px] font-medium text-slate-400">{sample}</p>}
+                </div>
               </div>
             </section>
           );
@@ -323,11 +378,11 @@ export default function VnPricingAdminPage() {
           className="flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1877F2] text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(24,119,242,0.3)] transition active:scale-[0.99] disabled:opacity-50"
         >
           <Save size={18} strokeWidth={2.6} />
-          {saving ? "Saving\u2026" : "Save Changes"}
+          {saving ? "Saving…" : "Save Changes"}
         </button>
         {!valid && (
           <p className="-mt-2 text-center text-[11px] font-medium text-slate-400">
-            Enter a valid markup (1.05\u201310) and cost bands for every tier to save.
+            Enter a valid markup (1.05–10) and cost bands for every tier to save.
           </p>
         )}
 
@@ -339,7 +394,7 @@ export default function VnPricingAdminPage() {
           <ul className="mt-2.5 space-y-2">
             <li className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
-              Wholesale cost is what a number costs you from the provider pool. The markup you set here is applied on top.
+              Wholesale cost is what a number costs you from the provider pool. Your markup is applied on top of it.
             </li>
             <li className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
@@ -347,7 +402,7 @@ export default function VnPricingAdminPage() {
             </li>
             <li className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
-              Keep bands non-overlapping \u2014 a number is matched to a tier from Economy up to Premium.
+              Keep bands non-overlapping — a number is matched to a tier from Economy up to Premium.
             </li>
             <li className="flex gap-2 text-[12px] leading-relaxed text-slate-500">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-300" />
