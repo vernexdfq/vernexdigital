@@ -14,60 +14,18 @@ import {
   Save,
   Zap,
 } from "lucide-react";
+import {
+  loadVnPricing,
+  saveVnPricing,
+  type VnPricingConfig,
+  type VnTierId,
+} from "@/lib/vn-panel-pricing";
 
 /* ------------------------------------------------------------------
  * Virtual-number retail pricing (panel -> customer).
  * Each wholesale cost band maps to a tier; the markup multiplier the
  * admin sets here is what customers pay on the Virtual Number page.
  * ---------------------------------------------------------------- */
-
-export const VN_PRICING_KEY = "vernexdigital_vn_pricing_v1";
-
-export type VnTierId = "economy" | "standard" | "fast" | "premium";
-
-export type VnTierPricing = {
-  minNgn: number | null; // null = no floor
-  maxNgn: number | null; // null = no ceiling
-  markup: number; // customer pays ceil(wholesale * markup)
-};
-
-export type VnPricingConfig = {
-  tiers: Record<VnTierId, VnTierPricing>;
-};
-
-export const VN_DEFAULT_PRICING: VnPricingConfig = {
-  tiers: {
-    economy: { minNgn: null, maxNgn: 1035, markup: 3.0 },
-    standard: { minNgn: 1035, maxNgn: 1794, markup: 2.5 },
-    fast: { minNgn: 1794, maxNgn: 3312, markup: 2.0 },
-    premium: { minNgn: 3312, maxNgn: null, markup: 1.5 },
-  },
-};
-
-export function loadVnPricing(): VnPricingConfig {
-  if (typeof window === "undefined") return VN_DEFAULT_PRICING;
-  try {
-    const raw = window.localStorage.getItem(VN_PRICING_KEY);
-    if (!raw) return VN_DEFAULT_PRICING;
-    const parsed = JSON.parse(raw) as Partial<VnPricingConfig>;
-    const tiers = parsed?.tiers;
-    if (!tiers) return VN_DEFAULT_PRICING;
-    const merged: Record<VnTierId, VnTierPricing> = {
-      economy: { ...VN_DEFAULT_PRICING.tiers.economy, ...tiers.economy },
-      standard: { ...VN_DEFAULT_PRICING.tiers.standard, ...tiers.standard },
-      fast: { ...VN_DEFAULT_PRICING.tiers.fast, ...tiers.fast },
-      premium: { ...VN_DEFAULT_PRICING.tiers.premium, ...tiers.premium },
-    };
-    return { tiers: merged };
-  } catch {
-    return VN_DEFAULT_PRICING;
-  }
-}
-
-function saveVnPricing(config: VnPricingConfig) {
-  window.localStorage.setItem(VN_PRICING_KEY, JSON.stringify(config));
-  window.dispatchEvent(new CustomEvent("vernex-vn-pricing-updated"));
-}
 
 function naira(n: number) {
   return "₦" + Math.round(n).toLocaleString("en-NG") + ".00";

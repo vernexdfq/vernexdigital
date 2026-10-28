@@ -23,6 +23,7 @@ import {
   type CatalogService,
   type CatalogCountry,
 } from "@/lib/vn-catalog-client";
+import { loadVnPricing, vnCustomerPrice, type VnPricingConfig } from "@/lib/vn-panel-pricing";
 
 type ProviderId =
   | "usa-s1"
@@ -187,6 +188,7 @@ export default function VirtualNumberPage() {
   const [buying, setBuying] = useState(false);
   const [buyError, setBuyError] = useState("");
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [vnPricing, setVnPricing] = useState<VnPricingConfig>(() => loadVnPricing());
 
   const needsCountry = PROVIDERS.find((p) => p.id === provider)?.needsCountry ?? false;
   const currentTier = PROVIDERS.find((p) => p.id === provider)?.tier ?? "Economy";
@@ -200,6 +202,28 @@ export default function VirtualNumberPage() {
       }
     } catch {}
   }, []);
+
+  /* live-sync the markup set from the admin Virtual Numbers page */
+  useEffect(() => {
+    const sync = () => setVnPricing(loadVnPricing());
+    window.addEventListener("vernex-vn-pricing-updated", sync);
+    return () => window.removeEventListener("vernex-vn-pricing-updated", sync);
+  }, []);
+
+  /* when the panel markup changes, reprice the loaded routes in place */
+  useEffect(() => {
+    setPrices((prev) =>
+      prev.map((o) => ({
+        ...o,
+        priceNgn: vnCustomerPrice(o.wholesaleNgn || o.priceNgn, vnPricing),
+      })),
+    );
+    setSelectedPrice((sel) =>
+      sel
+        ? { ...sel, priceNgn: vnCustomerPrice(sel.wholesaleNgn || sel.priceNgn, vnPricing) }
+        : sel,
+    );
+  }, [vnPricing]);
 
   useEffect(() => {
     let cancelled = false;
@@ -255,14 +279,17 @@ export default function VirtualNumberPage() {
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (data.ok && Array.isArray(data.options)) {
-          const opts: PriceOption[] = data.options.map((o: any, i: number) => ({
-            label: o.label || `Route ${i + 1}`,
-            priceNgn: Number(o.priceNgn) || 0,
-            wholesaleNgn: Number(o.wholesaleNgn) || 0,
-            costUsd: Number(o.costUsd) || 0,
-            stock: Number(o.stock) || 0,
-            grizzlyCountry: String(o.grizzlyCountry || country?.grizzlyCode || country?.code || "US"),
-          }));
+          const opts: PriceOption[] = data.options.map((o: any, i: number) => {
+            const wholesale = Number(o.wholesaleNgn) || 0;
+            return {
+              label: o.label || `Route ${i + 1}`,
+              priceNgn: vnCustomerPrice(wholesale || Number(o.priceNgn) || 0, loadVnPricing()),
+              wholesaleNgn: wholesale,
+              costUsd: Number(o.costUsd) || 0,
+              stock: Number(o.stock) || 0,
+              grizzlyCountry: String(o.grizzlyCountry || country?.grizzlyCode || country?.code || "US"),
+            };
+          });
           setPrices(opts);
           setSelectedPrice(opts[0] || null);
         } else {
