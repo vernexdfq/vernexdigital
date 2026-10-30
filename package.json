@@ -6,8 +6,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "node scripts/inflate-boost-page-child.cjs; next dev",
-    "build": "node scripts/inflate-boost-page-child.cjs && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
