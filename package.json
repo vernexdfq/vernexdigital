@@ -6,11 +6,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "node scripts/restore-boost-child.cjs; next dev",
-    "build": "node scripts/restore-boost-child.cjs && next build",
+    "dev": "node scripts/inflate-restore-boost.cjs; next dev",
+    "build": "node scripts/inflate-restore-boost.cjs && next build",
     "start": "next start",
     "lint": "eslint",
-    "restore:boost": "node scripts/restore-boost-child.cjs"
+    "restore:boost": "node scripts/inflate-restore-boost.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
