@@ -6,8 +6,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/apply-live-boost-page.cjs; next dev",
+    "build": "node scripts/apply-live-boost-page.cjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
