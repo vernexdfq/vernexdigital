@@ -19,10 +19,33 @@ async function getUser(req: NextRequest) {
   return data.user || null;
 }
 
-/**
- * List the authenticated user's boost orders from Supabase transactions table,
- * filtered by kind="boost", with order metadata and live tracking status.
- */
+function normalizeStatus(rawStatus: string, providerStatus: string): string {
+  const raw = rawStatus.toLowerCase();
+  const prov = providerStatus.toLowerCase();
+
+  if (raw === "failed" || raw === "refunded" || prov.includes("fail") || prov.includes("error")) {
+    return "failed";
+  }
+  if (raw === "cancelled" || raw === "canceled" || prov.includes("cancel")) {
+    return "cancelled";
+  }
+  if (prov.includes("complete") || prov === "completed" || prov === "success") {
+    return "completed";
+  }
+  if (prov === "pending") return "pending";
+  if (
+    raw === "processing" ||
+    prov.includes("progress") ||
+    prov.includes("processing") ||
+    prov === "in_progress"
+  ) {
+    return "processing";
+  }
+  if (raw === "completed") return "processing";
+  if (raw === "pending") return "pending";
+  return prov || raw || "pending";
+}
+
 export async function GET(req: NextRequest) {
   const user = await getUser(req);
   if (!user) {
@@ -46,14 +69,9 @@ export async function GET(req: NextRequest) {
     const orders = (data || []).map((t) => {
       const meta = (t.meta as Record<string, unknown>) || {};
       const amount = Math.abs(Number(t.amount) || 0);
-      const rawStatus = String(t.status || "processing").toLowerCase();
-      // Map transactions status: completed -> in_progress/completed, pending -> pending
-      let displayStatus = "pending";
-      if (rawStatus === "completed" || rawStatus === "success") {
-        displayStatus = meta.providerStatus ? String(meta.providerStatus).toLowerCase() : "in_progress";
-      } else if (rawStatus === "failed" || rawStatus === "refunded") {
-        displayStatus = "failed";
-      }
+      const rawStatus = String(t.status || "pending");
+      const providerStatus = String(meta.providerStatus || "");
+      const displayStatus = normalizeStatus(rawStatus, providerStatus);
 
       return {
         id: String(meta.providerOrderId || meta.ref || t.id),
@@ -68,7 +86,10 @@ export async function GET(req: NextRequest) {
         ratePer1000: Number(meta.ratePer1000) || 0,
         status: displayStatus,
         rawStatus: t.status,
+        providerStatus,
         speed: String(meta.speed || ""),
+        remains: meta.remains != null ? Number(meta.remains) : undefined,
+        charge: meta.charge != null ? String(meta.charge) : undefined,
         createdAt: t.created_at,
       };
     });
