@@ -60,7 +60,7 @@ interface ServiceData {
 const servicesData: Record<ServiceKey, ServiceData> = {
   numbers: {
     id: "numbers",
-    pillLabel: "Virtual Numbers & SMS",
+    pillLabel: "Virtual Numbers",
     pillIcon: Smartphone,
     badge: "Carrier-Grade Non-VoIP",
     headline: "Carrier-Grade Virtual Numbers for Instant OTP & Dedicated Rentals",
@@ -93,7 +93,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
   },
   shopping: {
     id: "shopping",
-    pillLabel: "Gadget & Phone Shopping",
+    pillLabel: "Phones & Gadgets",
     pillIcon: ShoppingBag,
     badge: "Verified Hardware & Tech",
     headline: "Flagship Gadgets, Smartphones & Tech Essentials",
@@ -226,7 +226,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
   },
   bills: {
     id: "bills",
-    pillLabel: "Cable TV & Electricity",
+    pillLabel: "Cable & Electricity",
     pillIcon: Tv,
     badge: "24/7 Automated Utility Bills",
     headline: "Instant Prepaid Electricity Tokens & Cable TV Unfreezing",
@@ -259,7 +259,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
   },
   data: {
     id: "data",
-    pillLabel: "Data & Airtime VTU",
+    pillLabel: "Data & Airtime",
     pillIcon: Zap,
     badge: "Direct Telco Switch",
     headline: "Fast Automated VTU Mobile Data & Airtime",
@@ -580,8 +580,8 @@ export default function VernexLandingPage() {
               </a>
             </div>
 
-            {/* Trust Badges */}
-            <div className="mt-9 flex flex-wrap items-center justify-center gap-2 sm:gap-3 text-[11px] sm:text-[12px] font-semibold text-[#334155]">
+            {/* Trust Badges: Clean 2x2 grid on mobile, horizontal pill row on sm+ */}
+            <div className="mt-8 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-center sm:gap-2.5 text-[11px] sm:text-[12px] font-semibold text-[#334155] max-w-sm sm:max-w-none mx-auto">
               {[
                 { label: "Instant SMS Delivery", icon: Zap },
                 { label: "200+ Global Regions", icon: Globe2 },
@@ -590,10 +590,10 @@ export default function VernexLandingPage() {
               ].map(({ label, icon: Icon }) => (
                 <span
                   key={label}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3.5 py-1.5 shadow-[0_2px_6px_rgba(0,0,0,0.03)]"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[#E2E8F0] bg-white px-3 py-2 shadow-[0_2px_6px_rgba(0,0,0,0.03)] text-center"
                 >
-                  <Icon size={13} className="text-[#1877F2]" strokeWidth={2.4} />
-                  {label}
+                  <Icon size={13} className="text-[#1877F2] shrink-0" strokeWidth={2.4} />
+                  <span className="truncate">{label}</span>
                 </span>
               ))}
             </div>
@@ -610,7 +610,8 @@ export default function VernexLandingPage() {
                 Tap Any Service Below
               </h2>
 
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5">
+              {/* Structured 2-column grid on mobile, 4-column grid on sm+ (no scattered uneven lines) */}
+              <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-2xl mx-auto">
                 {(Object.keys(servicesData) as ServiceKey[]).map((key) => {
                   const s = servicesData[key];
                   const Icon = s.pillIcon;
@@ -623,14 +624,14 @@ export default function VernexLandingPage() {
                         setActiveService(key);
                         setShowAltImage(false);
                       }}
-                      className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[12px] sm:text-[13px] font-bold transition-all duration-200 cursor-pointer ${
+                      className={`flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-full px-2.5 sm:px-3.5 py-2.5 text-[11.5px] sm:text-[13px] font-bold transition-all duration-200 cursor-pointer text-center leading-tight min-h-[44px] ${
                         isActive
-                          ? "bg-[#1877F2] text-white shadow-[0_6px_18px_rgba(24,119,242,0.30)] scale-[1.02]"
+                          ? "bg-[#1877F2] text-white shadow-[0_6px_18px_rgba(24,119,242,0.30)] scale-[1.01]"
                           : "border border-[#DCE6F2] bg-white text-[#475569] hover:border-[#1877F2]/60 hover:text-[#0B1F4D] hover:bg-[#F8FAFC]"
                       }`}
                     >
-                      <Icon size={15} className={isActive ? "text-white" : "text-[#1877F2]"} />
-                      <span>{s.pillLabel}</span>
+                      <Icon size={14} className={`shrink-0 ${isActive ? "text-white" : "text-[#1877F2]"}`} />
+                      <span className="truncate">{s.pillLabel}</span>
                     </button>
                   );
                 })}
