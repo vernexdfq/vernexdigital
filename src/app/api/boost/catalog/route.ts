@@ -7,22 +7,26 @@ export const dynamic = "force-dynamic";
 
 /**
  * Live SMM catalog from Verxor.
- * Re-prices each service with partner mults + panel markup (default +25%).
+ * Pulls all platforms, categories, and services.
+ * Re-prices each service with partner multipliers + panel markup (default +25%).
  */
-export async function GET() {
+export async function GET(req: Request) {
   const { configured, base } = verxorConfig();
+  const { searchParams } = new URL(req.url);
+  const forceRefresh = searchParams.get("refresh") === "1" || searchParams.get("refresh") === "true";
+  const path = `/boost/catalog${forceRefresh ? "?refresh=1" : ""}`;
 
   try {
     let res: Response;
     if (configured) {
-      res = await verxorFetch("/boost/catalog");
+      res = await verxorFetch(path);
     } else {
-      res = await fetch(`${base}/boost/catalog`, { cache: "no-store" });
+      res = await fetch(`${base}${path}`, { cache: "no-store" });
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data.ok === false) {
       return NextResponse.json(
-        { ok: false, error: data.error || "Catalog unavailable" },
+        { ok: false, error: data.error || "Services catalog temporarily unavailable" },
         { status: res.status >= 400 ? res.status : 502 },
       );
     }
@@ -32,17 +36,23 @@ export async function GET() {
           const wholesaleUsd = Number(s.wholesaleUsd) || 0;
           const ratePer1000 = panelRetailRatePer1000(wholesaleUsd);
           const partnerRate = partnerRatePer1000(wholesaleUsd);
+          const platform = String(s.platform || "");
+          const platformName = String(s.platformName || s.platform || "");
+          const category = String(s.category || "");
+          const categoryName = String(s.categoryName || s.category || "General");
+          const title = String(s.title || s.name || "");
+
           return {
             id: String(s.id ?? s.providerId ?? ""),
             providerId: Number(s.providerId) || Number(s.id) || 0,
-            platform: String(s.platform || ""),
-            platformName: String(s.platformName || s.platform || ""),
-            category: String(s.category || ""),
-            categoryName: String(s.categoryName || s.category || ""),
-            title: String(s.title || s.name || ""),
-            name: String(s.title || s.name || ""),
-            group: String(s.categoryName || s.category || "Services"),
-            categoryId: String(s.platform || ""),
+            platform,
+            platformName,
+            category,
+            categoryName,
+            title,
+            name: title,
+            group: categoryName,
+            categoryId: platform,
             ratePer1000,
             partnerRatePer1000: partnerRate,
             wholesaleUsd,
@@ -50,7 +60,9 @@ export async function GET() {
             max: Number(s.max) || 1000000,
             speed: String(s.speed || ""),
             refill: s.refill,
+            quality: s.quality,
             instant: s.instant,
+            desc: s.desc ? String(s.desc) : undefined,
           };
         })
       : [];
@@ -67,7 +79,8 @@ export async function GET() {
             .toUpperCase(),
           placeholder: String(p.placeholder || "https://"),
           linkHint: String(p.linkHint || "Paste your link"),
-          categories: p.categories || [],
+          urlPatternStr: String(p.urlPatternStr || "https?:\\/\\/"),
+          categories: Array.isArray(p.categories) ? p.categories : [],
           totalServices: Number(p.totalServices) || 0,
         }))
       : [];
@@ -87,8 +100,8 @@ export async function GET() {
         note: "Panel pays Verxor partner rate; end users pay partner × (1+markup)",
       },
     });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Catalog failed";
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Catalog error";
     return NextResponse.json({ ok: false, error: msg }, { status: 502 });
   }
 }
