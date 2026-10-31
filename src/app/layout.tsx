@@ -23,9 +23,12 @@ export const metadata: Metadata = {
     siteName: "Vernex",
     url: "https://vernexdigital.com",
   },
-  metadataBase: new URL("https://vernexdigital.com"),
+  metadataBase: new URL("https://www.vernexdigital.com"),
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
+  verification: {
+    google: "Ebgix0uMwAWNEefiBWW5hE869DjPChH-bIi8H4iFbsw",
+  },
   applicationName: "Vernex",
   icons: {
     icon: "/vernex-icon.jpg",
