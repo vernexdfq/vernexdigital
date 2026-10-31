@@ -296,7 +296,7 @@ export default function ProfilePage() {
           />
           {pinMsg && (
             <p
-              className={\"text-sm mb-3 \" + (pinMsg.includes(\"success\") || pinMsg.includes(\"live\") ? \"text-emerald-600\" : \"text-red-500\")}
+              className={"text-sm mb-3 " + (pinMsg.includes("success") || pinMsg.includes("live") ? "text-emerald-600" : "text-red-500")}
             >
               {pinMsg}
             </p>
@@ -352,7 +352,7 @@ export default function ProfilePage() {
           />
           {pwdMsg && (
             <p
-              className={\"text-sm mb-3 \" + (pwdMsg.includes(\"success\") || pwdMsg.includes(\"live\") ? \"text-emerald-600\" : \"text-red-500\")}
+              className={"text-sm mb-3 " + (pwdMsg.includes("success") || pwdMsg.includes("live") ? "text-emerald-600" : "text-red-500")}
             >
               {pwdMsg}
             </p>
