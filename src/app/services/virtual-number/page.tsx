@@ -75,6 +75,7 @@ type Order = {
   expiresAt?: number;
   cancelAvailableAt?: number;
   refunded?: boolean;
+  createdAt?: string;
 };
 
 const OTP_TTL_MS = 20 * 60 * 1000;
@@ -168,6 +169,58 @@ function SearchSheet({
   );
 }
 
+function recentOrderKey(o: { id?: string; providerOrderId?: string; phone?: string }) {
+  return String(o.providerOrderId || o.id || o.phone || "");
+}
+
+/** Merge session + DB orders so waiting timers survive and history never disappears. */
+function mergeRecentOrders(session: Order[], api: Order[]): Order[] {
+  const map = new Map<string, Order>();
+  for (const o of session) {
+    const k = recentOrderKey(o);
+    if (k) map.set(k, o);
+  }
+  for (const o of api) {
+    const k = recentOrderKey(o);
+    if (!k) continue;
+    const prev = map.get(k);
+    if (!prev) {
+      map.set(k, o);
+      continue;
+    }
+    map.set(k, {
+      ...prev,
+      ...o,
+      expiresAt: prev.expiresAt,
+      cancelAvailableAt: prev.cancelAvailableAt,
+      code: o.code || prev.code,
+      status: o.status === "waiting" && prev.status === "received" ? prev.status : o.status,
+    });
+  }
+  return Array.from(map.values()).sort((a, b) => {
+    const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+    const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+    return tb - ta;
+  });
+}
+
+function recentStatusLabel(status: Order["status"]) {
+  switch (status) {
+    case "waiting":
+      return "Waiting";
+    case "received":
+      return "Done";
+    case "refunded":
+      return "Refunded";
+    case "cancelled":
+      return "Cancelled";
+    case "expired":
+      return "Expired";
+    default:
+      return status;
+  }
+}
+
 export default function VirtualNumberPage() {
   const { wallet, refresh } = useUser();
   const router = useRouter();
@@ -194,13 +247,51 @@ export default function VirtualNumberPage() {
   const currentTier = PROVIDERS.find((p) => p.id === provider)?.tier ?? "Economy";
 
   useEffect(() => {
+    let cancelled = false;
+    let sessionList: Order[] = [];
     try {
       const raw = sessionStorage.getItem("vn_recent_orders");
       if (raw) {
         const parsed = JSON.parse(raw) as Order[];
-        if (Array.isArray(parsed) && parsed.length) setRecentOrders(parsed);
+        if (Array.isArray(parsed)) sessionList = parsed;
       }
     } catch {}
+    if (sessionList.length) setRecentOrders(sessionList);
+
+    (async () => {
+      try {
+        const token = await getAuthToken();
+        if (!token || cancelled) return;
+        const res = await fetch("/api/vn/orders", {
+          headers: { Authorization: "Bearer " + token },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled || !data.ok || !Array.isArray(data.orders)) return;
+        const mapped: Order[] = data.orders.map((o: Record<string, unknown>) => ({
+          id: String(o.id || o.providerOrderId || ""),
+          phone: String(o.phone || ""),
+          service: String(o.service || ""),
+          provider: String(o.provider || "Grizzly"),
+          providerSlug: String(o.providerSlug || "grizzly"),
+          providerOrderId: o.providerOrderId ? String(o.providerOrderId) : undefined,
+          status: (o.status as Order["status"]) || "waiting",
+          code: o.code ? String(o.code) : undefined,
+          priceNgn: Number(o.priceNgn) || undefined,
+          createdAt: o.createdAt ? String(o.createdAt) : undefined,
+        }));
+        const merged = mergeRecentOrders(sessionList, mapped);
+        if (cancelled) return;
+        setRecentOrders(merged);
+        try {
+          sessionStorage.setItem("vn_recent_orders", JSON.stringify(merged.slice(0, 30)));
+        } catch {}
+      } catch {
+        /* keep session list */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   /* live-sync the markup set from the admin Virtual Numbers page */
@@ -450,26 +541,28 @@ export default function VirtualNumberPage() {
             <ChevronDown size={16} className="text-[#94A3B8]" />
           </button>
 
-          <button
-            type="button"
-            disabled={!service}
-            onClick={() => service && setCountryOpen(true)}
-            className="w-full h-12 px-3 rounded-xl border border-[#E2E8F0] flex items-center justify-between text-left disabled:opacity-50"
-          >
-            <span className="flex items-center gap-2 text-sm text-[#64748B]">
-              <Globe size={16} />
-              {country ? (
-                <span className="text-[#0F172A] font-medium">
-                  {country.flag} {country.name}
-                </span>
-              ) : needsCountry ? (
-                service ? "Select a country" : "Select a service first"
-              ) : (
-                "USA (auto)"
-              )}
-            </span>
-            <ChevronDown size={16} className="text-[#94A3B8]" />
-          </button>
+          {needsCountry ? (
+            <button
+              type="button"
+              disabled={!service}
+              onClick={() => service && setCountryOpen(true)}
+              className="w-full h-12 px-3 rounded-xl border border-[#E2E8F0] flex items-center justify-between text-left disabled:opacity-50"
+            >
+              <span className="flex items-center gap-2 text-sm text-[#64748B]">
+                <Globe size={16} />
+                {country ? (
+                  <span className="text-[#0F172A] font-medium">
+                    {country.flag} {country.name}
+                  </span>
+                ) : service ? (
+                  "Select a country"
+                ) : (
+                  "Select a service first"
+                )}
+              </span>
+              <ChevronDown size={16} className="text-[#94A3B8]" />
+            </button>
+          ) : null}
 
           {loadingPrices ? (
             <p className="text-sm text-[#94A3B8] text-center py-4">Loading routes…</p>
@@ -532,40 +625,55 @@ export default function VirtualNumberPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {recentOrders.slice(0, 5).map((o, i) => (
-                <Link
-                  key={o.id || o.providerOrderId || i}
-                  href="/services/virtual-number/orders"
-                  className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-3 flex items-center justify-between text-left"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-[#0F172A]">{o.service}</p>
-                    <p className="text-xs text-[#1877F2] font-mono tabular-nums truncate">{o.phone}</p>
-                    {o.status === "received" && o.code ? (
-                      <p className="text-[12px] font-semibold text-emerald-700 mt-0.5 tracking-wider">
-                        Code {o.code}
-                      </p>
-                    ) : o.status === "waiting" ? (
-                      <p className="text-[11px] text-amber-600 mt-0.5">Waiting for SMS…</p>
-                    ) : null}
-                  </div>
-                  <span
-                    className={`text-[11px] font-semibold shrink-0 ${
-                      o.status === "waiting"
-                        ? "text-amber-600"
-                        : o.status === "received"
-                          ? "text-emerald-600"
-                          : "text-[#64748B]"
-                    }`}
+              {recentOrders.slice(0, 4).map((o, i) => {
+                const created = o.createdAt ? new Date(o.createdAt) : null;
+                const dateLabel = created
+                  ? created.toLocaleDateString("en-NG", { day: "numeric", month: "short" }) +
+                    ", " +
+                    created.toLocaleTimeString("en-NG", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })
+                  : "";
+                const pillClass =
+                  o.status === "waiting"
+                    ? "text-amber-700 bg-amber-50"
+                    : o.status === "received"
+                      ? "text-emerald-700 bg-emerald-50"
+                      : o.status === "refunded"
+                        ? "text-emerald-700 bg-emerald-50"
+                        : "text-red-600 bg-red-50";
+                return (
+                  <Link
+                    key={o.id || o.providerOrderId || i}
+                    href="/services/virtual-number/orders"
+                    className="w-full bg-white border border-[#E2E8F0] rounded-xl px-3 py-3 flex items-center justify-between text-left"
                   >
-                    {o.status === "waiting"
-                      ? "Waiting"
-                      : o.status === "received"
-                        ? "Code ready"
-                        : o.status}
-                  </span>
-                </Link>
-              ))}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-[#0F172A]">{o.service}</p>
+                      <p className="text-xs text-[#1877F2] font-mono tabular-nums truncate">{o.phone}</p>
+                      {o.status === "received" && o.code ? (
+                        <p className="text-[12px] font-semibold text-emerald-700 mt-0.5 tracking-wider">
+                          Code {o.code}
+                        </p>
+                      ) : o.status === "waiting" ? (
+                        <p className="text-[11px] text-amber-600 mt-0.5">Waiting for SMS…</p>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className={"text-[10px] font-semibold px-2 py-0.5 rounded-full " + pillClass}
+                      >
+                        {recentStatusLabel(o.status)}
+                      </span>
+                      {dateLabel ? (
+                        <span className="text-[10px] text-[#94A3B8] tabular-nums">{dateLabel}</span>
+                      ) : null}
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
