@@ -15,7 +15,6 @@
    ============================================================ */
 
 /* Hardened card surfaces — visible borders, real shadows */
-.boost-card,.boost-orders-card,.boost-recent-card{border-color:#dde4ec;box-shadow:0 2px_ 4px rgba(16,28,61,0)}
 .boost-card,.boost-orders-card,.boost-tip-card,.boost-recent-card{border-color:#dbe2ea;box-shadow:0 2px 8px rgba(16,28,61,0.07),0 1px 2px rgba(16,28,61,0.04)}
 .boost-card{padding:22px}
 .boost-card-heading{margin-bottom:20px}
@@ -64,7 +63,6 @@
 .boost-submit{min-height:50px;border-radius:12px;font-size:13px;font-weight:800;box-shadow:0 6px 18px rgba(40,100,215,0.32);transition:background .15s,transform .12s,box-shadow .15s}
 .boost-submit:hover:not(:disabled){background:#1d54b8;box-shadow:0 8px 22px rgba(40,100,215,0.38)}
 .boost-submit:active:not(:disabled){transform:scale(.98);box-shadow:0 3px 10px rgba(40,100,215,0.30)}
-.boost-submit-fund{box-shadow:0 6px_ 18px rgba(0,0,0,0)}
 .boost-submit-fund{box-shadow:0 6px 18px rgba(191,106,27,0.32)}
 .boost-fund-link{background:#e7f0fe;font-weight:800;transition:transform .12s,background .15s}
 .boost-fund-link:active{transform:scale(.95)}
