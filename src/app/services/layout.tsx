@@ -10,12 +10,14 @@ export default function ServicesLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const hideMainNav = pathname?.startsWith("/services/gift-card");
+  // Deep service pages (boost, virtual-number, etc.) run full-screen like the
+  // reference: no bottom nav — the page has its own back navigation.
+  const showMainNav = !pathname || pathname === "/services";
 
   return (
     <AuthGuard>
       {children}
-      {!hideMainNav && <BottomNav />}
+      {showMainNav && <BottomNav />}
     </AuthGuard>
   );
 }
