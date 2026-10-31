@@ -8,6 +8,7 @@ import {
   ArrowLeft, Search, X, Link2, Check, Folder, Star, Rocket, Info,
   RefreshCw, Zap, Wallet, ClipboardPaste, ListOrdered, ChevronDown,
   Sparkles, ShieldCheck, Users, Clock3, CircleAlert, Globe,
+  CheckCircle2, ExternalLink, RotateCw, Clock,
 } from "lucide-react";
 import "./boost-page.css";
 
@@ -33,7 +34,7 @@ type Service = {
   refill?: boolean | string;
   quality?: string;
 };
-type Order = { id: string; service: string; speed: string; qty: number; total: number; status: string; link: string; platform?: string };
+type Order = { id: string; service: string; speed: string; qty: number; total: number; status: string; link: string; platform?: string; createdAt?: string; ref?: string };
 type PickerKind = "platform" | "category" | "service" | null;
 
 const QTY_CHIPS = [500, 1000, 2500, 5000];
@@ -206,7 +207,16 @@ function FormRow({ label, value, placeholder, icon, onClick, disabled }: { label
 }
 function PickerPage({ title, open, onClose, search, onSearch, children }: { title: string; open: boolean; onClose: () => void; search: string; onSearch: (v: string) => void; children: React.ReactNode }) {
   if (!open) return null;
-  return <div className="boost-picker-root" role="dialog" aria-modal="true"><header className="boost-picker-header"><button type="button" onClick={onClose} className="boost-picker-back"><ArrowLeft size={18}/> Back</button><h2>{title}</h2><button type="button" aria-label="Close" className="boost-picker-x" onClick={onClose}><X size={19}/></button></header><div className="boost-picker-search"><Search size={16}/><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search by name…" autoFocus/><kbd>⌘ K</kbd></div><div className="boost-picker-list">{children}</div></div>;
+  return <div className="boost-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <section className="boost-picker-root" role="dialog" aria-modal="true" aria-label={title}>
+      <header className="boost-picker-header">
+        <div className="boost-picker-heading"><h2>{title}</h2><p>Choose an option to continue</p></div>
+        <button type="button" aria-label="Close" className="boost-picker-x" onClick={onClose}><X size={19}/></button>
+      </header>
+      <div className="boost-picker-search"><Search size={16}/><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search by name…" autoFocus/></div>
+      <div className="boost-picker-list">{children}</div>
+    </section>
+  </div>;
 }
 
 export default function BoostAccountPage() {
@@ -224,6 +234,11 @@ export default function BoostAccountPage() {
   const [link, setLink] = useState("");
   const [qty, setQty] = useState("");
   const [placed, setPlaced] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState("");
+  const [ordersFilter, setOrdersFilter] = useState<"all" | "active" | "completed" | "failed">("all");
+  const [catalogStale, setCatalogStale] = useState(false);
+  const [catalogUpdatedAt, setCatalogUpdatedAt] = useState<string | null>(null);
   const [picker, setPicker] = useState<PickerKind>(null);
   const [pSearch, setPSearch] = useState("");
   const [cSearch, setCSearch] = useState("");
@@ -236,6 +251,8 @@ export default function BoostAccountPage() {
       const res = await fetch("/api/boost/catalog", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok || data.ok === false) throw new Error(data.error || "The live catalog could not be loaded.");
+      setCatalogStale(Boolean(data.isStale));
+      setCatalogUpdatedAt(data.updatedAt || null);
       setPlatforms((Array.isArray(data.platforms) ? data.platforms : []).map((p: any) => ({
         id: String(p.id), name: String(p.name || p.id), color: String(p.brandColor || p.color || "#0F172A"),
         initial: String(p.initial || p.name || "?").slice(0, 2).toUpperCase(), placeholder: p.placeholder,
@@ -250,7 +267,44 @@ export default function BoostAccountPage() {
     } catch (e) { setCatalogError(e instanceof Error ? e.message : "Catalog error"); }
     finally { setCatalogLoading(false); }
   };
-  useEffect(() => { void loadCatalog(); }, []);
+  const loadOrders = async () => {
+    setOrdersLoading(true);
+    setOrdersError("");
+    try {
+      const supabase = createBrowserClient();
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        setPlaced([]);
+        setOrdersError("Sign in to view your boost order history.");
+        return;
+      }
+      const res = await fetch("/api/boost/orders", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.ok === false) throw new Error(payload.error || "Could not load your order history.");
+      setPlaced((Array.isArray(payload.orders) ? payload.orders : []).map((o: any) => ({
+        id: String(o.id || o.txnId || ""),
+        ref: String(o.ref || ""),
+        service: String(o.service || "Boost service"),
+        speed: String(o.speed || ""),
+        qty: Number(o.qty) || 0,
+        total: Number(o.total) || 0,
+        status: String(o.status || "pending").toLowerCase(),
+        link: String(o.link || ""),
+        platform: String(o.platform || ""),
+        createdAt: o.createdAt,
+      })));
+    } catch (e) {
+      setOrdersError(e instanceof Error ? e.message : "Could not load your order history.");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  useEffect(() => { void loadCatalog(); void loadOrders(); }, []);
 
   const platform = platforms.find((p) => p.id === platformId) ?? null;
   const service = allServices.find((s) => s.id === serviceId) ?? null;
@@ -278,9 +332,10 @@ export default function BoostAccountPage() {
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result.ok === false) throw new Error(result.error || "Order failed. Please retry.");
       const ord = result.order || {};
-      setPlaced(prev => [{ id: String(ord.providerOrderId || ord.id || Date.now()), service: service.name, speed: service.speed, qty: quantity, total: Number(ord.amount) || total, status: String(ord.status || "processing"), link: link.trim(), platform: platform?.name }, ...prev]);
+      setPlaced(prev => [{ id: String(ord.providerOrderId || ord.id || Date.now()), ref: String(ord.reference || ord.ref || ""), service: service.name, speed: service.speed, qty: quantity, total: Number(ord.amount) || total, status: String(ord.status || "processing").toLowerCase(), link: link.trim(), platform: platform?.id, createdAt: new Date().toISOString() }, ...prev]);
       setLink(""); setQty("");
       try { await refreshUser(); } catch { /* wallet refresh is non-critical */ }
+      void loadOrders();
     } catch (e) { setOrderError(e instanceof Error ? e.message : "Order failed"); }
     finally { setOrdering(false); }
   }
@@ -289,8 +344,9 @@ export default function BoostAccountPage() {
     <header className="boost-topbar"><button type="button" onClick={() => history.back()} className="boost-back" aria-label="Go back"><ArrowLeft size={18}/></button><div className="boost-title-wrap"><p className="boost-eyebrow">VERNEX DIGITAL · SERVICES</p><h1 className="boost-title">Boost account</h1></div><Link href="/fund" className="boost-wallet-btn"><Wallet size={14}/><span>{formatNaira(balance)}</span></Link></header>
     <section className="boost-hero"><div className="boost-hero-orb orb-one"/><div className="boost-hero-orb orb-two"/><div className="boost-hero-copy"><span className="boost-hero-kicker"><Sparkles size={13}/> GROW WITH CONFIDENCE</span><h2>Real momentum.<br/><span>Made simple.</span></h2><p>Find the right growth service for your audience, then track it all in one place.</p><div className="boost-hero-trust"><span><ShieldCheck size={14}/> Secure checkout</span><span><Zap size={13}/> Live catalog</span></div></div><div className="boost-hero-art" aria-hidden="true"><div className="boost-art-ring ring-a"/><div className="boost-art-ring ring-b"/><div className="boost-art-core"><Rocket size={28}/></div><span className="boost-art-node node-a"><Users size={15}/></span><span className="boost-art-node node-b"><Star size={14}/></span><span className="boost-art-node node-c"><Zap size={14}/></span></div></section>
     <section className="boost-wallet-strip"><div className="boost-wallet-icon"><Wallet size={17}/></div><div className="boost-wallet-copy"><span>Available balance</span><strong>{formatNaira(balance)}</strong></div><Link href="/fund" className="boost-fund-link">Add funds <ArrowLeft size={13}/></Link></section>
-    <div className="boost-catalog-line"><div><h2>Build your order</h2><p>Choose a platform, category and service.</p></div><span className="boost-catalog-badge"><span className="live-dot"/> {catalogLoading ? "Syncing catalog" : `${counts.platforms} platforms · ${counts.services.toLocaleString()} services`}</span></div>
+    <div className="boost-catalog-line"><div><h2>Build your order</h2><p>Choose a platform, category and service.</p></div><span className={`boost-catalog-badge ${catalogStale ? "catalog-stale" : ""}`}><span className="live-dot"/> {catalogLoading ? "Syncing catalog" : `${counts.platforms} platforms · ${counts.services.toLocaleString()} services`}{catalogStale ? " · cached" : " · live"}</span></div>
     {catalogLoading && <div className="boost-notice"><RefreshCw size={16} className="boost-spin"/> Connecting to live service catalog…</div>}
+    {catalogStale && <div className="boost-notice notice-warning"><CircleAlert size={16}/><span>Showing cached services because the provider is temporarily unavailable. Prices will be validated again before checkout.</span><button type="button" onClick={() => void loadCatalog()}>Refresh</button></div>}
     {catalogError && <div className="boost-notice notice-error"><CircleAlert size={16}/><span>{catalogError}</span><button type="button" onClick={() => void loadCatalog()}>Try again</button></div>}
     {orderError && <div className="boost-notice notice-error"><CircleAlert size={16}/><span>{orderError}</span><button type="button" onClick={() => setOrderError("")} aria-label="Dismiss"><X size={15}/></button></div>}
     <div className="boost-layout"><div className="boost-main-column">
@@ -298,7 +354,27 @@ export default function BoostAccountPage() {
       {service && <section className="boost-card boost-details-card"><div className="boost-card-heading"><span className="boost-step">02</span><div><h3>Order details</h3><p>Enter the target and the quantity you need.</p></div></div><div className="boost-input-section"><Label>Target URL</Label><div className="boost-input-wrap"><Link2 size={17}/><input value={link} onChange={e => setLink(e.target.value)} placeholder={platform?.placeholder || "Paste a public profile or post URL"} aria-label="Target URL"/><button type="button" onClick={pasteLink} className="boost-paste"><ClipboardPaste size={14}/> Paste</button></div>{platform?.linkHint && <p className="boost-field-hint">{platform.linkHint}</p>}</div><div className="boost-input-section"><Label>Quantity</Label><div className="boost-qty-wrap"><span className="qty-hash">#</span><input value={qty} onChange={e => setQty(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder={`From ${formatQty(service.min)}`} aria-label="Quantity"/><span className="qty-range">{formatQty(service.min)}–{formatQty(service.max)}</span>{qty && <button type="button" aria-label="Clear quantity" onClick={() => setQty("")}><X size={14}/></button>}</div><div className="boost-qty-chips">{QTY_CHIPS.filter(q => q >= service.min && q <= service.max).map(q => <button type="button" key={q} className={Number(qty) === q ? "active" : ""} onClick={() => setQty(String(q))}>{formatQty(q)}</button>)}</div></div></section>}
       <section className="boost-card boost-summary-card"><div className="boost-summary-heading"><div><span className="boost-summary-label">ORDER SUMMARY</span><h3>{service ? service.name : "Your order at a glance"}</h3></div>{service && <span className="boost-speed-chip"><Zap size={12}/>{service.speed || "Standard"}</span>}</div>{!service || quantity === 0 ? <div className="boost-summary-empty"><span><ListOrdered size={18}/></span><p>Select a service and quantity to see your total.</p></div> : <div className="boost-summary-rows"><div><span>Rate per 1,000</span><strong>{formatNaira(service.ratePer1000)}</strong></div><div><span>Quantity</span><strong>{formatQty(quantity)}</strong></div><div><span>Estimated delivery</span><strong>{service.speed || "Varies by service"}</strong></div></div>}<div className="boost-summary-total"><div><span>Total to pay</span><strong>{formatNaira(total)}</strong></div><div className="boost-summary-balance"><span>Wallet balance</span><strong>{formatNaira(balance)}</strong></div></div>{service && quantity > 0 && !inRange && <p className="boost-inline-warning">Quantity must be between {formatQty(service.min)} and {formatQty(service.max)}.</p>}{shortfall > 0 && <Link href="/fund" className="boost-submit boost-submit-fund">Add {formatNaira(shortfall)} to continue</Link>}{shortfall <= 0 && <button type="button" onClick={placeOrder} disabled={!canOrder} className="boost-submit"><span>{ordering ? "Placing your order…" : "Place boost order"}</span>{ordering ? <RefreshCw size={16} className="boost-spin"/> : <ArrowLeft size={16}/>}</button>}<p className="boost-secure-note"><ShieldCheck size={13}/> Your order is checked against the live catalog before payment.</p></section>
       </div><aside className="boost-side-column"><section className="boost-tip-card"><span className="tip-icon"><Info size={16}/></span><div><h3>Quick tip</h3><p>Use a public URL that matches your chosen service. Private or restricted accounts may not be eligible.</p></div></section><section className="boost-trust-card"><h3>Designed for peace of mind</h3><div><ShieldCheck size={16}/><span><b>Verified pricing</b><small>Price validated on our server at checkout.</small></span></div><div><Zap size={16}/><span><b>Live availability</b><small>Services are synced from our provider.</small></span></div><div><Wallet size={16}/><span><b>Wallet protected</b><small>Clear charges and order records.</small></span></div></section></aside></div>
-    <section className="boost-orders-card"><div className="boost-orders-head"><div><span className="boost-summary-label">ACTIVITY</span><h2>Recent boost orders</h2></div><span className="boost-order-count">{placed.length} {placed.length === 1 ? "order" : "orders"}</span></div>{placed.length === 0 ? <div className="boost-orders-empty"><span><ListOrdered size={20}/></span><p>Your new orders will appear here after checkout.</p></div> : <div className="boost-orders-list">{placed.map(o => <article className="boost-order-row" key={o.id}><span className="boost-order-mark"><PlatformMark platform={o.platform || "social"} size={19}/></span><div className="boost-order-info"><strong>{o.service}</strong><span>#{o.id} · {o.speed || "Standard"}</span><a href={o.link} target="_blank" rel="noreferrer">{o.link}</a></div><span className="boost-order-qty">{formatQty(o.qty)}</span><strong className="boost-order-cost">{formatNaira(o.total)}</strong><span className={`boost-order-status status-${o.status.toLowerCase()}`}>{o.status}</span></article>)}</div>}</section>
+    <section className="boost-orders-card" aria-labelledby="boost-orders-title">
+      <div className="boost-orders-head"><div><span className="boost-summary-label">ACTIVITY</span><h2 id="boost-orders-title">Order tracking</h2><p>Track pending, in-progress and completed orders.</p></div><div className="boost-orders-head-actions"><span className="boost-order-count">{placed.length} {placed.length === 1 ? "order" : "orders"}</span><button type="button" className="boost-refresh-orders" onClick={() => void loadOrders()} disabled={ordersLoading} aria-label="Refresh orders"><RotateCw size={15}/></button></div></div>
+      <div className="boost-order-filters" role="tablist" aria-label="Filter boost orders">
+        {(["all", "active", "completed", "failed"] as const).map((filter) => <button key={filter} type="button" role="tab" aria-selected={ordersFilter === filter} className={ordersFilter === filter ? "active" : ""} onClick={() => setOrdersFilter(filter)}>{filter === "active" ? "In progress" : filter[0].toUpperCase() + filter.slice(1)}</button>)}
+      </div>
+      {ordersError && <div className="boost-order-load-error"><CircleAlert size={15}/><span>{ordersError}</span><button type="button" onClick={() => void loadOrders()}>Retry</button></div>}
+      {ordersLoading ? <div className="boost-orders-empty"><RefreshCw size={16} className="boost-spin"/><p>Loading your orders…</p></div> : (() => {
+        const filteredOrders = placed.filter((o) => ordersFilter === "all" || (ordersFilter === "active" ? ["pending", "processing", "in_progress", "queued"].includes(o.status) : ordersFilter === "completed" ? ["completed", "success", "done"].includes(o.status) : ["failed", "cancelled", "canceled", "refunded"].includes(o.status)));
+        return filteredOrders.length === 0 ? <div className="boost-orders-empty"><span><ListOrdered size={20}/></span><p>{placed.length === 0 ? "Your boost orders will appear here after checkout." : "No orders in this category."}</p></div> : <div className="boost-orders-list">{filteredOrders.map((o) => {
+          const status = ["completed", "success", "done"].includes(o.status) ? "completed" : ["failed", "cancelled", "canceled", "refunded"].includes(o.status) ? "failed" : ["processing", "in_progress", "queued"].includes(o.status) ? "in_progress" : "pending";
+          const statusLabel = status === "in_progress" ? "In progress" : status[0].toUpperCase() + status.slice(1);
+          return <article className="boost-order-row" key={o.id}>
+            <span className="boost-order-mark"><PlatformMark platform={o.platform || "social"} size={19}/></span>
+            <div className="boost-order-info"><strong>{o.service}</strong><span>Order #{o.id}</span>{o.createdAt && <small><Clock size={12}/> {new Date(o.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</small>}{o.link && <a href={o.link} target="_blank" rel="noreferrer">{o.link} <ExternalLink size={11}/></a>}</div>
+            <span className="boost-order-qty">{formatQty(o.qty)}</span>
+            <strong className="boost-order-cost">{formatNaira(o.total)}</strong>
+            <span className={`boost-order-status status-${status}`}>{status === "completed" ? <CheckCircle2 size={12}/> : <Clock3 size={12}/>} {statusLabel}</span>
+          </article>;
+        })}</div>;
+      })()}
+    </section>
     <p className="boost-footnote"><ShieldCheck size={13}/> Prices are verified live when your order is submitted.</p>
     <PickerPage title="Choose platform" open={picker === "platform"} onClose={() => setPicker(null)} search={pSearch} onSearch={setPSearch}>{filteredPlatforms.map(p => <button key={p.id} type="button" onClick={() => selectPlatform(p.id)} className={`boost-picker-item ${platformId === p.id ? "selected" : ""}`}><span className="boost-picker-mark" style={{ background: `${p.color}14`, color: p.color }}><PlatformMark platform={p.id} size={22}/></span><span className="boost-picker-main"><strong>{p.name}</strong><small>{formatQty(allServices.filter(s => s.categoryId === p.id).length)} services available</small></span>{platformId === p.id ? <Check size={17}/> : <ChevronDown size={16}/>}</button>)}{!filteredPlatforms.length && <p className="boost-no-results">No platforms found.</p>}</PickerPage>
     <PickerPage title="Choose category" open={picker === "category"} onClose={() => setPicker(null)} search={cSearch} onSearch={setCSearch}>{categories.map(c => { const active = (group ?? "All Services") === c; const count = c === "All Services" ? allServices.filter(s => s.categoryId === platformId).length : allServices.filter(s => s.categoryId === platformId && s.group === c).length; return <button key={c} type="button" onClick={() => { setGroup(c === "All Services" ? null : c); setServiceId(null); setPicker(null); }} className={`boost-picker-item ${active ? "selected" : ""}`}><span className="boost-picker-mark category-mark"><Folder size={18}/></span><span className="boost-picker-main"><strong>{c}</strong><small>{formatQty(count)} services</small></span>{active && <Check size={17}/>}</button>; })}{!categories.length && <p className="boost-no-results">No categories found.</p>}</PickerPage>

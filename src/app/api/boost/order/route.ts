@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 import { orderAmountNgn, panelRetailRatePer1000 } from "@/lib/boost-pricing";
+import { getAuthoritativeCatalog } from "@/lib/boost-catalog-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,7 @@ async function getUser(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { configured, base } = verxorConfig();
+  const { configured } = verxorConfig();
   if (!configured) {
     return NextResponse.json(
       { ok: false, error: "VERXOR_PANEL_API_KEY not configured on this panel." },
@@ -89,37 +90,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid quantity" }, { status: 400 });
   }
 
-  // 100% SERVER-AUTHORITATIVE PRICING VALIDATION
+  // 100% SERVER-AUTHORITATIVE PRICING VALIDATION WITH CACHE & STALE HANDLING
   // Never trust wholesaleUsd or ratePer1000 from client payload.
-  let catalogServices: Array<{
-    id: string;
-    providerId: number;
-    platform: string;
-    platformName: string;
-    category: string;
-    categoryName: string;
-    title: string;
-    wholesaleUsd: number;
-    min: number;
-    max: number;
-    speed?: string;
-  }> = [];
+  // When Verxor is temporarily unavailable, fail safely if catalog is expired/missing.
+  const { data: catalogSnapshot } = await getAuthoritativeCatalog({
+    // Revalidate with Verxor at checkout; never authorize a wallet debit using cache.
+    forceRefresh: true,
+    allowStale: false,
+  });
 
-  try {
-    const catRes = configured
-      ? await verxorFetch("/boost/catalog")
-      : await fetch(`${base}/boost/catalog`, { cache: "no-store" });
-    const catData = await catRes.json().catch(() => ({}));
-    if (catRes.ok && Array.isArray(catData.services)) {
-      catalogServices = catData.services;
-    }
-  } catch (err: unknown) {
-    console.error("[boost/order] Catalog fetch error:", err);
-  }
+  const catalogServices = catalogSnapshot?.services || [];
 
   if (!catalogServices.length) {
     return NextResponse.json(
-      { ok: false, error: "Service catalog is temporarily unavailable. Please retry in a few moments." },
+      {
+        ok: false,
+        error: "Verxor could not confirm a fresh service catalog. Your wallet was not debited. Please try again shortly.",
+      },
       { status: 503 },
     );
   }
@@ -217,10 +204,16 @@ export async function POST(req: NextRequest) {
         ref,
         serviceId: service.id,
         providerId: service.providerId,
+        serviceTitle,
+        platform: service.platform,
+        platformName: service.platformName,
+        speed: service.speed || "",
         link,
         quantity,
         ratePer1000,
         wholesaleUsd,
+        priceNgn,
+        providerStatus: "pending",
       },
     });
   } catch {
@@ -246,6 +239,16 @@ export async function POST(req: NextRequest) {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || data.ok === false) {
+      // Mark the user's pending order as failed before recording the refund.
+      try {
+        await admin.from("transactions")
+          .update({ status: "failed", meta: { ref, serviceId: service.id, providerId: service.providerId, serviceTitle, platform: service.platform, platformName: service.platformName, link, quantity, priceNgn, providerStatus: "failed", failureReason: String(data.error || "Provider error") } })
+          .eq("user_id", user.id)
+          .eq("kind", "boost")
+          .contains("meta", { ref });
+      } catch {
+        /* optional ledger */
+      }
       // Auto-refund user wallet on upstream failure
       const refunded = await restoreWallet();
 
@@ -272,24 +275,50 @@ export async function POST(req: NextRequest) {
     const providerOrderId = String(order.ref || order.providerOrderId || order.id || "");
 
     try {
-      await admin.from("transactions").insert({
-        user_id: user.id,
-        kind: "boost",
-        title: order.title || `Boost #${providerOrderId} — ${serviceTitle}`,
-        amount: -priceNgn,
-        status: "completed",
-        meta: {
-          ref,
-          providerOrderId,
-          serviceId: service.id,
-          providerId: service.providerId,
-          link,
-          quantity,
-          priceNgn,
-          wholesaleCharged: data.balanceDebited,
-          walletMode: data.walletMode,
-        },
-      });
+      const transactionUpdate = await admin.from("transactions")
+        .update({
+          title: order.title || `Boost #${providerOrderId} — ${serviceTitle}`,
+          status: "completed",
+          meta: {
+            ref,
+            providerOrderId,
+            serviceId: service.id,
+            providerId: service.providerId,
+            serviceTitle,
+            platform: service.platform,
+            platformName: service.platformName,
+            speed: service.speed || "",
+            link,
+            quantity,
+            ratePer1000,
+            wholesaleUsd,
+            priceNgn,
+            providerStatus: order.status || "in_progress",
+            wholesaleCharged: data.balanceDebited,
+            walletMode: data.walletMode,
+          },
+        })
+        .eq("user_id", user.id)
+        .eq("kind", "boost")
+        .contains("meta", { ref })
+        .select("id");
+      // If the initial ledger write failed, keep a recoverable transaction record.
+      if (transactionUpdate.error || !transactionUpdate.data?.length) {
+        await admin.from("transactions").insert({
+          user_id: user.id,
+          kind: "boost",
+          title: order.title || `Boost #${providerOrderId} — ${serviceTitle}`,
+          amount: -priceNgn,
+          status: "completed",
+          meta: {
+            ref, providerOrderId, serviceId: service.id, providerId: service.providerId,
+            serviceTitle, platform: service.platform, platformName: service.platformName,
+            speed: service.speed || "", link, quantity, ratePer1000, wholesaleUsd,
+            priceNgn, providerStatus: order.status || "in_progress",
+            wholesaleCharged: data.balanceDebited, walletMode: data.walletMode,
+          },
+        });
+      }
     } catch {
       /* optional */
     }
