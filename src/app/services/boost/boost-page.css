@@ -8,3 +8,97 @@
 .boost-picker-heading{flex:1}.boost-picker-heading p{margin:4px 0 0;color:#8c99a9;font-size:10px}.boost-picker-header{min-height:68px;padding:0 18px}.boost-picker-search{margin:13px auto}.boost-picker-list{min-height:0;padding-bottom:16px;overscroll-behavior:contain}.boost-picker-item,.boost-service-item{transition:none!important}
 .boost-orders-head>div:first-child p{margin:5px 0 0;color:#8996a6;font-size:10px}.boost-orders-head-actions{display:flex;align-items:center;gap:8px}.boost-refresh-orders{display:grid;place-items:center;width:30px;height:30px;border:1px solid #e6ebf1;border-radius:9px;background:#fff;color:#55708e;cursor:pointer}.boost-refresh-orders:disabled{opacity:.5}.boost-order-filters{display:flex;gap:6px;overflow:auto;padding:11px 18px;border-bottom:1px solid #f0f2f5}.boost-order-filters button{flex:none;padding:7px 10px;border:1px solid transparent;border-radius:8px;background:#f4f6f9;color:#718095;font-size:10px;font-weight:700;cursor:pointer}.boost-order-filters button.active{border-color:#d7e5fa;background:#edf4ff;color:#245db9}.boost-order-info small{display:flex;align-items:center;gap:4px;color:#8b98a8;font-size:9px}.boost-order-info a{display:flex;align-items:center;gap:4px;color:#376eaf;text-decoration:none}.boost-order-status{display:inline-flex;align-items:center;gap:4px}.status-in_progress,.status-pending{background:#fff3da;color:#94681e}.status-completed{background:#e8f7ef;color:#258354}.status-failed{background:#fff0ee;color:#af4d42}.catalog-stale .live-dot{background:#d49832;box-shadow:0 0 0 3px #d498321b}.notice-warning{border-color:#f0dfbf;background:#fffaf0;color:#88631f}.boost-order-load-error{display:flex;align-items:center;gap:8px;padding:12px 18px;color:#a8463d;font-size:10px}.boost-order-load-error button{margin-left:auto;border:0;background:transparent;color:#a8463d;font-weight:750;cursor:pointer}
 @media(max-width:540px){.boost-picker-backdrop{padding:12px}.boost-picker-root{max-height:calc(100dvh - 24px);border-radius:15px}.boost-picker-header{min-height:59px;padding:0 13px}.boost-order-filters{padding:10px 12px}.boost-orders-head-actions{gap:5px}.boost-order-row{grid-template-columns:30px minmax(0,1fr) auto;align-items:start}.boost-order-row .boost-order-mark{grid-row:1/3}.boost-order-info{grid-column:2;grid-row:1/3}.boost-order-cost{grid-column:3;grid-row:1}.boost-order-status{grid-column:3;grid-row:2;justify-self:end;margin:0}}
+
+/* ============================================================
+   STRENGTH PASS — grade-one fintech feel.
+   Visual overrides only: no layout, structure, or logic changes.
+   ============================================================ */
+
+/* Hardened card surfaces — visible borders, real shadows */
+.boost-card,.boost-orders-card,.boost-tip-card,.boost-recent-card{border-color:#dbe2ea;box-shadow:0 2px 8px rgba(16,28,61,0.07),0 1px 2px rgba(16,28,61,0.04)}
+.boost-card{padding:22px}
+.boost-card-heading{margin-bottom:20px}
+.boost-card-heading h3{font-size:15px;font-weight:800;color:#132238}
+.boost-card-heading p{color:#5f6e80}
+.boost-step{background:#e7f0fe;color:#1d54b8;box-shadow:inset 0 -1px 2px rgba(29,84,184,0.12)}
+
+/* Form fields — strong, pressable, clearly visible */
+.boost-label{color:#4d5c70;font-size:10.5px;font-weight:800;letter-spacing:.09em}
+.boost-form-trigger{border-color:#d8dfe8;background:#fff;box-shadow:0 1px 3px rgba(16,28,61,0.05);transition:border .15s,background .15s,transform .12s,box-shadow .15s}
+.boost-form-trigger:not(.is-disabled):hover{border-color:#9db9e8;box-shadow:0 2px 8px rgba(40,100,215,0.10)}
+.boost-form-trigger:not(.is-disabled):active{transform:scale(.985);border-color:#2864d7}
+.boost-form-trigger.is-disabled{background:#f6f8fb;border-color:#e4e9f0}
+.boost-form-icon{background:#e7f0fe;color:#1d54b8;box-shadow:inset 0 -1px 2px rgba(29,84,184,0.12)}
+.boost-form-value{color:#7d8a99;font-size:12.5px}
+.boost-form-value.has-value{color:#182c44;font-weight:700}
+.boost-chevron{color:#6b7a8c}
+.boost-input-wrap,.boost-qty-wrap{border-color:#d8dfe8;background:#fff;box-shadow:0 1px 3px rgba(16,28,61,0.05);transition:border .15s,box-shadow .15s}
+.boost-input-wrap:focus-within,.boost-qty-wrap:focus-within{border-color:#2864d7;box-shadow:0 0 0 3px rgba(40,100,215,0.10)}
+.boost-input-wrap input,.boost-qty-wrap input{color:#182c44;font-weight:600}
+.boost-input-wrap input::placeholder,.boost-qty-wrap input::placeholder{color:#8b98a8}
+.boost-paste{background:#e7f0fe;color:#1d54b8;font-weight:800;transition:transform .12s,background .15s}
+.boost-paste:hover{background:#d9e7fd}
+.boost-paste:active{transform:scale(.94)}
+.boost-field-hint{color:#7d8a99}
+.qty-hash{color:#7d8a99}
+.boost-qty-wrap button{color:#6b7a8c}
+.boost-qty-wrap button:hover{color:#2864d7}
+
+/* Quantity chips — confident, tappable */
+.boost-qty-chips button{border-color:#dde4ec;background:#fff;color:#4d5c70;font-weight:750;box-shadow:0 1px 2px rgba(16,28,61,0.04);transition:all .15s}
+.boost-qty-chips button:hover{border-color:#9db9e8;color:#2864d7}
+.boost-qty-chips button:active{transform:scale(.94)}
+.boost-qty-chips button.active{border-color:#2864d7;background:#2864d7;color:#fff;box-shadow:0 2px 8px rgba(40,100,215,0.30)}
+
+/* Service meta badges — readable */
+.boost-service-meta span{background:#eef2f7;color:#54637a;font-weight:700}
+.boost-service-meta .meta-refill{background:#e3f4ec;color:#1c7a4e}
+.boost-service-meta .meta-rate{background:#e7f0fe;color:#1d54b8}
+
+/* Summary — stronger total, prominent CTA */
+.boost-summary-total{background:#f0f4fa;border-top:1px solid #e3e9f0}
+.boost-summary-total>div:first-child strong{color:#0f2242;font-size:23px;font-weight:800}
+.boost-summary-rows span{color:#5f6e80}
+.boost-summary-rows strong{color:#1a2c44;font-weight:700}
+.boost-submit{min-height:50px;border-radius:12px;font-size:13px;font-weight:800;box-shadow:0 6px 18px rgba(40,100,215,0.32);transition:background .15s,transform .12s,box-shadow .15s}
+.boost-submit:hover:not(:disabled){background:#1d54b8;box-shadow:0 8px 22px rgba(40,100,215,0.38)}
+.boost-submit:active:not(:disabled){transform:scale(.98);box-shadow:0 3px 10px rgba(40,100,215,0.30)}
+.boost-submit-fund{box-shadow:0 6px 18px rgba(191,106,27,0.32)}
+.boost-fund-link{background:#e7f0fe;font-weight:800;transition:transform .12s,background .15s}
+.boost-fund-link:active{transform:scale(.95)}
+.boost-wallet-strip{border-color:#dde4ec;box-shadow:0 2px 8px rgba(16,28,61,0.06)}
+.boost-wallet-icon{background:#e7f0fe;color:#1d54b8}
+
+/* Tip card — stronger text */
+.boost-tip-card h3{color:#283a52}
+.boost-tip-card p{color:#5f6e80}
+.tip-icon{background:#dcebfd;color:#1d54b8}
+
+/* Orders — solid rows, visible badges */
+.boost-order-row{border-bottom-color:#e9edf2}
+.boost-order-mark{background:#eef2f7}
+.boost-order-info strong{color:#1a2c44;font-weight:700}
+.boost-order-info small,.boost-recent-info small{color:#708096}
+.boost-recent-info strong{color:#1a2c44;font-weight:700}
+.boost-recent-row{background:#fff;border-color:#e0e6ee;box-shadow:0 1px 3px rgba(16,28,61,0.04)}
+.boost-order-count{background:#eef2f7;color:#54637a;font-weight:750}
+.boost-order-status{font-weight:800;padding:5px 8px}
+.boost-order-filters button{color:#5f6e80;background:#eef2f7}
+.boost-order-filters button.active{background:#e7f0fe;color:#1d54b8;border-color:#bcd0f2}
+.status-processing{background:#e3eefc;color:#1d54b8}
+.status-in_progress,.status-pending{background:#fdf0d7;color:#7d5615;font-weight:800}
+.status-completed{background:#e3f4ec;color:#1c7a4e;font-weight:800}
+.status-failed,.status-canceled,.status-cancelled{background:#fdeae7;color:#9c3f33;font-weight:800}
+
+/* Picker dialog — stronger items */
+.boost-picker-item{border-color:#e4e9f0}
+.boost-service-item{border-color:#e4e9f0}
+.boost-picker-main strong{color:#1a2c44;font-weight:700}
+.boost-service-option strong{color:#1a2c44;font-weight:650}
+.boost-service-rate{color:#1d54b8}
+.boost-orders-head h2{color:#132238;font-weight:800}
+.boost-catalog-badge{color:#4d5c70;border-color:#dde4ec;font-weight:750}
+.boost-catalog-line h2{color:#132238;font-weight:800}
+
+/* Small screens keep the same strength */
+@media(max-width:540px){.boost-card{padding:16px}.boost-card-heading h3{font-size:14px}.boost-submit{min-height:48px;font-size:12.5px}}
