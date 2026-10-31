@@ -24,20 +24,19 @@ export default function BottomNav() {
           const active = exact
             ? pathname === href
             : pathname === href || pathname.startsWith(href + "/");
+          const linkClass = active
+            ? "flex flex-col items-center justify-center gap-0.5 min-w-[56px] py-1 rounded-lg transition-all duration-150 ease-out active:scale-[0.92] active:translate-y-[1px] text-[#0B1B3A]"
+            : "flex flex-col items-center justify-center gap-0.5 min-w-[56px] py-1 rounded-lg transition-all duration-150 ease-out active:scale-[0.92] active:translate-y-[1px] text-[#94A3B8]";
           return (
             <Link
               key={href}
               href={href}
               prefetch={true}
               scroll={false}
-              className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] py-1 rounded-lg transition-all duration-150 ease-out active:scale-[0.92] active:translate-y-[1px] \${
-                active ? "text-[#0B1B3A]" : "text-[#94A3B8]"
-              }`}
+              className={linkClass}
             >
               <Icon size={21} strokeWidth={active ? 2.4 : 1.7} />
-              <span className={`text-[10px] \${
-                active ? "font-semibold" : "font-medium"
-              }`}>{label}</span>
+              <span className={active ? "text-[10px] font-semibold" : "text-[10px] font-medium"}>{label}</span>
             </Link>
           );
         })}
