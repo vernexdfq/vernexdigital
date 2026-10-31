@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUser } from "@/lib/useUser";
 import Link from "next/link";
+import { createBrowserClient } from "@/lib/supabase/client";
 import {
   ArrowLeft,
   Search,
@@ -26,16 +27,7 @@ import {
 
 type Platform = { id: string; name: string; color: string; initial: string };
 
-const PLATFORMS: Platform[] = [
-  { id: "instagram", name: "Instagram", color: "#E1306C", initial: "IG" },
-  { id: "facebook", name: "Facebook", color: "#1877F2", initial: "FB" },
-  { id: "tiktok", name: "TikTok", color: "#111827", initial: "TT" },
-  { id: "youtube", name: "YouTube", color: "#FF0000", initial: "YT" },
-  { id: "twitter", name: "Twitter / X", color: "#0F172A", initial: "X" },
-  { id: "audiomack", name: "Audiomack", color: "#FFA200", initial: "AM" },
-  { id: "telegram", name: "Telegram", color: "#2AABEE", initial: "TG" },
-  { id: "spotify", name: "Spotify", color: "#1DB954", initial: "SP" },
-];
+const PLATFORMS: Platform[] = [];
 
 type Service = {
   id: string;
@@ -43,26 +35,14 @@ type Service = {
   group: string;
   name: string;
   ratePer1000: number;
+  partnerRatePer1000?: number;
+  wholesaleUsd?: number;
   min: number;
   max: number;
   speed: string;
 };
 
-const SERVICES: Service[] = [
-  { id: "ig-followers", categoryId: "instagram", group: "Followers", name: "Instagram Followers [HQ] [Non Drop]", ratePer1000: 1850, min: 100, max: 500000, speed: "1K / day" },
-  { id: "ig-likes", categoryId: "instagram", group: "Likes", name: "Instagram Likes [Real] [Fast]", ratePer1000: 420, min: 50, max: 100000, speed: "Instant" },
-  { id: "ig-views", categoryId: "instagram", group: "Views", name: "Instagram Views [Instant]", ratePer1000: 180, min: 100, max: 1000000, speed: "Instant" },
-  { id: "fb-page-followers", categoryId: "facebook", group: "Followers", name: "Facebook Page Followers", ratePer1000: 2100, min: 100, max: 200000, speed: "500 / day" },
-  { id: "fb-page-likes", categoryId: "facebook", group: "Likes", name: "Facebook Page Likes", ratePer1000: 1950, min: 50, max: 100000, speed: "500 / day" },
-  { id: "tt-followers", categoryId: "tiktok", group: "Followers", name: "TikTok Followers [Stable]", ratePer1000: 2400, min: 100, max: 300000, speed: "1K / day" },
-  { id: "tt-likes", categoryId: "tiktok", group: "Likes", name: "TikTok Likes [Fast]", ratePer1000: 550, min: 50, max: 500000, speed: "10K / day" },
-  { id: "yt-subs", categoryId: "youtube", group: "Subscribers", name: "YouTube Subscribers [Real]", ratePer1000: 8900, min: 50, max: 50000, speed: "100 / day" },
-  { id: "yt-views", categoryId: "youtube", group: "Views", name: "YouTube Views [Retention]", ratePer1000: 980, min: 500, max: 1000000, speed: "5K / day" },
-  { id: "x-followers", categoryId: "twitter", group: "Followers", name: "Twitter / X Followers", ratePer1000: 3200, min: 100, max: 100000, speed: "500 / day" },
-  { id: "am-likes", categoryId: "audiomack", group: "Likes", name: "Audiomack Likes [Worldwide] [Non Drop]", ratePer1000: 2122.07, min: 100, max: 10000000, speed: "5K / day" },
-  { id: "tg-members", categoryId: "telegram", group: "Members", name: "Telegram Channel Members", ratePer1000: 1650, min: 100, max: 200000, speed: "1K / day" },
-  { id: "sp-plays", categoryId: "spotify", group: "Plays", name: "Spotify Plays", ratePer1000: 1100, min: 1000, max: 500000, speed: "10K / day" },
-];
+const SERVICES: Service[] = [];
 
 const QTY_CHIPS = [500, 1000, 2500, 5000];
 
@@ -158,8 +138,15 @@ function PickerPage({
 /* ---------------------------------- page ---------------------------------- */
 
 export default function BoostAccountPage() {
-  const { wallet } = useUser();
+  const { wallet, refresh: refreshUser } = useUser();
   const balance = wallet.balance;
+
+  const [platforms, setPlatforms] = useState(PLATFORMS);
+  const [allServices, setAllServices] = useState(SERVICES);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+  const [ordering, setOrdering] = useState(false);
+  const [orderError, setOrderError] = useState("");
 
   const [platformId, setPlatformId] = useState<string | null>(null);
   const [group, setGroup] = useState<string | null>(null); // null = All Services
@@ -173,36 +160,77 @@ export default function BoostAccountPage() {
   const [cSearch, setCSearch] = useState("");
   const [sSearch, setSSearch] = useState("");
 
-  const platform = PLATFORMS.find((p) => p.id === platformId) ?? null;
-  const service = SERVICES.find((s) => s.id === serviceId) ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCatalogLoading(true);
+      setCatalogError("");
+      try {
+        const res = await fetch("/api/boost/catalog", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) throw new Error(data.error || "Failed to load services");
+        if (cancelled) return;
+        setPlatforms((data.platforms || []).map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          color: p.color || p.brandColor || "#0F172A",
+          initial: p.initial || String(p.name || "").slice(0, 2).toUpperCase(),
+          placeholder: p.placeholder,
+          linkHint: p.linkHint,
+          totalServices: p.totalServices,
+        })));
+        setAllServices((data.services || []).map((s: any) => ({
+          id: String(s.id),
+          providerId: Number(s.providerId) || Number(s.id) || 0,
+          categoryId: String(s.categoryId || s.platform || ""),
+          group: String(s.group || s.categoryName || "Services"),
+          name: String(s.name || s.title || "Service"),
+          ratePer1000: Number(s.ratePer1000) || 0,
+          partnerRatePer1000: s.partnerRatePer1000,
+          wholesaleUsd: s.wholesaleUsd,
+          min: Number(s.min) || 1,
+          max: Number(s.max) || 1000000,
+          speed: String(s.speed || ""),
+        })));
+      } catch (e) {
+        if (!cancelled) setCatalogError(e instanceof Error ? e.message : "Catalog error");
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const platform = platforms.find((p) => p.id === platformId) ?? null;
+  const service = allServices.find((s) => s.id === serviceId) ?? null;
 
   const filteredPlatforms = useMemo(() => {
     const q = pSearch.trim().toLowerCase();
-    return q ? PLATFORMS.filter((p) => p.name.toLowerCase().includes(q)) : PLATFORMS;
-  }, [pSearch]);
+    return q ? platforms.filter((p) => p.name.toLowerCase().includes(q)) : platforms;
+  }, [platforms, pSearch]);
 
   const categories = useMemo(() => {
     if (!platformId) return [];
-    const set = new Set(SERVICES.filter((s) => s.categoryId === platformId).map((s) => s.group));
+    const set = new Set(allServices.filter((s) => s.categoryId === platformId).map((s: any) => s.group));
     const list = ["All Services", ...Array.from(set)];
     const q = cSearch.trim().toLowerCase();
     return q ? list.filter((c) => c.toLowerCase().includes(q)) : list;
-  }, [platformId, cSearch]);
+  }, [platformId, cSearch, allServices]);
 
   const services = useMemo(() => {
     if (!platformId) return [];
-    const list = SERVICES.filter((s) => s.categoryId === platformId);
+    const list = allServices.filter((s) => s.categoryId === platformId);
     const filtered = group ? list.filter((s) => s.group === group) : list;
     const q = sSearch.trim().toLowerCase();
     return q ? filtered.filter((s) => s.name.toLowerCase().includes(q)) : filtered;
-  }, [platformId, group, sSearch]);
+  }, [platformId, group, sSearch, allServices]);
 
   const quantity = Number(qty) || 0;
   const total = service && quantity > 0 ? (service.ratePer1000 / 1000) * quantity : 0;
   const shortfall = total > 0 && total > balance ? total - balance : 0;
   const insufficient = shortfall > 0;
   const inRange = service ? quantity >= service.min && quantity <= service.max : false;
-  const canOrder = !!service && link.trim().length > 5 && quantity > 0 && inRange && !insufficient;
+  const canOrder = !!service && link.trim().length > 5 && quantity > 0 && inRange && !insufficient && !ordering;
 
   function selectPlatform(id: string) {
     if (id !== platformId) {
@@ -223,14 +251,49 @@ export default function BoostAccountPage() {
     }
   }
 
-  function placeOrder() {
+  async function placeOrder() {
     if (!canOrder || !service) return;
-    setPlaced((prev) => [
-      { id: "ORD-" + Date.now().toString().slice(-6), service: service.name, speed: service.speed, qty: quantity, total, status: "Pending", link: link.trim() },
-      ...prev,
-    ]);
-    setLink("");
-    setQty("");
+    setOrdering(true);
+    setOrderError("");
+    try {
+      const supabase = createBrowserClient();
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sign in to place an order");
+      const res = await fetch("/api/boost/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          serviceId: service.id,
+          link: link.trim(),
+          quantity,
+          wholesaleUsd: service.wholesaleUsd,
+          ratePer1000: service.ratePer1000,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) throw new Error(data.error || "Order failed");
+      const ord = data.order || {};
+      setPlaced((prev) => [
+        {
+          id: String(ord.providerOrderId || ord.id || Date.now()),
+          service: service.name,
+          speed: service.speed,
+          qty: quantity,
+          total: Number(ord.amount) || total,
+          status: String(ord.status || "processing"),
+          link: link.trim(),
+        },
+        ...prev,
+      ]);
+      setLink("");
+      setQty("");
+      try { await refreshUser(); } catch { /* optional */ }
+    } catch (e) {
+      setOrderError(e instanceof Error ? e.message : "Order failed");
+    } finally {
+      setOrdering(false);
+    }
   }
 
   return (
@@ -285,6 +348,9 @@ export default function BoostAccountPage() {
             <span className="font-semibold text-slate-800">Quick Tip:</span> Select a platform, pick a category, choose a service, then enter your link and quantity.
           </p>
         </div>
+        {catalogLoading && <p className="text-center text-[13px] text-slate-500">Loading live services…</p>}
+        {catalogError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{catalogError}</p>}
+        {orderError && <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">{orderError}</p>}
 
         {/* form */}
         <section className="space-y-4">
@@ -438,7 +504,7 @@ export default function BoostAccountPage() {
                 className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1877F2] text-[13px] font-semibold text-white transition-opacity disabled:opacity-40"
               >
                 <Zap size={15} />
-                Place Order
+                {ordering ? "Placing…" : "Place Order"}
               </button>
             )}
           </div>
@@ -487,7 +553,7 @@ export default function BoostAccountPage() {
 
       {/* ------------------------------ pickers ------------------------------ */}
       <PickerPage title="Select Platform" open={picker === "platform"} onClose={() => { setPicker(null); setPSearch(""); }} search={pSearch} onSearch={setPSearch}>
-        {filteredPlatforms.map((p) => (
+        {filteredPlatforms.map((p: any) => (
           <button
             key={p.id}
             type="button"
@@ -498,7 +564,7 @@ export default function BoostAccountPage() {
               {p.initial}
             </span>
             <span className="flex-1 truncate text-[14px] font-medium text-slate-900">{p.name}</span>
-            <span className="text-[11px] text-slate-400 tabular-nums">{SERVICES.filter((s) => s.categoryId === p.id).length} services</span>
+            <span className="text-[11px] text-slate-400 tabular-nums">{allServices.filter((s) => s.categoryId === p.id).length} services</span>
             {platformId === p.id && <Check size={16} className="shrink-0 text-[#1877F2]" />}
           </button>
         ))}
@@ -527,7 +593,7 @@ export default function BoostAccountPage() {
       </PickerPage>
 
       <PickerPage title="Select Service" open={picker === "service"} onClose={() => { setPicker(null); setSSearch(""); }} search={sSearch} onSearch={setSSearch}>
-        {services.map((s) => {
+        {services.map((s: any) => {
           const active = serviceId === s.id;
           return (
             <button

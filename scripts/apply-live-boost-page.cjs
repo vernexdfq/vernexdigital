@@ -86,7 +86,7 @@ if (!t.includes("/api/boost/catalog")) {
         const data = await res.json();
         if (!res.ok || data.ok === false) throw new Error(data.error || "Failed to load services");
         if (cancelled) return;
-        setPlatforms((data.platforms || []).map((p) => ({
+        setPlatforms((data.platforms || []).map((p: any) => ({
           id: p.id,
           name: p.name,
           color: p.color || p.brandColor || "#0F172A",
@@ -95,7 +95,7 @@ if (!t.includes("/api/boost/catalog")) {
           linkHint: p.linkHint,
           totalServices: p.totalServices,
         })));
-        setAllServices((data.services || []).map((s) => ({
+        setAllServices((data.services || []).map((s: any) => ({
           id: String(s.id),
           providerId: Number(s.providerId) || Number(s.id) || 0,
           categoryId: String(s.categoryId || s.platform || ""),
