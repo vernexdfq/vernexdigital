@@ -10,7 +10,6 @@ import {
   Lock,
   Zap,
 } from "lucide-react";
-import WalletBalance from "@/components/WalletBalance";
 
 const DISCOS = [
   { id: "ikeja", name: "Ikeja Electric" },
