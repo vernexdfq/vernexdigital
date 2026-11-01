@@ -6,8 +6,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "node scripts/restore-airtime-live.cjs; node scripts/apply-live-boost-page.cjs; node scripts/wire-vd-status.cjs; next dev",
-    "build": "node scripts/restore-airtime-live.cjs && node scripts/apply-live-boost-page.cjs && node scripts/wire-vd-status.cjs && next build",
+    "dev": "node scripts/restore-airtime-live.cjs; node scripts/apply-live-boost-page.cjs; node scripts/wire-vd-status.cjs; node scripts/patch-boost-provider-id.cjs; next dev",
+    "build": "node scripts/restore-airtime-live.cjs && node scripts/apply-live-boost-page.cjs && node scripts/wire-vd-status.cjs && node scripts/patch-boost-provider-id.cjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
