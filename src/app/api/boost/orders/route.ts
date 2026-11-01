@@ -21,7 +21,7 @@ async function getUser(req: NextRequest) {
   return data.user || null;
 }
 
-/** Map txn + provider status into UI buckets matching JAP: pending / processing / completed */
+/** Map txn + provider status into UI buckets matching JAP */
 function normalizeStatus(rawStatus: string, providerStatus: string): string {
   const raw = String(rawStatus || "").toLowerCase();
   const prov = String(providerStatus || "").toLowerCase();
@@ -53,13 +53,42 @@ function normalizeStatus(rawStatus: string, providerStatus: string): string {
 }
 
 function isJapId(id: string): boolean {
-  return /^\d+$/.test(String(id || "").trim());
+  return /^\d{6,}$/.test(String(id || "").trim());
+}
+
+/** Prefer numeric JAP order id over child refs like boost-xxx */
+function extractJapOrderId(meta: Record<string, unknown>, title?: string): string {
+  const candidates = [
+    meta.providerOrderId,
+    meta.provider_order_id,
+    meta.orderId,
+    meta.order_id,
+    meta.japOrderId,
+    meta.jap_id,
+  ];
+  for (const c of candidates) {
+    const s = String(c || "").trim();
+    if (isJapId(s)) return s;
+  }
+  // Title patterns: "Boost #1032396838" or "#1032396838 — ..."
+  const fromTitle = String(title || "").match(/#(\d{6,})/);
+  if (fromTitle) return fromTitle[1];
+  const ref = String(meta.ref || "").trim();
+  if (isJapId(ref)) return ref;
+  return "";
+}
+
+function toTxnStatus(mapped: string): string {
+  if (mapped === "completed") return "completed";
+  if (mapped === "failed" || mapped === "cancelled") return mapped;
+  if (mapped === "pending") return "pending";
+  return "processing";
 }
 
 /**
  * GET /api/boost/orders
- * Returns the user's boost orders and live-syncs status from Verxor → JustAnotherPanel
- * so badges show Pending / In progress / Completed like the provider panel.
+ * Live-syncs open orders from Verxor → JustAnotherPanel so badges show
+ * Pending / In progress / Completed like the provider panel.
  */
 export async function GET(req: NextRequest) {
   const user = await getUser(req);
@@ -71,9 +100,9 @@ export async function GET(req: NextRequest) {
     const admin = createServerClient();
     const { data, error } = await admin
       .from("transactions")
-      .select("id, title, amount, status, meta, created_at")
+      .select("id, title, amount, status, meta, created_at, kind")
       .eq("user_id", user.id)
-      .eq("kind", "boost")
+      .in("kind", ["boost", "boost_order"])
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -86,8 +115,9 @@ export async function GET(req: NextRequest) {
       title: string;
       amount: number;
       status: string;
-      meta: Record<string, unknown>;
+      meta: Record<string, unknown> | null;
       created_at: string;
+      kind?: string;
     };
 
     const rows = (data || []) as Row[];
@@ -96,42 +126,39 @@ export async function GET(req: NextRequest) {
       const open = rows
         .map((t) => {
           const meta = (t.meta as Record<string, unknown>) || {};
-          const oid = String(meta.providerOrderId || meta.ref || "").trim();
+          const oid = extractJapOrderId(meta, t.title);
           return { t, oid, meta };
         })
-        .filter(
-          ({ t, oid }) =>
-            isJapId(oid) &&
-            !["completed", "failed", "cancelled", "canceled", "refunded"].includes(
-              String(t.status || "").toLowerCase(),
-            ),
-        )
-        .slice(0, 15);
+        .filter(({ t, oid }) => {
+          if (!oid) return false;
+          const st = String(t.status || "").toLowerCase();
+          return !["completed", "failed", "cancelled", "canceled", "refunded"].includes(st);
+        })
+        .slice(0, 20);
 
       await Promise.all(
         open.map(async ({ t, oid, meta }) => {
           try {
-            const res = await verxorFetch(`/boost/status?orderId=${encodeURIComponent(oid)}`);
+            const res = await verxorFetch(
+              `/boost/status?orderId=${encodeURIComponent(oid)}`,
+            );
             const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-            if (!res.ok || body.ok === false) return;
+            if (!res.ok || body.ok === false) {
+              console.warn("[boost/orders] status upstream", oid, body.error || res.status);
+              return;
+            }
             const japStatus = String(body.status || "");
             const mapped = normalizeStatus(String(t.status || ""), japStatus);
             const nextMeta = {
               ...meta,
+              providerOrderId: oid,
               providerStatus: mapped,
               japStatus,
               remains: body.remains != null ? body.remains : meta.remains,
               charge: body.charge != null ? body.charge : meta.charge,
               startCount: body.startCount != null ? body.startCount : meta.startCount,
             };
-            const txnStatus =
-              mapped === "completed"
-                ? "completed"
-                : mapped === "failed" || mapped === "cancelled"
-                  ? mapped
-                  : mapped === "pending"
-                    ? "pending"
-                    : "processing";
+            const txnStatus = toTxnStatus(mapped);
             await admin
               .from("transactions")
               .update({ status: txnStatus, meta: nextMeta })
@@ -151,13 +178,17 @@ export async function GET(req: NextRequest) {
       const rawStatus = String(t.status || "pending");
       const providerStatus = String(meta.providerStatus || meta.japStatus || "");
       const displayStatus = normalizeStatus(rawStatus, providerStatus);
+      const japId = extractJapOrderId(meta, t.title);
 
       return {
-        id: String(meta.providerOrderId || meta.ref || t.id),
+        id: japId || String(meta.providerOrderId || meta.ref || t.id),
         txnId: t.id,
         ref: String(meta.ref || ""),
+        providerOrderId: japId || undefined,
         service: String(
-          meta.serviceTitle || String(t.title || "").replace(/^Boost\s*[-—:]?\s*/i, "") || "Boost",
+          meta.serviceTitle ||
+            String(t.title || "").replace(/^Boost\s*[-—:#]?\s*\d*\s*[-—]?\s*/i, "") ||
+            "Boost",
         ),
         platform: String(meta.platform || ""),
         platformName: String(meta.platformName || ""),
