@@ -22,7 +22,7 @@ async function getUser(req: NextRequest) {
 }
 
 /** Map txn + provider status into UI buckets matching JAP */
-function normalizeStatus(rawStatus: string, providerStatus: string): string {
+export function normalizeStatus(rawStatus: string, providerStatus: string): string {
   const raw = String(rawStatus || "").toLowerCase();
   const prov = String(providerStatus || "").toLowerCase();
   const blob = `${raw} ${prov}`;
@@ -52,12 +52,12 @@ function normalizeStatus(rawStatus: string, providerStatus: string): string {
   return "processing";
 }
 
-function isJapId(id: string): boolean {
+export function isJapId(id: string): boolean {
   return /^\d{6,}$/.test(String(id || "").trim());
 }
 
 /** Prefer numeric JAP order id over child refs like boost-xxx */
-function extractJapOrderId(meta: Record<string, unknown>, title?: string): string {
+export function extractJapOrderId(meta: Record<string, unknown>, title?: string): string {
   const candidates = [
     meta.providerOrderId,
     meta.provider_order_id,
@@ -78,7 +78,7 @@ function extractJapOrderId(meta: Record<string, unknown>, title?: string): strin
   return "";
 }
 
-function toTxnStatus(mapped: string): string {
+export function toTxnStatus(mapped: string): string {
   if (mapped === "completed") return "completed";
   if (mapped === "failed" || mapped === "cancelled") return mapped;
   if (mapped === "pending") return "pending";
@@ -129,44 +129,61 @@ export async function GET(req: NextRequest) {
           const oid = extractJapOrderId(meta, t.title);
           return { t, oid, meta };
         })
-        .filter(({ t, oid }) => {
-          if (!oid) return false;
+        .filter(({ t, oid, meta }) => {
+          const queryId = oid || String(meta.ref || "").trim();
+          if (!queryId) return false;
           const st = String(t.status || "").toLowerCase();
           return !["completed", "failed", "cancelled", "canceled", "refunded"].includes(st);
         })
-        .slice(0, 20);
+        .slice(0, 25);
 
       await Promise.all(
         open.map(async ({ t, oid, meta }) => {
           try {
+            const queryParam = oid || String(meta.ref || "").trim();
             const res = await verxorFetch(
-              `/boost/status?orderId=${encodeURIComponent(oid)}`,
+              `/boost/status?orderId=${encodeURIComponent(queryParam)}`,
             );
             const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
             if (!res.ok || body.ok === false) {
-              console.warn("[boost/orders] status upstream", oid, body.error || res.status);
+              console.warn("[boost/orders] status upstream", queryParam, body.error || res.status);
               return;
             }
             const japStatus = String(body.status || "");
             const mapped = normalizeStatus(String(t.status || ""), japStatus);
+
+            // Resolve any newly returned numeric JAP ID
+            const resolvedJap = String(body.orderId || body.providerOrderId || "").trim();
+            const effectiveJap = isJapId(resolvedJap) ? resolvedJap : oid;
+
             const nextMeta = {
               ...meta,
-              providerOrderId: oid,
+              providerOrderId: effectiveJap || meta.providerOrderId,
+              orderId: effectiveJap || meta.orderId,
+              japOrderId: effectiveJap || meta.japOrderId,
               providerStatus: mapped,
               japStatus,
               remains: body.remains != null ? body.remains : meta.remains,
               charge: body.charge != null ? body.charge : meta.charge,
               startCount: body.startCount != null ? body.startCount : meta.startCount,
+              reconciledAt: new Date().toISOString(),
             };
             const txnStatus = toTxnStatus(mapped);
+            const patchObj: Record<string, unknown> = { status: txnStatus, meta: nextMeta };
+            if (effectiveJap && (!t.title || !t.title.includes(effectiveJap))) {
+              const svc = String(meta.serviceTitle || "Boost");
+              patchObj.title = `Boost #${effectiveJap} — ${svc}`;
+            }
+
             await admin
               .from("transactions")
-              .update({ status: txnStatus, meta: nextMeta })
+              .update(patchObj)
               .eq("id", t.id);
             t.status = txnStatus;
             t.meta = nextMeta;
+            if (patchObj.title) t.title = String(patchObj.title);
           } catch (e) {
-            console.warn("[boost/orders] status sync failed", oid, e);
+            console.warn("[boost/orders] status sync failed", oid || meta.ref, e);
           }
         }),
       );
@@ -181,7 +198,7 @@ export async function GET(req: NextRequest) {
       const japId = extractJapOrderId(meta, t.title);
 
       return {
-        id: japId || String(meta.providerOrderId || meta.ref || t.id),
+        id: japId || String(meta.providerOrderId || meta.orderId || meta.ref || t.id),
         txnId: t.id,
         ref: String(meta.ref || ""),
         providerOrderId: japId || undefined,
@@ -193,7 +210,8 @@ export async function GET(req: NextRequest) {
         platform: String(meta.platform || ""),
         platformName: String(meta.platformName || ""),
         link: String(meta.link || ""),
-        qty: Number(meta.quantity) || 0,
+        qty: Number(meta.quantity) || Number(meta.qty) || 0,
+        quantity: Number(meta.quantity) || Number(meta.qty) || 0,
         total: amount,
         ratePer1000: Number(meta.ratePer1000) || 0,
         status: displayStatus,

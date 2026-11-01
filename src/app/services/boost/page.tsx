@@ -302,11 +302,11 @@ export default function BoostAccountPage() {
       const payload = await res.json().catch(() => ({}));
       if (!res.ok || payload.ok === false) throw new Error(payload.error || "Could not load your order history.");
       setPlaced((Array.isArray(payload.orders) ? payload.orders : []).map((o: any) => ({
-        id: String(o.id || o.txnId || ""),
+        id: String(o.providerOrderId || o.id || o.txnId || ""),
         ref: String(o.ref || ""),
         service: String(o.service || "Boost service"),
         speed: String(o.speed || ""),
-        qty: Number(o.qty) || 0,
+        qty: Number(o.qty) || Number(o.quantity) || 0,
         total: Number(o.total) || 0,
         status: String(o.status || "pending").toLowerCase(),
         link: String(o.link || ""),
@@ -353,7 +353,7 @@ export default function BoostAccountPage() {
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result.ok === false) throw new Error(result.error || "Order failed. Please retry.");
       const ord = result.order || {};
-      setPlaced(prev => [{ id: String(ord.providerOrderId || ord.id || Date.now()), ref: String(ord.reference || ord.ref || ""), service: service.name, speed: service.speed, qty: quantity, total: Number(ord.amount) || total, status: String(ord.status || "processing").toLowerCase(), link: link.trim(), platform: platform?.id, createdAt: new Date().toISOString() }, ...prev]);
+      setPlaced(prev => [{ id: String(ord.providerOrderId || ord.id || ""), ref: String(ord.reference || ord.ref || ""), service: service.name, speed: service.speed, qty: quantity, total: Number(ord.amount) || total, status: String(ord.status || "processing").toLowerCase(), link: link.trim(), platform: platform?.id, createdAt: new Date().toISOString() }, ...prev]);
       setLink(""); setQty("");
       try { await refreshUser(); } catch { /* wallet refresh is non-critical */ }
       void loadOrders();

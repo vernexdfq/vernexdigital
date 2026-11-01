@@ -378,18 +378,40 @@ export async function POST(req: NextRequest) {
     }
 
     const order = (data.order as Record<string, unknown>) || {};
-    const providerOrderId = String(
-      order.ref || order.providerOrderId || order.id || data.order || "",
-    );
+    // Prefer numeric JAP id only — never child ref like boost-xxx
+    const candidates = [
+      order.providerOrderId,
+      order.orderId,
+      order.japOrderId,
+      order.id,
+      order.order,
+      order.ref,
+      data.providerOrderId,
+      data.orderId,
+      data.order,
+    ];
+    let japOrderId = "";
+    for (const c of candidates) {
+      const s = String(c ?? "").trim();
+      if (/^\d{6,}$/.test(s)) {
+        japOrderId = s;
+        break;
+      }
+    }
+    const providerOrderId = japOrderId || String(order.providerOrderId || order.id || "").trim();
     const providerStatus = String(order.status || "processing").toLowerCase();
 
     try {
       const patch = {
-        title: String(order.title || `Boost #${providerOrderId} — ${serviceTitle}`),
+        title: japOrderId
+          ? `Boost #${japOrderId} — ${serviceTitle}`
+          : String(order.title || `Boost — ${serviceTitle}`),
         status: "processing",
         meta: {
           ref,
-          providerOrderId,
+          providerOrderId: japOrderId || providerOrderId || undefined,
+          orderId: japOrderId || providerOrderId || undefined,
+          japOrderId: japOrderId || undefined,
           serviceId: service.id,
           providerId: japServiceId,
           serviceTitle,
@@ -398,6 +420,7 @@ export async function POST(req: NextRequest) {
           speed: service.speed || "",
           link,
           quantity,
+          qty: quantity,
           ratePer1000,
           wholesaleUsd,
           priceNgn,
@@ -434,8 +457,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       order: {
-        id: providerOrderId,
-        providerOrderId,
+        id: japOrderId || providerOrderId || ref,
+        providerOrderId: japOrderId || providerOrderId || undefined,
+        reference: ref,
+        ref,
         status: providerStatus || "processing",
         serviceId: service.id,
         serviceTitle,
@@ -443,6 +468,7 @@ export async function POST(req: NextRequest) {
         platformName: service.platformName,
         link,
         quantity,
+        qty: quantity,
         amount: priceNgn,
         ratePer1000,
         message:
