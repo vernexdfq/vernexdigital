@@ -66,7 +66,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Carrier-Grade Virtual Numbers for Instant OTP & Dedicated Rentals",
     subhead:
       "Access real, high-delivery mobile numbers originating from tier-1 US and global mobile operators. Instantly receive verification codes for 2,000+ platforms or rent dedicated lines to keep accounts safe.",
-    image: "/3d/vernex_virtual_number_sms_3d.png",
+    image: "/3d/vernex_virtual_number_sms_3d.webp",
     imageAlt: "Vernex 3D Virtual Numbers & SMS Showcase",
     ctaText: "Get Virtual Number",
     ctaHref: "/services/virtual-number",
@@ -99,8 +99,8 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Flagship Gadgets, Smartphones & Tech Essentials",
     subhead:
       "Browse guaranteed authentic smartphones, laptops, smartwatches, and premium audio gear. Check out directly with your Vernex wallet balance with tracked door-to-door delivery.",
-    image: "/3d/vernex_phones_showcase_3d.png",
-    altImage: "/3d/vernex_gadget_shopping_3d.png",
+    image: "/3d/vernex_phones_showcase_3d.webp",
+    altImage: "/3d/vernex_gadget_shopping_3d.webp",
     imageAlt: "Vernex 3D Gadget & Smartphones Showcase",
     ctaText: "Shop Gadgets",
     ctaHref: "/services/shopping",
@@ -133,7 +133,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Instant Domestic & International Flight Reservations",
     subhead:
       "Search, compare, and book flights across major local and international carriers. Pay for airline tickets directly in Naira from your Vernex balance with instant digital e-ticket generation.",
-    image: "/3d/vernex_flight_booking_3d.png",
+    image: "/3d/vernex_flight_booking_3d.webp",
     imageAlt: "Vernex 3D Flight Booking Showcase",
     ctaText: "Search Flights",
     ctaHref: "/services/flights",
@@ -166,7 +166,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Fast Gaming Top-Up & Digital Game Credits",
     subhead:
       "Recharge game credits, battle passes, and virtual currencies instantly. Compatible with Steam, PlayStation Network, Xbox Live, Free Fire, PUBG Mobile, Roblox, and EA Play.",
-    image: "/3d/vernex_gaming_topup_3d.png",
+    image: "/3d/vernex_gaming_topup_3d.webp",
     imageAlt: "Vernex 3D Gaming Top-Up Showcase",
     ctaText: "Top Up Game Credits",
     ctaHref: "/services/gaming",
@@ -199,7 +199,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Accelerated Social Media Growth & Audience Reach",
     subhead:
       "Boost visibility, followers, likes, and views across Instagram, TikTok, YouTube, X, and Facebook. Engineered for creators, businesses, and digital agencies building social presence.",
-    image: "/3d/vernex_social_boost_3d.png",
+    image: "/3d/vernex_social_boost_3d.webp",
     imageAlt: "Vernex 3D Social Boost Showcase",
     ctaText: "Launch Growth Campaign",
     ctaHref: "/services/boost",
@@ -232,7 +232,7 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Instant Prepaid Electricity Tokens & Cable TV Unfreezing",
     subhead:
       "Pay electricity bills across all Nigerian Discos and renew DStv, GOtv, or StarTimes subscriptions with zero downtime. 20-digit meter tokens display instantly on your screen and via receipt.",
-    image: "/3d/vernex_bills_utilities_3d.png",
+    image: "/3d/vernex_bills_utilities_3d.webp",
     imageAlt: "Vernex 3D Bills & Utilities Showcase",
     ctaText: "Pay Utility Bill",
     ctaHref: "/services/electricity",
@@ -265,8 +265,8 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Fast Automated VTU Mobile Data & Airtime",
     subhead:
       "Instant data top-ups and airtime recharges across MTN, Airtel, Glo, and 9mobile. Benefit from low retail and SME data prices with instant automated 24/7 delivery.",
-    image: "/3d/vernex_virtual_number_sms_3d.png",
-    imageAlt: "Vernex Data & Airtime VTU",
+    image: "/3d/vernex_vtu_data_airtime_3d.webp",
+    imageAlt: "Vernex 3D Data & Airtime illustration",
     ctaText: "Recharge Data & Airtime",
     ctaHref: "/services/data",
     secondaryText: "Check Data Plans",
@@ -298,8 +298,8 @@ const servicesData: Record<ServiceKey, ServiceData> = {
     headline: "Reliable USD Virtual Cards for Global Subscriptions",
     subhead:
       "Create high-acceptance virtual USD Visa and Mastercards to pay for international tools, subscriptions, ads, and digital shopping without foreign exchange card limits.",
-    image: "/3d/vernex_phones_showcase_3d.png",
-    imageAlt: "Vernex Virtual Cards Showcase",
+    image: "/3d/vernex_virtual_dollar_card_3d.webp",
+    imageAlt: "Vernex 3D Virtual USD Card illustration",
     ctaText: "Get Virtual Card",
     ctaHref: "/services/virtual-card",
     secondaryText: "Card Limits & Rates",
@@ -328,6 +328,8 @@ const servicesData: Record<ServiceKey, ServiceData> = {
 const serviceGridCards = [
   {
     title: "Virtual Numbers & SMS",
+    image: "/3d/vernex_virtual_number_sms_3d.webp",
+    imageAlt: "3D virtual number and SMS illustration",
     desc: "US non-VoIP carrier lines for instant OTP and long-term multi-platform rentals.",
     icon: Smartphone,
     href: "/services/virtual-number",
@@ -336,6 +338,8 @@ const serviceGridCards = [
   },
   {
     title: "Gadget & Phone Shopping",
+    image: "/3d/vernex_gadget_shopping_3d.webp",
+    imageAlt: "3D gadget shopping illustration",
     desc: "Guaranteed authentic flagship phones, laptops, and audio gear with tracked shipping.",
     icon: ShoppingBag,
     href: "/services/shopping",
@@ -344,6 +348,8 @@ const serviceGridCards = [
   },
   {
     title: "Flight Booking",
+    image: "/3d/vernex_flight_booking_3d.webp",
+    imageAlt: "3D flight booking illustration",
     desc: "Domestic and international airline tickets booked in Naira with instant e-tickets.",
     icon: Plane,
     href: "/services/flights",
@@ -352,6 +358,8 @@ const serviceGridCards = [
   },
   {
     title: "Gaming Top-Up",
+    image: "/3d/vernex_gaming_topup_3d.webp",
+    imageAlt: "3D gaming top-up illustration",
     desc: "Steam, PlayStation, Xbox, Free Fire, PUBG, and Roblox credits delivered in seconds.",
     icon: Gamepad2,
     href: "/services/gaming",
@@ -360,6 +368,8 @@ const serviceGridCards = [
   },
   {
     title: "Social Boost",
+    image: "/3d/vernex_social_boost_3d.webp",
+    imageAlt: "3D social growth illustration",
     desc: "Accelerate your visibility, followers, likes, and views across major platforms.",
     icon: Rocket,
     href: "/services/boost",
@@ -368,6 +378,8 @@ const serviceGridCards = [
   },
   {
     title: "Cable TV & Electricity",
+    image: "/3d/vernex_bills_utilities_3d.webp",
+    imageAlt: "3D bills and utilities illustration",
     desc: "Instant 20-digit prepaid meter tokens and zero-downtime DStv/GOtv renewals.",
     icon: Tv,
     href: "/services/electricity",
@@ -376,6 +388,8 @@ const serviceGridCards = [
   },
   {
     title: "Data & Airtime VTU",
+    image: "/3d/vernex_vtu_data_airtime_3d.webp",
+    imageAlt: "3D data and airtime illustration",
     desc: "Low-cost SME & corporate data bundles for MTN, Airtel, Glo, and 9mobile.",
     icon: Zap,
     href: "/services/data",
@@ -384,6 +398,8 @@ const serviceGridCards = [
   },
   {
     title: "USD Virtual Cards",
+    image: "/3d/vernex_virtual_dollar_card_3d.webp",
+    imageAlt: "3D virtual dollar card illustration",
     desc: "Fund with Naira and pay for global subscriptions, ads, and digital services.",
     icon: CreditCard,
     href: "/services/virtual-card",
@@ -714,7 +730,7 @@ export default function VernexLandingPage() {
                     />
                   </div>
                   <p className="mt-3 text-center text-[11px] font-semibold text-[#94A3B8]">
-                    Authentic 3D Studio Showcase · Connected to live Vernex pipelines
+                    Vernex Digital 3D service illustration
                   </p>
                 </div>
               </div>
@@ -747,6 +763,16 @@ export default function VernexLandingPage() {
                     className="group flex flex-col justify-between rounded-[20px] border border-[#E1E8F2] bg-white p-6 transition-all duration-200 hover:-translate-y-1 hover:border-[#BFD7FA] hover:shadow-[0_16px_36px_rgba(15,23,42,0.08)]"
                   >
                     <div>
+                      <div className="relative mb-5 flex h-32 items-center justify-center overflow-hidden rounded-[14px] border border-[#E4ECF8] bg-[linear-gradient(145deg,#F4F8FF_0%,#FFFFFF_55%,#EDF4FF_100%)] p-2">
+                        <Image
+                          src={card.image}
+                          alt={card.imageAlt}
+                          width={320}
+                          height={320}
+                          sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 22vw"
+                          className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-[1.04]"
+                        />
+                      </div>
                       <div className="flex items-center justify-between">
                         <div
                           className="flex h-12 w-12 items-center justify-center rounded-[14px] text-white shadow-sm"

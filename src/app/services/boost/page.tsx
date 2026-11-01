@@ -44,14 +44,20 @@ function formatNaira(n: number) {
 function formatQty(n: number) { return Number(n || 0).toLocaleString("en-NG"); }
 type OrderStatus = "completed" | "in_progress" | "processing" | "pending" | "failed";
 function normalizeStatus(raw: string): OrderStatus {
-  const s = String(raw || "").toLowerCase();
-  if (["completed", "success", "done"].includes(s)) return "completed";
-  if (s === "in_progress") return "in_progress";
-  if (["processing", "queued", "running"].includes(s)) return "processing";
-  if (["failed", "cancelled", "canceled", "refunded"].includes(s)) return "failed";
+  const s = String(raw || "").toLowerCase().replace(/[_-]+/g, " ").trim();
+  if (s.includes("complete") || s.includes("success") || s === "done") return "completed";
+  if (s.includes("fail") || s.includes("cancel") || s.includes("refund")) return "failed";
+  if (s.includes("progress") || s.includes("processing") || s.includes("partial") || s.includes("running") || s.includes("queued")) return "processing";
+  if (s === "pending" || !s) return "pending";
   return "pending";
 }
-function statusLabel(s: OrderStatus) { return s === "in_progress" ? "In progress" : s[0].toUpperCase() + s.slice(1); }
+function statusLabel(s: OrderStatus) {
+  if (s === "in_progress" || s === "processing") return "In progress";
+  if (s === "completed") return "Completed";
+  if (s === "pending") return "Pending";
+  if (s === "failed") return "Failed";
+  return (s as string)[0].toUpperCase() + (s as string).slice(1);
+}
 function PlatformMark({ platform, size = 22 }: { platform: string; size?: number }) {
   const s = { width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true as const };
   const p = platform.toLowerCase();
@@ -314,7 +320,12 @@ export default function BoostAccountPage() {
     }
   };
 
-  useEffect(() => { void loadCatalog(); void loadOrders(); }, []);
+  useEffect(() => {
+    void loadCatalog();
+    void loadOrders();
+    const id = window.setInterval(() => { void loadOrders(); }, 20000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const platform = platforms.find((p) => p.id === platformId) ?? null;
   const service = allServices.find((s) => s.id === serviceId) ?? null;

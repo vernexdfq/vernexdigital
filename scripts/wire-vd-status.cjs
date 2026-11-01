@@ -41,7 +41,7 @@ const newLabel = `function statusLabel(s: OrderStatus) {
   if (s === "completed") return "Completed";
   if (s === "pending") return "Pending";
   if (s === "failed") return "Failed";
-  return s[0].toUpperCase() + s.slice(1);
+  return (s as string)[0].toUpperCase() + (s as string).slice(1);
 }`;
 if (text.includes(oldLabel)) {
   text = text.replace(oldLabel, newLabel);
