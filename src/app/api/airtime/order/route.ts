@@ -7,13 +7,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/** End-customer cashback on successful airtime (your rates). */
-const CASHBACK: Record<string, number> = {
-  mtn: 0.02,
-  airtel: 0.02,
-  "9mobile": 0.02,
-  glo: 0.06,
-};
+/**
+ * Partner margin is applied on Verxor (panel wholesale debit).
+ * End customers pay face value — do NOT credit customer cashback.
+ */
 
 async function getUser(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -61,7 +58,7 @@ async function changeWalletBalance(
 
 /**
  * POST /api/airtime/order
- * Debit customer → Verxor panel airtime API (same key as VN) → cashback on success.
+ * Debit customer (face value) → Verxor panel API (wholesale margin on Verxor) → refund on fail.
  */
 export async function POST(req: NextRequest) {
   if (!verxorConfig().configured) {
@@ -152,23 +149,6 @@ export async function POST(req: NextRequest) {
     }
 
     const order = (data.order || {}) as Record<string, unknown>;
-    const cashbackRate = CASHBACK[network] || 0;
-    const cashback = Math.round(amount * cashbackRate * 100) / 100;
-    let cashbackCredited = 0;
-    if (cashback > 0) {
-      const cb = await changeWalletBalance(admin, user.id, (b) => b + cashback);
-      if (cb.ok) {
-        cashbackCredited = cashback;
-        await admin.from("transactions").insert({
-          user_id: user.id,
-          kind: "cashback",
-          title: `${netLabel} airtime cashback (${Math.round(cashbackRate * 100)}%)`,
-          amount: cashback,
-          status: "completed",
-          meta: { network, phone, amount, cashback, ref },
-        });
-      }
-    }
 
     await admin.from("transactions").insert({
       user_id: user.id,
@@ -182,7 +162,8 @@ export async function POST(req: NextRequest) {
         amount,
         ref: order.ref || ref,
         providerRef: order.ref,
-        cashback: cashbackCredited,
+        panelCharge: data.balanceDebited,
+        walletMode: data.walletMode,
       },
     });
 
@@ -195,8 +176,6 @@ export async function POST(req: NextRequest) {
         amount: order.amount || amount,
         network: order.network || network,
         message: order.message || `${netLabel} airtime successful`,
-        cashback: cashbackCredited,
-        cashbackPercent: Math.round(cashbackRate * 100),
       },
     });
   } catch (e) {
