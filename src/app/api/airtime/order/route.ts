@@ -7,10 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-/**
- * Partner margin is applied on Verxor (panel wholesale debit).
- * End customers pay face value — do NOT credit customer cashback.
- */
+/** Partner margin is applied on Verxor. Customers pay face value. */
 
 async function getUser(req: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,7 +55,8 @@ async function changeWalletBalance(
 
 /**
  * POST /api/airtime/order
- * Debit customer (face value) → Verxor panel API (wholesale margin on Verxor) → refund on fail.
+ * Debit customer (face) → Verxor panel API (wholesale margin) → refund on fail.
+ * Tight path: no blocking ledger before provider; 45s abort on upstream.
  */
 export async function POST(req: NextRequest) {
   if (!verxorConfig().configured) {
@@ -112,7 +110,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await admin.from("transactions").insert({
+  // Non-blocking pending log — do not delay provider call
+  void admin.from("transactions").insert({
     user_id: user.id,
     kind: "airtime",
     title: `${netLabel} airtime ₦${amount.toLocaleString("en-NG")}`,
@@ -122,15 +121,24 @@ export async function POST(req: NextRequest) {
   });
 
   try {
-    const res = await verxorFetch("/airtime", {
-      method: "POST",
-      body: JSON.stringify({ network, phone, amount, ref }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45_000);
+    let res: Response;
+    try {
+      res = await verxorFetch("/airtime", {
+        method: "POST",
+        body: JSON.stringify({ network, phone, amount, ref }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
     const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
 
     if (!res.ok || data.ok === false) {
       await changeWalletBalance(admin, user.id, (b) => b + amount);
-      await admin.from("transactions").insert({
+      void admin.from("transactions").insert({
         user_id: user.id,
         kind: "refund",
         title: `Refund — ${netLabel} airtime`,
@@ -150,7 +158,7 @@ export async function POST(req: NextRequest) {
 
     const order = (data.order || {}) as Record<string, unknown>;
 
-    await admin.from("transactions").insert({
+    void admin.from("transactions").insert({
       user_id: user.id,
       kind: "airtime",
       title: `${netLabel} airtime ₦${amount.toLocaleString("en-NG")} — success`,
@@ -180,7 +188,20 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     await changeWalletBalance(admin, user.id, (b) => b + amount);
-    const message = e instanceof Error ? e.message : "Airtime failed";
+    const aborted = e instanceof Error && e.name === "AbortError";
+    const message = aborted
+      ? "Airtime timed out — wallet refunded. Try again."
+      : e instanceof Error
+        ? e.message
+        : "Airtime failed";
+    void admin.from("transactions").insert({
+      user_id: user.id,
+      kind: "refund",
+      title: `Refund — ${netLabel} airtime`,
+      amount: amount,
+      status: "completed",
+      meta: { network, phone, amount, ref, reason: aborted ? "timeout" : "exception" },
+    });
     return NextResponse.json({ ok: false, error: message, refunded: true }, { status: 502 });
   }
 }
