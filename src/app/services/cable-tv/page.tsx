@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -18,38 +18,87 @@ const PROVIDERS = [
   { id: "startimes", name: "StarTimes", tile: "bg-[#c1121f] text-white" },
 ];
 
-const PACKAGES: Record<string, { name: string; price: number }[]> = {
+type Pkg = { id: string; name: string; price: number; validityDays?: number };
+
+/** Static mirror of Verxor catalog (used until live packages load) */
+const FALLBACK_PACKAGES: Record<string, Pkg[]> = {
   dstv: [
-    { name: "Padi", price: 4400 },
-    { name: "Yanga", price: 6000 },
-    { name: "Confam", price: 11000 },
-    { name: "Compact", price: 19000 },
-    { name: "Compact Plus", price: 30000 },
-    { name: "Premium", price: 44500 },
+    { id: "dstv-padi", name: "Padi", price: 4400, validityDays: 30 },
+    { id: "dstv-yanga", name: "Yanga", price: 6000, validityDays: 30 },
+    { id: "dstv-confam", name: "Confam", price: 11000, validityDays: 30 },
+    { id: "dstv79", name: "Compact", price: 19000, validityDays: 30 },
+    { id: "dstv7", name: "Compact Plus", price: 30000, validityDays: 30 },
+    { id: "dstv3", name: "Premium", price: 44500, validityDays: 30 },
+    { id: "dstv9", name: "Premium-French", price: 69000, validityDays: 30 },
+    { id: "dstv10", name: "Premium-Asia", price: 50500, validityDays: 30 },
+    { id: "padi-extra", name: "Padi + ExtraView", price: 10400, validityDays: 30 },
+    { id: "yanga-extra", name: "Yanga + ExtraView", price: 12000, validityDays: 30 },
+    { id: "confam-extra", name: "Confam + ExtraView", price: 17000, validityDays: 30 },
+    { id: "dstv30", name: "Compact + Extra View", price: 25000, validityDays: 30 },
+    { id: "dstv45", name: "Compact Plus + Extra View", price: 36000, validityDays: 30 },
+    { id: "dstv33", name: "Premium + Extra View", price: 50500, validityDays: 30 },
+    { id: "com-frenchtouch", name: "Compact + French Touch", price: 26000, validityDays: 30 },
+    { id: "complus-frenchtouch", name: "Compact Plus + French Touch", price: 37000, validityDays: 30 },
+    { id: "dstv-padi-showmax", name: "Padi + Showmax", price: 8900, validityDays: 30 },
+    { id: "dstv-yanga-showmax", name: "Yanga + Showmax", price: 8250, validityDays: 30 },
+    { id: "dstv-confam-showmax", name: "Confam + Showmax", price: 13250, validityDays: 30 },
+    { id: "dstv-compact-showmax", name: "Compact + Showmax", price: 21250, validityDays: 30 },
+    { id: "dstv-compact-plus-showmax", name: "Compact Plus + Showmax", price: 32250, validityDays: 30 },
+    { id: "dstv-premium-showmax", name: "Premium + Showmax", price: 44500, validityDays: 30 },
+    { id: "dstv-greatwall", name: "Great Wall Standalone", price: 3800, validityDays: 30 },
+    { id: "dstv-indian", name: "Indian", price: 14900, validityDays: 30 },
+    { id: "dstv-movie-bundle-add-on", name: "Movie Bundle Add-on", price: 3500, validityDays: 30 },
+    { id: "frenchplus-addon", name: "French Plus Add-on", price: 24500, validityDays: 30 },
+    { id: "frenchtouch-addon", name: "French Touch Add-on", price: 7000, validityDays: 30 },
   ],
   gotv: [
-    { name: "Smallie", price: 1900 },
-    { name: "Jinja", price: 3900 },
-    { name: "Jolli", price: 5800 },
-    { name: "Max", price: 8500 },
-    { name: "Supa", price: 11400 },
-    { name: "Supa Plus", price: 16800 },
+    { id: "gotv-smallie", name: "Smallie", price: 1900, validityDays: 30 },
+    { id: "gotv-jinja", name: "Jinja", price: 3900, validityDays: 30 },
+    { id: "gotv-jolli", name: "Jolli", price: 5800, validityDays: 30 },
+    { id: "gotv-max", name: "Max", price: 8500, validityDays: 30 },
+    { id: "gotv-supa", name: "Supa", price: 11400, validityDays: 30 },
+    { id: "gotv-supa-plus", name: "Supa Plus", price: 16800, validityDays: 30 },
+    { id: "gotv-smallie-3months", name: "Smallie (3 months)", price: 5100, validityDays: 90 },
+    { id: "gotv-smallie-1year", name: "Smallie (1 year)", price: 15000, validityDays: 365 },
   ],
   startimes: [
-    { name: "Nova", price: 2100 },
-    { name: "Basic", price: 4000 },
-    { name: "Smart", price: 5100 },
-    { name: "Classic", price: 6000 },
-    { name: "Super", price: 9800 },
+    { id: "nova", name: "Nova (Dish)", price: 2100, validityDays: 30 },
+    { id: "uni-2", name: "Nova (Antenna)", price: 2100, validityDays: 30 },
+    { id: "basic", name: "Basic (Antenna)", price: 4000, validityDays: 30 },
+    { id: "smart", name: "Basic (Dish)", price: 5100, validityDays: 30 },
+    { id: "classic", name: "Classic (Antenna)", price: 6000, validityDays: 30 },
+    { id: "special-monthly", name: "Classic (Dish)", price: 7400, validityDays: 30 },
+    { id: "super", name: "Super (Dish)", price: 9800, validityDays: 30 },
+    { id: "super-antenna-monthly", name: "Super (Antenna)", price: 9500, validityDays: 30 },
+    { id: "global-monthly-dish", name: "Global (Dish)", price: 21000, validityDays: 30 },
+    { id: "uni-1", name: "Chinese (Dish)", price: 21000, validityDays: 30 },
+    { id: "nova-weekly", name: "Nova (Antenna) 1 Week", price: 700, validityDays: 7 },
+    { id: "nova-dish-weekly", name: "Nova (Dish) 1 Week", price: 700, validityDays: 7 },
+    { id: "basic-weekly", name: "Basic (Antenna) 1 Week", price: 1400, validityDays: 7 },
+    { id: "smart-weekly", name: "Basic (Dish) 1 Week", price: 1700, validityDays: 7 },
+    { id: "classic-weekly", name: "Classic (Antenna) 1 Week", price: 2000, validityDays: 7 },
+    { id: "special-weekly", name: "Classic (Dish) 1 Week", price: 2300, validityDays: 7 },
+    { id: "classic-weekly-dish", name: "Classic (Dish) 1 Week", price: 2500, validityDays: 7 },
+    { id: "super-weekly", name: "Super (Dish) 1 Week", price: 3300, validityDays: 7 },
+    { id: "super-antenna-weekly", name: "Super (Antenna) 1 Week", price: 3200, validityDays: 7 },
+    { id: "global-weekly-dish", name: "Global (Dish) 1 Week", price: 7000, validityDays: 7 },
+    { id: "shs-weekly-2800", name: "SHS Weekly ₦2,800", price: 2800, validityDays: 7 },
+    { id: "shs-weekly-4620", name: "SHS Weekly ₦4,620", price: 4620, validityDays: 7 },
+    { id: "shs-weekly-4900", name: "SHS Weekly ₦4,900", price: 4900, validityDays: 7 },
+    { id: "shs-weekly-9100", name: "SHS Weekly ₦9,100", price: 9100, validityDays: 7 },
+    { id: "shs-monthly-12000", name: "SHS Monthly ₦12,000", price: 12000, validityDays: 30 },
+    { id: "shs-monthly-19800", name: "SHS Monthly ₦19,800", price: 19800, validityDays: 30 },
+    { id: "shs-monthly-21000", name: "SHS Monthly ₦21,000", price: 21000, validityDays: 30 },
+    { id: "shs-monthly-39000", name: "SHS Monthly ₦39,000", price: 39000, validityDays: 30 },
   ],
 };
 
 function getAccessToken(): string {
   if (typeof window === "undefined") return "";
   try {
-    const raw = localStorage.getItem("sb-access-token") || sessionStorage.getItem("sb-access-token");
+    const raw =
+      localStorage.getItem("sb-access-token") || sessionStorage.getItem("sb-access-token");
     if (raw) return raw;
-    // Supabase browser client often stores under sb-*-auth-token
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i) || "";
       if (k.includes("auth-token") || k.includes("supabase.auth")) {
@@ -90,6 +139,14 @@ function getProfilePhone(): string {
   return "";
 }
 
+function validityLabel(days?: number) {
+  if (!days) return "Valid for 30 days";
+  if (days === 7) return "Valid for 7 days";
+  if (days === 90) return "Valid for 3 months";
+  if (days === 365) return "Valid for 1 year";
+  return `Valid for ${days} days`;
+}
+
 export default function CableTvPage() {
   const [provider, setProvider] = useState(PROVIDERS[0]);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -97,12 +154,40 @@ export default function CableTvPage() {
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [customerName, setCustomerName] = useState("");
-  const [pkg, setPkg] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgOk, setMsgOk] = useState(false);
+  const [allPackages, setAllPackages] =
+    useState<Record<string, Pkg[]>>(FALLBACK_PACKAGES);
+  const [packagesLoading, setPackagesLoading] = useState(true);
 
-  const packages = PACKAGES[provider.id] || [];
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/cable-tv/packages");
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && data?.ok && data.packages) {
+          setAllPackages({
+            dstv: data.packages.dstv || FALLBACK_PACKAGES.dstv,
+            gotv: data.packages.gotv || FALLBACK_PACKAGES.gotv,
+            startimes: data.packages.startimes || FALLBACK_PACKAGES.startimes,
+          });
+        }
+      } catch {
+        /* keep fallback */
+      } finally {
+        if (!cancelled) setPackagesLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const packages = allPackages[provider.id] || [];
+  const selectedPkg = packages.find((p) => p.id === selectedId) || null;
 
   const digits = smartCard.replace(/\D/g, "");
   const cardOk = digits.length >= 10;
@@ -149,7 +234,7 @@ export default function CableTvPage() {
       setMsg("Verify your smartcard before payment");
       return;
     }
-    if (!pkg) {
+    if (!selectedPkg) {
       setMsg("Select a package");
       return;
     }
@@ -178,7 +263,8 @@ export default function CableTvPage() {
         },
         body: JSON.stringify({
           provider: provider.id,
-          packageName: pkg,
+          packageId: selectedPkg.id,
+          packageName: selectedPkg.name,
           smartCardNo: digits,
           phone,
         }),
@@ -195,19 +281,19 @@ export default function CableTvPage() {
 
       const success =
         data.order?.message ||
-        `${provider.name} ${pkg} activated · ₦${(PACKAGES[provider.id].find((p) => p.name === pkg)?.price || 0).toLocaleString()}`;
+        `${provider.name} ${selectedPkg.name} activated · ₦${selectedPkg.price.toLocaleString()}`;
       setMsgOk(true);
       setMsg(success);
       setSmartCard("");
       setVerified(false);
       setCustomerName("");
-      setPkg(null);
+      setSelectedId(null);
     } catch {
       setMsg("Network error — try again");
     } finally {
       setLoading(false);
     }
-  }, [verified, pkg, provider, digits]);
+  }, [verified, selectedPkg, provider, digits]);
 
   return (
     <div className="min-h-screen bg-[#F4F7FB] pb-28">
@@ -325,7 +411,11 @@ export default function CableTvPage() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-[13px] font-bold text-[#0F172A]">Select Package</h3>
-              <p className="mt-0.5 text-[11px] text-[#64748B]">All prices valid for 30 days</p>
+              <p className="mt-0.5 text-[11px] text-[#64748B]">
+                {packagesLoading
+                  ? "Loading packages…"
+                  : `${packages.length} packages · all prices from provider`}
+              </p>
             </div>
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold ${provider.tile}`}
@@ -335,31 +425,35 @@ export default function CableTvPage() {
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 max-h-[52vh] overflow-y-auto pr-0.5">
             {packages.map((p) => {
-              const selected = pkg === p.name;
+              const selected = selectedId === p.id;
               return (
                 <button
-                  key={p.name}
+                  key={p.id}
                   type="button"
-                  onClick={() => setPkg(p.name)}
+                  onClick={() => setSelectedId(p.id)}
                   className={`relative rounded-[14px] border p-3 text-left transition active:scale-[0.98] ${
                     selected
                       ? "border-[#1877F2] bg-[#EFF6FF]"
                       : "border-[#E2E8F0] bg-white"
                   }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#EFF6FF] text-[#1877F2]">
+                  <div className="flex items-start justify-between gap-1">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#EFF6FF] text-[#1877F2]">
                       <Tv size={15} />
                     </div>
                     {selected && <Check size={15} strokeWidth={3} className="text-[#1877F2]" />}
                   </div>
-                  <p className="mt-2 text-[12px] font-semibold text-[#0F172A]">{p.name}</p>
+                  <p className="mt-2 text-[12px] font-semibold text-[#0F172A] leading-snug">
+                    {p.name}
+                  </p>
                   <p className="mt-0.5 text-[13px] font-bold text-[#1877F2]">
                     ₦{p.price.toLocaleString()}
                   </p>
-                  <p className="mt-0.5 text-[10px] text-[#64748B]">Valid for 30 days</p>
+                  <p className="mt-0.5 text-[10px] text-[#64748B]">
+                    {validityLabel(p.validityDays)}
+                  </p>
                 </button>
               );
             })}
@@ -379,7 +473,7 @@ export default function CableTvPage() {
         <button
           type="button"
           onClick={handlePay}
-          disabled={loading || !verified || !pkg}
+          disabled={loading || !verified || !selectedPkg}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#0B1F4D] to-[#1877F2] text-sm font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] transition active:scale-[0.99] disabled:opacity-70"
         >
           {loading ? (
@@ -418,7 +512,7 @@ export default function CableTvPage() {
                   type="button"
                   onClick={() => {
                     setProvider(p);
-                    setPkg(null);
+                    setSelectedId(null);
                     setVerified(false);
                     setCustomerName("");
                     setMsg("");
