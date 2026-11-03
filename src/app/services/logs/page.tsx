@@ -132,11 +132,11 @@ type CatalogSubtype = {
 };
 
 function subtypeRowClass(selected: boolean) {
-  return `w-full flex items-center justify-between gap-2 rounded-[10px] px-3 py-2 border text-left transition ${
+  return `w-full h-10 flex items-center justify-between gap-2 rounded-[10px] px-3 border text-left transition ${
     selected
       ? "bg-[#F0F7FF] border-[#1877F2] text-[#0F172A]"
-      : "border-[#E2E8F0] text-[#475569]"
-  }`;
+      : "border-transparent text-[#475569]"
+  } hover:border-[#CBD5E1]`;
 }
 
 function formatNaira(n: number) {
@@ -328,7 +328,7 @@ export default function BuyLogsPage() {
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
           {PLATFORMS.map((f) => (
             <button
               key={f}
@@ -362,18 +362,36 @@ export default function BuyLogsPage() {
         )}
 
         {!loading && !catalogError && subtypes.length > 0 && (
-          <div className="rounded-[14px] bg-white border border-[#E2E8F0] p-3">
-            <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-2">
-              Filter listings by type
-            </p>
-            <div className="max-h-52 overflow-y-auto space-y-1">
+          <div className="rounded-[14px] bg-white border border-[#E2E8F0] overflow-hidden">
+            <div className="px-3.5 pt-3 pb-2 flex items-end justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-[#0F172A] leading-tight truncate">
+                  {platform} Categories ({subtypes.length})
+                </p>
+                <p className="text-[11px] text-[#94A3B8] leading-tight mt-0.5">
+                  Filter listings by type
+                </p>
+              </div>
+              {subtypeId !== null && (
+                <button
+                  type="button"
+                  onClick={() => setSubtypeId(null)}
+                  className="text-[11px] font-medium text-[#1877F2] shrink-0"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            <div className="max-h-56 overflow-y-auto px-2 pb-2 space-y-1 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
                 onClick={() => setSubtypeId(null)}
                 className={subtypeRowClass(subtypeId === null)}
               >
-                <span className="text-[12px] font-semibold">{`All ${platform}`}</span>
-                <span className="text-[10px] text-[#94A3B8] shrink-0">{offers.length} listings</span>
+                <span className="text-[12px] font-semibold truncate min-w-0">{`All ${platform}`}</span>
+                <span className="text-[10px] text-[#94A3B8] shrink-0 whitespace-nowrap">
+                  {offers.length} listings
+                </span>
               </button>
               {subtypes.map((s) => (
                 <button
@@ -382,9 +400,9 @@ export default function BuyLogsPage() {
                   onClick={() => setSubtypeId(s.id)}
                   className={subtypeRowClass(subtypeId === s.id)}
                 >
-                  <span className="text-[12px] font-medium truncate">{s.name}</span>
-                  <span className="text-[10px] text-[#94A3B8] shrink-0">
-                    {s.count} listings · {s.stock} in stock
+                  <span className="text-[12px] font-medium truncate min-w-0">{s.name}</span>
+                  <span className="text-[10px] text-[#94A3B8] shrink-0 whitespace-nowrap">
+                    {s.count} listings · {s.stock.toLocaleString("en-US")} in stock
                   </span>
                 </button>
               ))}
