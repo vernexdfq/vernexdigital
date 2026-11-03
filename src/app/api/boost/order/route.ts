@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
-import { orderAmountNgn, panelRetailRatePer1000 } from "@/lib/boost-pricing";
+import { orderAmountNgn, retailRatePer1000 } from "@/lib/boost-pricing";
+import { getSharedBoostPricing } from "@/lib/boost-pricing-server";
 import { getAuthoritativeCatalog } from "@/lib/boost-catalog-cache";
 
 export const runtime = "nodejs";
@@ -199,7 +200,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const ratePer1000 = panelRetailRatePer1000(wholesaleUsd);
+  // Retail price uses the admin-editable markup from the Boost pricing page.
+  const { markup: boostMarkup } = await getSharedBoostPricing();
+  const ratePer1000 = retailRatePer1000(wholesaleUsd, boostMarkup);
   const priceNgn = orderAmountNgn(ratePer1000, quantity);
 
   if (!Number.isFinite(priceNgn) || priceNgn < 1) {

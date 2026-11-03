@@ -12,10 +12,9 @@ import {
   Smartphone,
   Users,
   Rocket,
+  Percent,
   ScrollText,
   Signal,
-  Tv,
-  Zap,
   LogOut,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -31,11 +30,10 @@ const SERVICES: NavItem[] = [
   { href: "/admin/shopping-inbox", label: "Shopping inbox", icon: <MessageSquare size={18} strokeWidth={2.2} /> },
   { href: "/admin/users", label: "Users", icon: <Users size={18} strokeWidth={2.2} /> },
   { href: "/admin/virtual-number", label: "Virtual numbers", icon: <Smartphone size={18} strokeWidth={2.2} /> },
+  { href: "/admin/vtu", label: "VTU services", icon: <Signal size={18} strokeWidth={2.2} /> },
+  { href: "/admin/boost", label: "Boost pricing", icon: <Percent size={18} strokeWidth={2.2} /> },
   { href: "/services/boost", label: "Boost account", icon: <Rocket size={18} strokeWidth={2.2} /> },
   { href: "/services/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
-  { href: "/services/airtime", label: "Airtime & data", icon: <Signal size={18} strokeWidth={2.2} /> },
-  { href: "/services/cable-tv", label: "Cable TV", icon: <Tv size={18} strokeWidth={2.2} /> },
-  { href: "/services/electricity", label: "Electricity", icon: <Zap size={18} strokeWidth={2.2} /> },
 ];
 
 export function AdminMenuButton({ onClick }: { onClick: () => void }) {
