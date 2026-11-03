@@ -3,16 +3,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Building2,
+  Coins,
   Copy,
   Check,
   Hash,
+  Signal,
+  Tv,
   User,
   Shield,
   Loader2,
   Clock,
   Wallet,
+  Zap,
 } from "lucide-react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
+import { createBrowserClient } from "@/lib/supabase/client";
+
+type CashbackRow = {
+  kind: string;
+  label: string;
+  orders: number;
+  volume: number;
+  cashback: number;
+};
+
+type CashbackSummary = {
+  services: CashbackRow[];
+  totalCashback: number;
+  totalOrders: number;
+};
 
 type VirtualAccount = {
   bankName: string;
@@ -141,6 +160,8 @@ export default function AdminPartnerFundPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cashback, setCashback] = useState<CashbackSummary | null>(null);
+  const [cashbackLoading, setCashbackLoading] = useState(true);
 
   const expireLeft = useExpireCountdown(
     state.status === "ready" ? state.account.expireAt : null,
@@ -174,6 +195,44 @@ export default function AdminPartnerFundPage() {
       cancelled = true;
     };
   }, [state.status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setCashbackLoading(true);
+      try {
+        const supabase = createBrowserClient();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (sessionData.session?.access_token) {
+          headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+        }
+        const res = await fetch("/api/admin/cashback", {
+          credentials: "include",
+          cache: "no-store",
+          headers,
+        }).catch(() => null);
+        if (cancelled) return;
+        const data = res ? await res.json().catch(() => ({})) : {};
+        if (res?.ok && data.ok) {
+          setCashback({
+            services: Array.isArray(data.services) ? data.services : [],
+            totalCashback: Number(data.totalCashback) || 0,
+            totalOrders: Number(data.totalOrders) || 0,
+          });
+        } else {
+          setCashback(null);
+        }
+      } catch {
+        if (!cancelled) setCashback(null);
+      } finally {
+        if (!cancelled) setCashbackLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const generateAccount = useCallback(async () => {
     const amount = Math.round(Number(amountInput.replace(/,/g, "")));
@@ -268,6 +327,83 @@ export default function AdminPartnerFundPage() {
             Used to fulfill your users&apos; Verxor orders
           </p>
         </div>
+
+        <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Coins size={16} className="text-[#475569]" strokeWidth={2.4} />
+              <span className="text-[13px] font-bold text-[#0F172A]">
+                Cashback earnings
+              </span>
+            </div>
+            {cashback && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-extrabold text-emerald-600">
+                Total ₦{formatNgn(cashback.totalCashback)}
+              </span>
+            )}
+          </div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
+            Automatically calculated from your completed orders — what customers
+            paid minus your wholesale charge.
+          </p>
+
+          {cashbackLoading ? (
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] py-5">
+              <Loader2 size={16} className="animate-spin text-[#94A3B8]" />
+              <span className="text-[12px] font-semibold text-[#64748B]">
+                Loading cashback…
+              </span>
+            </div>
+          ) : !cashback || cashback.services.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-dashed border-[#DCE3EE] bg-[#F8FAFC] px-4 py-5 text-center">
+              <p className="text-[12px] font-semibold text-[#64748B]">
+                No cashback yet.
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#94A3B8]">
+                Your airtime, electricity and TV subscription cashback will
+                appear here as orders complete.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2.5">
+              {cashback.services.map((s) => {
+                const Icon =
+                  s.kind === "airtime"
+                    ? Signal
+                    : s.kind === "electricity"
+                      ? Zap
+                      : s.kind === "cable_tv"
+                        ? Tv
+                        : Coins;
+                return (
+                  <div
+                    key={s.kind}
+                    className="flex items-center gap-3 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] px-3.5 py-3"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#1877F2]">
+                      <Icon size={17} strokeWidth={2.3} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-extrabold text-[#0F172A]">
+                        {s.label}
+                      </p>
+                      <p className="text-[11px] font-semibold text-[#94A3B8]">
+                        {s.orders} {s.orders === 1 ? "order" : "orders"} · ₦
+                        {formatNgn(s.volume)} volume
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-[14px] font-extrabold tabular-nums text-emerald-600">
+                      +₦{formatNgn(s.cashback)}
+                    </p>
+                  </div>
+                );
+              })}
+              <p className="pt-1 text-center text-[11px] text-[#94A3B8]">
+                More services will appear automatically as they go live.
+              </p>
+            </div>
+          )}
+        </section>
 
         <div className="flex items-center justify-between gap-3 px-0.5">
           <div className="flex items-center gap-2">
