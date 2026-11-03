@@ -200,9 +200,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Retail price uses the admin-editable markup from the Boost pricing page.
-  const { markup: boostMarkup } = await getSharedBoostPricing();
-  const ratePer1000 = retailRatePer1000(wholesaleUsd, boostMarkup);
+  // Retail price uses the admin-editable tier multipliers from the Boost pricing page.
+  const { markups: boostMarkups } = await getSharedBoostPricing();
+  const ratePer1000 = retailRatePer1000(wholesaleUsd, boostMarkups);
   const priceNgn = orderAmountNgn(ratePer1000, quantity);
 
   if (!Number.isFinite(priceNgn) || priceNgn < 1) {

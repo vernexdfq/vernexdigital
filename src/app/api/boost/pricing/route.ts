@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { PARTNER_ADMIN_COOKIE, verifyPartnerAdminToken } from "@/lib/partner-admin";
-import { USD_NGN, partnerMult, BOOST_DEFAULT_MARKUP, boostMarkupFromEnv } from "@/lib/boost-pricing";
+import {
+  BOOST_DEFAULT_MARKUPS,
+  BOOST_TIERS,
+  BOOST_TIER_META,
+  type BoostTier,
+} from "@/lib/boost-pricing";
 import { getSharedBoostPricing } from "@/lib/boost-pricing-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/boost/pricing — tier multipliers the panel charges its customers.
+ * PUT /api/boost/pricing — admin-only, saves per-tier multipliers.
+ *
+ * The panel sees only Verxor Naira prices and its own multipliers.
+ * Verxor wholesale/partner figures are never exposed here.
+ */
 
 async function isAdmin(req: NextRequest) {
   const partner = req.cookies.get(PARTNER_ADMIN_COOKIE)?.value;
@@ -27,21 +40,19 @@ async function isAdmin(req: NextRequest) {
 }
 
 export async function GET() {
-  const { markup, persisted } = await getSharedBoostPricing();
+  const { markups, persisted } = await getSharedBoostPricing();
   return NextResponse.json({
     ok: true,
     persisted,
-    markup,
-    envMarkup: boostMarkupFromEnv(),
-    defaultMarkup: BOOST_DEFAULT_MARKUP,
-    usdNgn: USD_NGN,
-    partnerMults: [
-      { label: "Economy", band: "Under $0.50", mult: 2.0 },
-      { label: "Standard", band: "$0.50 – $1.00", mult: 1.7 },
-      { label: "Fast", band: "$1.01 – $2.00", mult: 1.35 },
-      { label: "Premium", band: "Above $2.00", mult: 1.15 },
-    ],
-    note: "Verxor partner rate is locked. Customers pay partner rate × (1 + markup).",
+    markups,
+    defaultMarkups: BOOST_DEFAULT_MARKUPS,
+    tiers: BOOST_TIERS.map((t: BoostTier) => ({
+      id: t,
+      label: BOOST_TIER_META[t].label,
+      blurb: BOOST_TIER_META[t].blurb,
+      sampleNgn: BOOST_TIER_META[t].sampleNgn,
+    })),
+    note: "Boost service prices come from Verxor in Naira. Customers pay the Verxor price × your tier multiplier.",
   });
 }
 
@@ -50,29 +61,39 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Admin access required" }, { status: 403 });
   }
   const body = await req.json().catch(() => ({}));
-  const markup = Number(body.markup);
-  if (!Number.isFinite(markup) || markup < 0 || markup > 5) {
-    return NextResponse.json(
-      { ok: false, error: "Markup must be between 0% and 500%" },
-      { status: 400 },
-    );
+  const incoming = body.markups && typeof body.markups === "object" ? body.markups : null;
+  if (!incoming) {
+    return NextResponse.json({ ok: false, error: "Multipliers are required" }, { status: 400 });
   }
+
+  const markups: Record<BoostTier, number> = { ...BOOST_DEFAULT_MARKUPS };
+  for (const tier of BOOST_TIERS) {
+    const m = Number(incoming[tier]);
+    if (!Number.isFinite(m) || m < 1 || m > 10) {
+      return NextResponse.json(
+        { ok: false, error: `${BOOST_TIER_META[tier].label} multiplier must be between 1.0 and 10.0` },
+        { status: 400 },
+      );
+    }
+    markups[tier] = m;
+  }
+
   try {
     const db = createServerClient();
     const { error } = await db
       .from("site_settings")
-      .update({ boost_pricing: { markup }, updated_at: new Date().toISOString() })
+      .update({ boost_pricing: { markups }, updated_at: new Date().toISOString() })
       .eq("id", 1);
     if (error) {
       return NextResponse.json(
-        { ok: false, error: "Could not save markup. Apply the boost_pricing migration first." },
+        { ok: false, error: "Could not save multipliers. Apply the boost_pricing migration first." },
         { status: 503 },
       );
     }
-    return NextResponse.json({ ok: true, markup });
+    return NextResponse.json({ ok: true, markups });
   } catch (e) {
     return NextResponse.json(
-      { ok: false, error: e instanceof Error ? e.message : "Could not save markup" },
+      { ok: false, error: e instanceof Error ? e.message : "Could not save multipliers" },
       { status: 500 },
     );
   }

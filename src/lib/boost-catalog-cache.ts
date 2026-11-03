@@ -1,5 +1,5 @@
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
-import { retailRatePer1000, partnerRatePer1000 } from "@/lib/boost-pricing";
+import { retailRatePer1000, partnerRatePer1000, type BoostTier } from "@/lib/boost-pricing";
 import { getSharedBoostPricing } from "@/lib/boost-pricing-server";
 
 export type CachedService = {
@@ -50,7 +50,7 @@ export type CatalogSnapshot = {
   services: CachedService[];
   pricing: {
     mode: string;
-    markup: number;
+    markups: Partial<Record<BoostTier, number>>;
     note: string;
   };
 };
@@ -69,13 +69,16 @@ let memoryCache: CacheEntry | null = null;
 const FRESH_TTL_MS = 5 * 60 * 1000;
 const STALE_MAX_AGE_MS = 60 * 60 * 1000;
 
-function transformCatalogPayload(data: Record<string, unknown>, markup: number): CatalogSnapshot {
+function transformCatalogPayload(
+  data: Record<string, unknown>,
+  markups: Partial<Record<BoostTier, number>>,
+): CatalogSnapshot {
   const rawServices = Array.isArray(data.services) ? data.services : [];
   const rawPlatforms = Array.isArray(data.platforms) ? data.platforms : [];
 
   const services: CachedService[] = rawServices.map((s: Record<string, unknown>) => {
     const wholesaleUsd = Number(s.wholesaleUsd) || 0;
-    const ratePer1000 = retailRatePer1000(wholesaleUsd, markup);
+    const ratePer1000 = retailRatePer1000(wholesaleUsd, markups);
     const partnerRate = partnerRatePer1000(wholesaleUsd);
     const platform = String(s.platform || "");
     const platformName = String(s.platformName || s.platform || "");
@@ -133,9 +136,9 @@ function transformCatalogPayload(data: Record<string, unknown>, markup: number):
     platforms,
     services,
     pricing: {
-      mode: "partner_plus_markup",
-      markup,
-      note: "Panel pays Verxor partner rate; end users pay partner × (1+markup)",
+      mode: "verxor_plus_panel_markup",
+      markups,
+      note: "End users pay the Verxor Naira price × your tier multiplier.",
     },
   };
 }
@@ -179,8 +182,8 @@ export async function getAuthoritativeCatalog(opts: {
 
     const raw = await res.json().catch(() => ({}));
     if (res.ok && raw && raw.ok !== false && Array.isArray(raw.services)) {
-      const { markup } = await getSharedBoostPricing();
-      const snapshot = transformCatalogPayload(raw, markup);
+      const { markups } = await getSharedBoostPricing();
+      const snapshot = transformCatalogPayload(raw, markups);
       memoryCache = { data: snapshot, cachedAt: now };
       return { data: snapshot, fromCache: false, isStale: false };
     }
