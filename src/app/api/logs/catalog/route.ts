@@ -40,6 +40,8 @@ export async function GET(req: NextRequest) {
         return {
           providerListingId: Number(o.providerListingId) || 0,
           platform: String(o.platform || platform),
+          subtype: String(o.subtype || ""),
+          subtypeId: Number(o.subtypeId) || null,
           title: String(o.title || "Accounts"),
           description: String(o.description || ""),
           stock: Number(o.stock) || 0,
@@ -49,9 +51,19 @@ export async function GET(req: NextRequest) {
         };
       })
       .filter((o) => o.providerListingId > 0 && o.stock > 0 && o.priceNgn > 0);
+    const subtypes = (Array.isArray(data.subtypes) ? data.subtypes : [])
+      .map((s: Record<string, unknown>) => ({
+        id: Number(s.id) || 0,
+        name: String(s.name || ""),
+        count: Number(s.count) || 0,
+        stock: Number(s.stock) || 0,
+      }))
+      .filter((s) => s.id > 0 && s.name);
+
     return NextResponse.json({
       ok: true,
       platform,
+      subtypes,
       offers,
       updatedAt: data.updatedAt || null,
     });

@@ -23,6 +23,8 @@ import {
 type LogOffer = {
   providerListingId: number;
   platform: string;
+  subtype: string;
+  subtypeId: number | null;
   title: string;
   description: string;
   stock: number;
@@ -122,6 +124,21 @@ function PlatformIcon({
   );
 }
 
+type CatalogSubtype = {
+  id: number;
+  name: string;
+  count: number;
+  stock: number;
+};
+
+function subtypeRowClass(selected: boolean) {
+  return `w-full flex items-center justify-between gap-2 rounded-[10px] px-3 py-2 border text-left transition ${
+    selected
+      ? "bg-[#F0F7FF] border-[#1877F2] text-[#0F172A]"
+      : "border-[#E2E8F0] text-[#475569]"
+  }`;
+}
+
 function formatNaira(n: number) {
   return `\u20a6${(Number.isFinite(n) ? n : 0).toLocaleString("en-NG")}`;
 }
@@ -134,6 +151,8 @@ export default function BuyLogsPage() {
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [query, setQuery] = useState("");
+  const [subtypes, setSubtypes] = useState<CatalogSubtype[]>([]);
+  const [subtypeId, setSubtypeId] = useState<number | null>(null);
   const [selected, setSelected] = useState<LogOffer | null>(null);
   const [qty, setQty] = useState(1);
   const [ordering, setOrdering] = useState(false);
@@ -152,6 +171,8 @@ export default function BuyLogsPage() {
       const data = await res.json();
       if (!res.ok || data.ok === false) throw new Error(data.error || "Could not load the live catalogue.");
       setOffers((Array.isArray(data.offers) ? data.offers : []) as LogOffer[]);
+      setSubtypes((Array.isArray(data.subtypes) ? data.subtypes : []) as CatalogSubtype[]);
+      setSubtypeId(null);
     } catch (e) {
       setCatalogError(e instanceof Error ? e.message : "Catalog error");
       setOffers([]);
@@ -180,14 +201,16 @@ export default function BuyLogsPage() {
 
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return offers;
-    return offers.filter(
-      (p) =>
+    return offers.filter((p) => {
+      if (subtypeId !== null && p.subtypeId !== subtypeId) return false;
+      if (!q) return true;
+      return (
         p.title.toLowerCase().includes(q) ||
         p.platform.toLowerCase().includes(q) ||
         p.description.toLowerCase().includes(q)
-    );
-  }, [offers, query]);
+      );
+    });
+  }, [offers, query, subtypeId]);
 
   const total = selected ? selected.priceNgn * qty : 0;
   const shortfall = total > balance ? total - balance : 0;
@@ -335,6 +358,37 @@ export default function BuyLogsPage() {
           <div className="rounded-[14px] bg-white border border-[#E2E8F0] p-6 text-center text-sm text-[#64748B] flex items-center justify-center gap-2">
             <RefreshCw size={15} className="animate-spin" />
             Loading live {platform} catalog...
+          </div>
+        )}
+
+        {!loading && !catalogError && subtypes.length > 0 && (
+          <div className="rounded-[14px] bg-white border border-[#E2E8F0] p-3">
+            <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-2">
+              Filter listings by type
+            </p>
+            <div className="max-h-52 overflow-y-auto space-y-1">
+              <button
+                type="button"
+                onClick={() => setSubtypeId(null)}
+                className={subtypeRowClass(subtypeId === null)}
+              >
+                <span className="text-[12px] font-semibold">{`All ${platform}`}</span>
+                <span className="text-[10px] text-[#94A3B8] shrink-0">{offers.length} listings</span>
+              </button>
+              {subtypes.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSubtypeId(s.id)}
+                  className={subtypeRowClass(subtypeId === s.id)}
+                >
+                  <span className="text-[12px] font-medium truncate">{s.name}</span>
+                  <span className="text-[10px] text-[#94A3B8] shrink-0">
+                    {s.count} listings · {s.stock} in stock
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
