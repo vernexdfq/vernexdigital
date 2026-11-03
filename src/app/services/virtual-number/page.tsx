@@ -277,6 +277,7 @@ export default function VirtualNumberPage() {
           status: (o.status as Order["status"]) || "waiting",
           code: o.code ? String(o.code) : undefined,
           priceNgn: Number(o.priceNgn) || undefined,
+          wholesaleNgn: Number(o.wholesaleNgn) || undefined,
           createdAt: o.createdAt ? String(o.createdAt) : undefined,
         }));
         const merged = mergeRecentOrders(sessionList, mapped);
@@ -294,14 +295,23 @@ export default function VirtualNumberPage() {
     };
   }, []);
 
-  /* live-sync the markup set from the admin Virtual Numbers page */
+  /* Pricing is shared in the database, not the visitor's browser storage. */
   useEffect(() => {
-    const sync = () => setVnPricing(loadVnPricing());
-    window.addEventListener("vernex-vn-pricing-updated", sync);
-    return () => window.removeEventListener("vernex-vn-pricing-updated", sync);
+    let cancelled = false;
+    const sync = async () => {
+      try {
+        const res = await fetch("/api/vn/pricing", { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && data.ok && data.config) setVnPricing(data.config);
+      } catch { /* current display remains; checkout re-reads server pricing */ }
+    };
+    void sync();
+    const onVisible = () => { if (document.visibilityState === "visible") void sync(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { cancelled = true; document.removeEventListener("visibilitychange", onVisible); };
   }, []);
 
-  /* when the panel markup changes, reprice the loaded routes in place */
+
   useEffect(() => {
     setPrices((prev) =>
       prev.map((o) => ({
@@ -374,7 +384,7 @@ export default function VirtualNumberPage() {
             const wholesale = Number(o.wholesaleNgn) || 0;
             return {
               label: o.label || `Route ${i + 1}`,
-              priceNgn: vnCustomerPrice(wholesale || Number(o.priceNgn) || 0, loadVnPricing()),
+              priceNgn: Number(o.priceNgn) || 0,
               wholesaleNgn: wholesale,
               costUsd: Number(o.costUsd) || 0,
               stock: Number(o.stock) || 0,
@@ -430,7 +440,7 @@ export default function VirtualNumberPage() {
           pool: provider,
           priceNgn: selectedPrice.priceNgn,
           wholesaleNgn: selectedPrice.wholesaleNgn,
-          maxPriceUsd: selectedPrice.costUsd || 0.5,
+          costUsd: selectedPrice.costUsd,
         }),
       });
       const data = await res.json().catch(() => ({}));

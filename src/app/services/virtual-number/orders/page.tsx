@@ -185,6 +185,7 @@ export default function VirtualNumberOrdersPage() {
           status: (o.status as VnOrder["status"]) || "waiting",
           code: o.code ? String(o.code) : undefined,
           priceNgn: Number(o.priceNgn) || undefined,
+          wholesaleNgn: Number(o.wholesaleNgn) || undefined,
           refunded: Boolean(o.refunded),
           createdAt: o.createdAt ? String(o.createdAt) : undefined,
         }));

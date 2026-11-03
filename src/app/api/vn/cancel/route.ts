@@ -44,173 +44,62 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const providerOrderId = String(body.providerOrderId || "").trim();
   const orderId = String(body.orderId || "").trim();
-  let priceNgn = Math.round(Number(body.priceNgn) || 0);
-  let wholesaleNgn = Math.round(Number(body.wholesaleNgn) || 0);
   const provider = String(body.provider || "grizzly").trim().toLowerCase();
-
-  if (!providerOrderId) {
-    return NextResponse.json(
-      { ok: false, error: "providerOrderId required" },
-      { status: 400 },
-    );
-  }
+  if (!providerOrderId) return NextResponse.json({ ok: false, error: "providerOrderId required" }, { status: 400 });
 
   const admin = createServerClient();
+  const lookup = admin.from("vn_orders").select("id, provider_order_id, price_ngn, wholesale_ngn, status, refunded")
+    .eq("user_id", user.id).eq("provider_order_id", providerOrderId);
+  const { data: order, error: lookupError } = orderId ? await lookup.eq("id", orderId).maybeSingle() : await lookup.maybeSingle();
+  if (lookupError || !order) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+  if (order.refunded || order.status === "refunded") return NextResponse.json({ ok: true, cancelled: true, refunded: true, alreadyRefunded: true });
+  if (["cancelled", "expired", "received"].includes(String(order.status))) return NextResponse.json({ ok: false, error: `This order is already ${order.status}.` }, { status: 409 });
+  const priceNgn = Math.round(Number(order.price_ngn) || 0);
+  const wholesaleNgn = Math.round(Number(order.wholesale_ngn) || 0);
+  if (priceNgn <= 0 || wholesaleNgn <= 0) return NextResponse.json({ ok: false, error: "Order pricing is missing; contact support before cancelling." }, { status: 409 });
 
-  // Resolve retail + wholesale from durable order / transaction if client omitted them
-  try {
-    let orderRow: {
-      price_ngn?: number;
-      wholesale_ngn?: number;
-      id?: string;
-    } | null = null;
-
-    if (orderId) {
-      const { data } = await admin
-        .from("vn_orders")
-        .select("id, price_ngn, wholesale_ngn")
-        .eq("id", orderId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      orderRow = data;
-    }
-    if (!orderRow && providerOrderId) {
-      const { data } = await admin
-        .from("vn_orders")
-        .select("id, price_ngn, wholesale_ngn")
-        .eq("provider_order_id", providerOrderId)
-        .eq("user_id", user.id)
-        .maybeSingle();
-      orderRow = data;
-    }
-
-    if (orderRow) {
-      if (priceNgn <= 0 && Number(orderRow.price_ngn) > 0) {
-        priceNgn = Math.round(Number(orderRow.price_ngn));
-      }
-      if (wholesaleNgn <= 0 && Number(orderRow.wholesale_ngn) > 0) {
-        wholesaleNgn = Math.round(Number(orderRow.wholesale_ngn));
-      }
-    }
-
-    if (wholesaleNgn <= 0) {
-      const { data: tx } = await admin
-        .from("transactions")
-        .select("meta, amount")
-        .eq("user_id", user.id)
-        .eq("kind", "virtual_number")
-        .order("created_at", { ascending: false })
-        .limit(20);
-      const match = (tx || []).find((t: { meta?: { providerOrderId?: string; wholesaleNgn?: number } }) => {
-        const m = t.meta || {};
-        return (
-          String(m.providerOrderId || "") === providerOrderId ||
-          Number(m.wholesaleNgn) > 0
-        );
-      });
-      if (match?.meta && Number((match.meta as { wholesaleNgn?: number }).wholesaleNgn) > 0) {
-        wholesaleNgn = Math.round(Number((match.meta as { wholesaleNgn?: number }).wholesaleNgn));
-      }
-    }
-  } catch {
-    /* best-effort lookup */
-  }
-
-  // Fallback: if we only know retail, still tell Verxor something so panel is not stuck
-  const panelRefundNgn = wholesaleNgn > 0 ? wholesaleNgn : priceNgn;
+  // Claim cancellation atomically to prevent double provider calls/refunds.
+  const { data: claimed, error: claimError } = await admin.from("vn_orders").update({ status: "cancelling", updated_at: new Date().toISOString() })
+    .eq("id", order.id).eq("user_id", user.id).eq("status", "waiting").select("id").maybeSingle();
+  if (claimError || !claimed) return NextResponse.json({ ok: false, error: "This order is already being updated. Refresh the order list." }, { status: 409 });
 
   try {
     const res = await verxorFetch("/numbers/cancel", {
       method: "POST",
-      body: JSON.stringify({
-        providerOrderId,
-        orderId: orderId || undefined,
-        // Wholesale amount → Verxor credits reseller_wallet (partner fund)
-        priceNgn: panelRefundNgn,
-        provider,
-      }),
+      body: JSON.stringify({ providerOrderId, orderId: order.id, priceNgn: wholesaleNgn, provider }),
     });
     const data = await res.json().catch(() => ({}));
-
     if (data.earlyDenied) {
-      return NextResponse.json({
-        ok: false,
-        cancelled: false,
-        earlyDenied: true,
-        error: data.error || "Cancel not available yet. Wait a moment and try again.",
-      });
+      await admin.from("vn_orders").update({ status: "waiting", updated_at: new Date().toISOString() }).eq("id", order.id).eq("user_id", user.id);
+      return NextResponse.json({ ok: false, cancelled: false, earlyDenied: true, error: data.error || "Cancel not available yet. Wait a moment and try again." });
+    }
+    if (!res.ok || !data.ok || !data.cancelled || data.providerOk === false) {
+      await admin.from("vn_orders").update({ status: "waiting", updated_at: new Date().toISOString() }).eq("id", order.id).eq("user_id", user.id);
+      return NextResponse.json({ ok: false, error: data.error || "Cancel failed at provider" }, { status: 502 });
+    }
+    if (!data.refunded) {
+      await admin.from("vn_orders").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", order.id).eq("user_id", user.id);
+      return NextResponse.json({ ok: false, cancelled: true, refunded: false, error: "Number cancelled, but the panel refund is still being reconciled. Contact support before retrying." }, { status: 202 });
     }
 
-    if (!res.ok && !data.ok && !data.cancelled) {
-      return NextResponse.json(
-        { ok: false, error: data.error || "Cancel failed at provider" },
-        { status: 502 },
-      );
-    }
-
-    // Refund end-user retail balance on this panel
-    let refunded = false;
-    if (priceNgn > 0) {
-      const { data: wallet } = await admin
-        .from("wallets")
-        .select("balance")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const bal = Number(wallet?.balance) || 0;
-      const newBal = Math.round((bal + priceNgn) * 100) / 100;
-      const { error: creditErr } = await admin
-        .from("wallets")
-        .update({ balance: newBal, updated_at: new Date().toISOString() })
-        .eq("user_id", user.id);
-
-      if (!creditErr) {
-        refunded = true;
-        await admin.from("transactions").insert({
-          user_id: user.id,
-          kind: "virtual_number_refund",
-          title: "Virtual number cancelled — refund",
-          amount: priceNgn,
-          status: "completed",
-          meta: {
-            providerOrderId,
-            orderId: orderId || null,
-            wholesaleNgn: panelRefundNgn,
-            panelRefunded: Boolean(data.refunded),
-            reason: "user_cancel",
-          },
-        });
-      }
-    }
-
-    try {
-      const patch = {
-        status: refunded ? "refunded" : "cancelled",
-        refunded,
-        updated_at: new Date().toISOString(),
-      };
-      if (orderId) {
-        await admin.from("vn_orders").update(patch).eq("id", orderId).eq("user_id", user.id);
-      } else {
-        await admin
-          .from("vn_orders")
-          .update(patch)
-          .eq("provider_order_id", providerOrderId)
-          .eq("user_id", user.id);
-      }
-    } catch {
-      /* non-fatal */
-    }
-
-    return NextResponse.json({
-      ok: true,
-      cancelled: true,
-      refunded,
-      panelRefunded: Boolean(data.refunded),
-      priceNgn,
-      wholesaleNgn: panelRefundNgn,
+    const refundKey = `vn-cancel:${providerOrderId}`;
+    const refund = await admin.rpc("vn_wallet_refund", {
+      p_user_id: user.id, p_amount: priceNgn, p_refund_key: refundKey,
+      p_title: "Virtual number cancelled — refund",
+      p_meta: { providerOrderId, orderId: order.id, wholesaleNgn, panelRefunded: true, reason: "user_cancel" },
     });
+    const refundOk = !refund.error && Boolean((refund.data as { ok?: boolean } | null)?.ok);
+    if (!refundOk) {
+      await admin.from("vn_orders").update({ status: "cancelled", updated_at: new Date().toISOString() }).eq("id", order.id).eq("user_id", user.id);
+      return NextResponse.json({ ok: false, cancelled: true, refunded: false, error: "Number cancelled and panel balance restored, but your wallet refund needs reconciliation. Contact support." }, { status: 202 });
+    }
+    const { error: orderUpdateError } = await admin.from("vn_orders").update({ status: "refunded", refunded: true, updated_at: new Date().toISOString() }).eq("id", order.id).eq("user_id", user.id);
+    if (orderUpdateError) console.error("VN cancellation order update failed after refund", { orderId: order.id, error: orderUpdateError.message });
+    return NextResponse.json({ ok: true, cancelled: true, refunded: true, priceNgn, wholesaleNgn });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Cancel failed";
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    // Provider outcome may be unknown after a network error; keep the order locked for reconciliation.
+    await admin.from("vn_orders").update({ status: "cancel_refund_pending", updated_at: new Date().toISOString() }).eq("id", order.id).eq("user_id", user.id);
+    const message = e instanceof Error ? e.message : "Cancel outcome unknown";
+    return NextResponse.json({ ok: false, pending: true, error: `Cancellation outcome needs reconciliation. Contact support before retrying. ${message}` }, { status: 202 });
   }
 }

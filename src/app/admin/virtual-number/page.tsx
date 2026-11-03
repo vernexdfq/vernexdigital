@@ -16,7 +16,6 @@ import {
 } from "lucide-react";
 import {
   loadVnPricing,
-  saveVnPricing,
   type VnPricingConfig,
   type VnTierId,
 } from "@/lib/vn-panel-pricing";
@@ -111,6 +110,7 @@ export default function VnPricingAdminPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drafts, setDrafts] = useState<Record<VnTierId, TierDraft>>(() => draftsFromConfig(loadVnPricing()));
   const [saving, setSaving] = useState(false);
+  const [pricingLoaded, setPricingLoaded] = useState(false);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -118,6 +118,21 @@ export default function VnPricingAdminPage() {
     const timer = window.setTimeout(() => setToast(""), 2600);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/vn/pricing", { credentials: "include", cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.ok && data.config) setDrafts(draftsFromConfig(data.persisted ? data.config : loadVnPricing()));
+        else setToast(data.error || "Could not load shared pricing");
+        setPricingLoaded(Boolean(data.ok));
+      })
+      .catch(() => { if (!cancelled) { setToast("Could not load shared pricing"); setPricingLoaded(false); } });
+    return () => { cancelled = true; };
+  }, []);
 
   function setDraft(id: VnTierId, field: keyof TierDraft, value: string) {
     const clean = field === "markup" ? value.replace(/[^0-9.]/g, "").slice(0, 5) : value.replace(/[^0-9]/g, "");
@@ -182,8 +197,8 @@ export default function VnPricingAdminPage() {
     });
   }, [drafts]);
 
-  function save() {
-    if (!valid || saving) return;
+  async function save() {
+    if (!valid || saving || !pricingLoaded) return;
     setSaving(true);
     try {
       const config: VnPricingConfig = {
@@ -194,8 +209,18 @@ export default function VnPricingAdminPage() {
           premium: { minNgn: Number(drafts.premium.min), maxNgn: null, markup: Number(drafts.premium.markup) },
         },
       };
-      saveVnPricing(config);
-      setToast("Pricing saved — customer prices updated");
+      const { createBrowserClient } = await import("@/lib/supabase/client");
+      const supabase = createBrowserClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (sessionData.session?.access_token) headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+      const res = await fetch("/api/vn/pricing", { method: "PUT", credentials: "include", headers, body: JSON.stringify({ config }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) throw new Error(data.error || "Could not save pricing");
+      setDrafts(draftsFromConfig(data.config));
+      setToast("Pricing saved for all customers");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Could not save pricing");
     } finally {
       setSaving(false);
     }
@@ -332,11 +357,11 @@ export default function VnPricingAdminPage() {
         <button
           type="button"
           onClick={save}
-          disabled={!valid || saving}
+          disabled={!valid || saving || !pricingLoaded}
           className="flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1877F2] text-[14px] font-bold text-white shadow-[0_8px_20px_rgba(24,119,242,0.3)] transition active:scale-[0.99] disabled:opacity-50"
         >
           <Save size={18} strokeWidth={2.6} />
-          {saving ? "Saving…" : "Save Changes"}
+          {saving ? "Saving…" : !pricingLoaded ? "Loading pricing…" : "Save Changes"}
         </button>
         {!valid && (
           <p className="-mt-2 text-center text-[11px] font-medium text-slate-400">

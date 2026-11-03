@@ -49,6 +49,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const admin = createServerClient();
+  const ownedQuery = admin.from("vn_orders").select("id, provider_order_id").eq("user_id", user.id).eq("provider_order_id", providerOrderId);
+  const { data: ownedOrder, error: ownedError } = orderId
+    ? await ownedQuery.eq("id", orderId).maybeSingle()
+    : await ownedQuery.maybeSingle();
+  if (ownedError || !ownedOrder) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+
   try {
     const qs = new URLSearchParams({ provider, providerOrderId });
     if (orderId) qs.set("orderId", orderId);
@@ -70,7 +77,6 @@ export async function GET(req: NextRequest) {
 
     // Persist OTP / status for this user
     try {
-      const admin = createServerClient();
       const patch: Record<string, unknown> = {
         status: status === "received" ? "received" : status,
         updated_at: new Date().toISOString(),
@@ -78,17 +84,11 @@ export async function GET(req: NextRequest) {
       if (otp) patch.otp_code = otp;
 
       if (orderId) {
-        await admin
-          .from("vn_orders")
-          .update(patch)
-          .eq("id", orderId)
-          .eq("user_id", user.id);
+        const { error: persistError } = await admin.from("vn_orders").update(patch).eq("id", orderId).eq("user_id", user.id);
+        if (persistError) console.error("VN OTP persistence failed", { orderId, error: persistError.message });
       } else {
-        await admin
-          .from("vn_orders")
-          .update(patch)
-          .eq("provider_order_id", providerOrderId)
-          .eq("user_id", user.id);
+        const { error: persistError } = await admin.from("vn_orders").update(patch).eq("provider_order_id", providerOrderId).eq("user_id", user.id);
+        if (persistError) console.error("VN status persistence failed", { providerOrderId, error: persistError.message });
       }
     } catch {
       /* non-fatal */

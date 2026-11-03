@@ -27,15 +27,16 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const requestedLimit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 50));
     const admin = createServerClient();
     const { data, error } = await admin
       .from("vn_orders")
       .select(
-        "id, provider, provider_order_id, phone, service, country, pool_id, price_ngn, status, otp_code, refunded, created_at, updated_at",
+        "id, provider, provider_order_id, phone, service, country, pool_id, price_ngn, wholesale_ngn, status, otp_code, refunded, created_at, updated_at",
       )
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(requestedLimit);
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -51,6 +52,7 @@ export async function GET(req: NextRequest) {
       country: o.country,
       poolId: o.pool_id,
       priceNgn: Number(o.price_ngn) || 0,
+      wholesaleNgn: Number(o.wholesale_ngn) || 0,
       status: o.status,
       code: o.otp_code || undefined,
       refunded: Boolean(o.refunded),

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSharedVnPricing } from "@/lib/vn-pricing-server";
+import { vnCustomerPrice } from "@/lib/vn-panel-pricing";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 import {
   WHOLESALE_MULT,
@@ -32,6 +34,7 @@ export async function GET(req: NextRequest) {
   const serviceCode =
     SERVICE_NAME_TO_CODE[serviceRaw] || serviceRaw.toLowerCase() || "";
 
+  const pricingConfig = await getSharedVnPricing();
   const { configured } = verxorConfig();
 
   if (!configured) {
@@ -63,7 +66,7 @@ export async function GET(req: NextRequest) {
             label: "Route 1",
             costUsd: demoUsd,
             wholesaleNgn: q.wholesaleNgn,
-            priceNgn: q.priceNgn,
+            priceNgn: vnCustomerPrice(q.wholesaleNgn, pricingConfig),
             wholesaleMult: q.wholesaleMult,
             retailMult: q.retailMult,
             stock: 99,
@@ -121,7 +124,7 @@ export async function GET(req: NextRequest) {
           if (costUsd != null && costUsd > 0) {
             const q = quoteFromProviderUsd(costUsd, tier);
             wholesale = q.wholesaleNgn;
-            retail = q.priceNgn;
+            retail = vnCustomerPrice(q.wholesaleNgn, pricingConfig);
             wholesaleMult = q.wholesaleMult;
             retailMult = q.retailMult;
           } else {
@@ -131,7 +134,7 @@ export async function GET(req: NextRequest) {
                 : null,
               tier,
             });
-            retail = endUserPriceNgn(wholesale);
+            retail = vnCustomerPrice(wholesale, pricingConfig);
           }
 
           return {
@@ -143,7 +146,7 @@ export async function GET(req: NextRequest) {
             grizzlyCountry: o.grizzlyCountry || country || "",
             tier,
             wholesaleMult,
-            retailMult,
+            retailMult: retail / Math.max(1, wholesale),
           };
         },
       );
