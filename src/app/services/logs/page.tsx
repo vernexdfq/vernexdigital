@@ -15,6 +15,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Check,
+  ChevronDown,
   Copy,
   CircleAlert,
   Package,
@@ -153,6 +154,7 @@ export default function BuyLogsPage() {
   const [query, setQuery] = useState("");
   const [subtypes, setSubtypes] = useState<CatalogSubtype[]>([]);
   const [subtypeId, setSubtypeId] = useState<number | null>(null);
+  const [subtypesOpen, setSubtypesOpen] = useState(false);
   const [selected, setSelected] = useState<LogOffer | null>(null);
   const [qty, setQty] = useState(1);
   const [ordering, setOrdering] = useState(false);
@@ -173,6 +175,7 @@ export default function BuyLogsPage() {
       setOffers((Array.isArray(data.offers) ? data.offers : []) as LogOffer[]);
       setSubtypes((Array.isArray(data.subtypes) ? data.subtypes : []) as CatalogSubtype[]);
       setSubtypeId(null);
+      setSubtypesOpen(false);
     } catch (e) {
       setCatalogError(e instanceof Error ? e.message : "Catalog error");
       setOffers([]);
@@ -363,50 +366,71 @@ export default function BuyLogsPage() {
 
         {!loading && !catalogError && subtypes.length > 0 && (
           <div className="rounded-[14px] bg-white border border-[#E2E8F0] overflow-hidden">
-            <div className="px-3.5 pt-3 pb-2 flex items-end justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[13px] font-semibold text-[#0F172A] leading-tight truncate">
-                  {platform} Categories ({subtypes.length})
-                </p>
-                <p className="text-[11px] text-[#94A3B8] leading-tight mt-0.5">
-                  Filter listings by type
-                </p>
-              </div>
+            <div className="flex items-stretch gap-1 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => setSubtypesOpen((o) => !o)}
+                aria-expanded={subtypesOpen}
+                className="flex-1 min-w-0 min-h-11 px-2.5 rounded-[10px] bg-[#F8FAFC] flex items-center justify-between gap-2 text-left active:bg-[#F1F5F9] transition"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-semibold text-[#0F172A] truncate">
+                    {subtypeId !== null
+                      ? subtypes.find((s) => s.id === subtypeId)?.name ?? `All ${platform}`
+                      : `All ${platform}`}
+                  </span>
+                  <span className="block text-[10.5px] text-[#94A3B8] truncate">
+                    {subtypes.length} categories · tap to {subtypesOpen ? "close" : "filter"}
+                  </span>
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-[#64748B] transition-transform ${subtypesOpen ? "rotate-180" : ""}`}
+                />
+              </button>
               {subtypeId !== null && (
                 <button
                   type="button"
                   onClick={() => setSubtypeId(null)}
-                  className="text-[11px] font-medium text-[#1877F2] shrink-0"
+                  className="shrink-0 px-2 text-[11px] font-medium text-[#1877F2]"
                 >
                   Reset
                 </button>
               )}
             </div>
-            <div className="max-h-56 overflow-y-auto px-2 pb-2 space-y-1 [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
-              <button
-                type="button"
-                onClick={() => setSubtypeId(null)}
-                className={subtypeRowClass(subtypeId === null)}
-              >
-                <span className="text-[12px] font-semibold truncate min-w-0">{`All ${platform}`}</span>
-                <span className="text-[10px] text-[#94A3B8] shrink-0 whitespace-nowrap">
-                  {offers.length} listings
-                </span>
-              </button>
-              {subtypes.map((s) => (
+            {subtypesOpen && (
+              <div className="max-h-56 overflow-y-auto px-2 pb-2 space-y-1 border-t border-[#F1F5F9] [-ms-overflow-style:'none'] [scrollbar-width:'none'] [&::-webkit-scrollbar]:hidden">
                 <button
-                  key={s.id}
                   type="button"
-                  onClick={() => setSubtypeId(s.id)}
-                  className={subtypeRowClass(subtypeId === s.id)}
+                  onClick={() => {
+                    setSubtypeId(null);
+                    setSubtypesOpen(false);
+                  }}
+                  className={subtypeRowClass(subtypeId === null)}
                 >
-                  <span className="text-[12px] font-medium truncate min-w-0">{s.name}</span>
+                  <span className="text-[12px] font-semibold truncate min-w-0">{`All ${platform}`}</span>
                   <span className="text-[10px] text-[#94A3B8] shrink-0 whitespace-nowrap">
-                    {s.count} listings · {s.stock.toLocaleString("en-US")} in stock
+                    {offers.length} listings
                   </span>
                 </button>
-              ))}
-            </div>
+                {subtypes.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setSubtypeId(s.id);
+                      setSubtypesOpen(false);
+                    }}
+                    className={subtypeRowClass(subtypeId === s.id)}
+                  >
+                    <span className="text-[12px] font-medium truncate min-w-0">{s.name}</span>
+                    <span className="text-[10px] text-[#94A3B8] shrink-0 whitespace-nowrap">
+                      {s.count} listings · {s.stock.toLocaleString("en-US")} in stock
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
