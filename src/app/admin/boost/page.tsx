@@ -17,9 +17,15 @@ type PartnerMult = { label: string; band: string; mult: number };
 type PricingData = {
   markup: number;
   persisted: boolean;
-  usdNgn: number;
   partnerMults: PartnerMult[];
   note: string;
+};
+
+const TIER_BLURBS: Record<string, string> = {
+  Economy: "Cheapest services",
+  Standard: "Mid-range services",
+  Fast: "Faster delivery services",
+  Premium: "Highest quality services",
 };
 
 function formatNgn(n: number) {
@@ -29,14 +35,8 @@ function formatNgn(n: number) {
   });
 }
 
-function partnerMultFor(usd: number): number {
-  if (usd <= 0.5) return 2.0;
-  if (usd <= 1.0) return 1.7;
-  if (usd <= 2.0) return 1.35;
-  return 1.15;
-}
-
-const EXAMPLES = [0.25, 0.75, 1.5, 3.0];
+/* Example wholesale prices per 1,000, in Naira — the price coming from Verxor. */
+const EXAMPLES = [500, 1000, 2500, 5000];
 
 export default function BoostPricingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -139,8 +139,9 @@ export default function BoostPricingPage() {
                 </span>
               </div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                What you pay per 1,000, by provider wholesale cost band (USD → ₦
-                {data.usdNgn.toLocaleString("en-NG")}).
+                What you pay per 1,000, in Naira, by service tier. If the Verxor
+                Naira rate ever changes, all prices update automatically — your
+                markup and margin stay exactly as you set them.
               </p>
               <div className="mt-3 overflow-hidden rounded-2xl border border-[#E8EEF5]">
                 {data.partnerMults.map((m, i) => (
@@ -153,7 +154,9 @@ export default function BoostPricingPage() {
                   >
                     <div>
                       <p className="font-extrabold text-[#0F172A]">{m.label}</p>
-                      <p className="text-[11px] font-semibold text-[#94A3B8]">{m.band} wholesale</p>
+                      <p className="text-[11px] font-semibold text-[#94A3B8]">
+                        {TIER_BLURBS[m.label] || "Services"}
+                      </p>
                     </div>
                     <p className="font-extrabold tabular-nums text-[#1877F2]">× {m.mult}</p>
                   </div>
@@ -169,8 +172,9 @@ export default function BoostPricingPage() {
                 </span>
               </div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Customers pay: Verxor partner rate × (1 + markup). Change it any
-                time — new prices apply to the boost catalog within a few minutes.
+                Customers pay: the Naira price from Verxor × (1 + markup). Change
+                it any time — new prices apply to the boost catalog within a few
+                minutes.
               </p>
 
               <div className="mt-4 flex items-center gap-3">
@@ -214,38 +218,43 @@ export default function BoostPricingPage() {
                 Price preview
               </span>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Example prices per 1,000 at your current markup ({currentMarkup}%).
+                Example prices per 1,000, all in Naira, at your current markup
+                ({currentMarkup}%).
               </p>
               <div className="mt-3 overflow-hidden rounded-2xl border border-[#E8EEF5]">
                 <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
-                  <span>Wholesale</span>
-                  <span>You pay</span>
-                  <span>Customer pays</span>
+                  <span>You pay Verxor</span>
+                  <span>Customer pays you</span>
+                  <span>Your margin</span>
                 </div>
-                {EXAMPLES.map((usd, i) => {
-                  const partner = Math.round(usd * partnerMultFor(usd) * data.usdNgn * 100) / 100;
+                {EXAMPLES.map((partner, i) => {
                   const retail = Math.round(partner * (1 + currentMarkup / 100) * 100) / 100;
+                  const margin = Math.round((retail - partner) * 100) / 100;
                   return (
                     <div
-                      key={usd}
+                      key={partner}
                       className={
                         "flex items-center justify-between px-4 py-3 text-[12px] " +
                         (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
                       }
                     >
-                      <span className="font-semibold text-[#64748B]">${usd.toFixed(2)}</span>
                       <span className="font-extrabold tabular-nums text-[#0F172A]">
                         ₦{formatNgn(partner)}
                       </span>
                       <span className="font-extrabold tabular-nums text-[#1877F2]">
                         ₦{formatNgn(retail)}
                       </span>
+                      <span className="font-extrabold tabular-nums text-emerald-600">
+                        +₦{formatNgn(margin)}
+                      </span>
                     </div>
                   );
                 })}
               </div>
-              <p className="mt-3 text-[11px] text-[#94A3B8]">
-                {data.note}
+              <p className="mt-3 text-[11px] leading-relaxed text-[#94A3B8]">
+                All prices are in Naira. Your markup applies on top of the Naira
+                price from Verxor, so if the base rate ever changes, both sides
+                adjust automatically — your margin percentage is always preserved.
               </p>
             </section>
           </>
