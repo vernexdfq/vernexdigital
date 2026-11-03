@@ -15,7 +15,7 @@ export const BOOST_DEFAULT_MARKUPS: Record<BoostTier, number> = {
   premium: 1.25,
 };
 
-/** Tier metadata safe to show the panel (labels + sample prices, no Verxor internals). */
+/** Tier metadata safe to show the panel (labels only, no Verxor internals). */
 export const BOOST_TIER_META: Record<
   BoostTier,
   { label: string; blurb: string; sampleNgn: number }
@@ -44,7 +44,8 @@ export function partnerRatePer1000(wholesaleUsd: number): number {
   return Math.round(wholesaleUsd * partnerMult(wholesaleUsd) * USD_NGN * 100) / 100;
 }
 
-function tierFromWholesaleUsd(usd: number): BoostTier {
+/** Classify a provider service into a tier (server-side only). */
+export function tierFromWholesaleUsd(usd: number): BoostTier {
   if (usd <= 0.5) return "economy";
   if (usd <= 1.0) return "standard";
   if (usd <= 2.0) return "fast";

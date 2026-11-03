@@ -6,19 +6,24 @@ import {
   BOOST_DEFAULT_MARKUPS,
   BOOST_TIERS,
   BOOST_TIER_META,
+  partnerRatePer1000,
+  tierFromWholesaleUsd,
   type BoostTier,
 } from "@/lib/boost-pricing";
 import { getSharedBoostPricing } from "@/lib/boost-pricing-server";
+import { getAuthoritativeCatalog } from "@/lib/boost-catalog-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/boost/pricing — tier multipliers the panel charges its customers.
+ * GET /api/boost/pricing — tier multipliers the panel charges its customers,
+ * plus live example prices from the Verxor catalog so the panel can see the
+ * Naira price coming from Verxor for real services.
  * PUT /api/boost/pricing — admin-only, saves per-tier multipliers.
  *
  * The panel sees only Verxor Naira prices and its own multipliers.
- * Verxor wholesale/partner figures are never exposed here.
+ * Verxor wholesale USD and partner multipliers are never exposed here.
  */
 
 async function isAdmin(req: NextRequest) {
@@ -39,19 +44,56 @@ async function isAdmin(req: NextRequest) {
   return Boolean(profile?.is_admin);
 }
 
+type SampleService = { name: string; priceNgn: number };
+
 export async function GET() {
   const { markups, persisted } = await getSharedBoostPricing();
+
+  const tiers = BOOST_TIERS.map((t: BoostTier) => ({
+    id: t,
+    label: BOOST_TIER_META[t].label,
+    blurb: BOOST_TIER_META[t].blurb,
+    sampleNgn: BOOST_TIER_META[t].sampleNgn,
+    count: 0,
+    minNgn: null as number | null,
+    samples: [] as SampleService[],
+  }));
+
+  let live = false;
+  try {
+    const { data: catalog } = await getAuthoritativeCatalog({ allowStale: true });
+    if (catalog?.services?.length) {
+      const byTier = new Map<BoostTier, SampleService[]>();
+      for (const s of catalog.services as Array<Record<string, unknown>>) {
+        const usd = Number(s.wholesaleUsd) || 0;
+        const tier = tierFromWholesaleUsd(usd);
+        const price = partnerRatePer1000(usd);
+        if (price <= 0) continue;
+        const name = String(s.name || s.title || "Service");
+        const list = byTier.get(tier) ?? [];
+        list.push({ name, priceNgn: price });
+        byTier.set(tier, list);
+      }
+      live = byTier.size > 0;
+      for (const tier of BOOST_TIERS) {
+        const items = (byTier.get(tier) ?? []).sort((a, b) => a.priceNgn - b.priceNgn);
+        const row = tiers.find((t) => t.id === tier)!;
+        row.count = items.length;
+        row.minNgn = items.length ? items[0].priceNgn : null;
+        row.samples = items.slice(0, 3);
+      }
+    }
+  } catch {
+    /* catalog unavailable — fall back to static examples */
+  }
+
   return NextResponse.json({
     ok: true,
     persisted,
     markups,
     defaultMarkups: BOOST_DEFAULT_MARKUPS,
-    tiers: BOOST_TIERS.map((t: BoostTier) => ({
-      id: t,
-      label: BOOST_TIER_META[t].label,
-      blurb: BOOST_TIER_META[t].blurb,
-      sampleNgn: BOOST_TIER_META[t].sampleNgn,
-    })),
+    live,
+    tiers,
     note: "Boost service prices come from Verxor in Naira. Customers pay the Verxor price × your tier multiplier.",
   });
 }

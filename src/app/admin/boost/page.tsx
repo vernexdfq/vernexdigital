@@ -11,20 +11,27 @@ import {
   CircleAlert,
   Check,
   Percent,
+  RefreshCw,
 } from "lucide-react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import { createBrowserClient } from "@/lib/supabase/client";
+
+type SampleService = { name: string; priceNgn: number };
 
 type TierInfo = {
   id: "economy" | "standard" | "fast" | "premium";
   label: string;
   blurb: string;
   sampleNgn: number;
+  count: number;
+  minNgn: number | null;
+  samples: SampleService[];
 };
 
 type PricingData = {
   markups: Record<string, number>;
   persisted: boolean;
+  live: boolean;
   tiers: TierInfo[];
   note: string;
 };
@@ -50,6 +57,11 @@ function formatNgn(n: number) {
   });
 }
 
+function shortenName(name: string) {
+  const cleaned = name.replace(/\[+/g, "· ").replace(/\]/g, "");
+  return cleaned.length > 38 ? cleaned.slice(0, 38) + "…" : cleaned;
+}
+
 export default function BoostPricingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState<PricingData | null>(null);
@@ -59,27 +71,31 @@ export default function BoostPricingPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/boost/pricing", { cache: "no-store" });
-        const payload = await res.json().catch(() => ({}));
-        if (res.ok && payload.ok) {
-          setData(payload);
-          const d: Record<string, string> = {};
-          for (const t of payload.tiers as TierInfo[]) {
-            d[t.id] = String(payload.markups?.[t.id] ?? "1.25");
-          }
-          setDrafts(d);
-        } else {
-          setError(payload.error || "Could not load pricing.");
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/boost/pricing", { cache: "no-store" });
+      const payload = await res.json().catch(() => ({}));
+      if (res.ok && payload.ok) {
+        setData(payload);
+        const d: Record<string, string> = {};
+        for (const t of payload.tiers as TierInfo[]) {
+          d[t.id] = String(payload.markups?.[t.id] ?? "1.25");
         }
-      } catch {
-        setError("Could not load pricing.");
-      } finally {
-        setLoading(false);
+        setDrafts(d);
+      } else {
+        setError(payload.error || "Could not load pricing.");
       }
-    })();
+    } catch {
+      setError("Could not load pricing.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
   }, []);
 
   async function save() {
@@ -121,6 +137,11 @@ export default function BoostPricingPage() {
       setSaving(false);
     }
   }
+
+  const mult = (id: string) => {
+    const m = Number(drafts[id]);
+    return Number.isFinite(m) && m >= 1 && m <= 10 ? m : 1.25;
+  };
 
   return (
     <div className="min-h-screen bg-[#F4F7FB]">
@@ -166,8 +187,6 @@ export default function BoostPricingPage() {
 
               <div className="mt-4 space-y-3">
                 {data.tiers.map((t) => {
-                  const mult = Number(drafts[t.id]) || 0;
-                  const customer = Math.round(t.sampleNgn * (mult > 0 ? mult : 1.25) * 100) / 100;
                   return (
                     <div
                       key={t.id}
@@ -183,7 +202,11 @@ export default function BoostPricingPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-extrabold text-[#0F172A]">{t.label}</p>
-                        <p className="text-[11px] font-semibold text-[#94A3B8]">{t.blurb}</p>
+                        <p className="text-[11px] font-semibold text-[#94A3B8]">
+                          {t.count > 0
+                            ? `${t.count.toLocaleString("en-NG")} services · from ₦${formatNgn(t.minNgn ?? 0)} / 1K`
+                            : t.blurb}
+                        </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2">
                         <span className="text-[12px] font-extrabold text-[#94A3B8]">×</span>
@@ -227,48 +250,124 @@ export default function BoostPricingPage() {
             </section>
 
             <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
-              <span className="text-[13px] font-bold text-[#0F172A]">Price preview</span>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Example prices per 1,000, all in Naira, at your current
-                multipliers.
-              </p>
-              <div className="mt-3 overflow-hidden rounded-2xl border border-[#E8EEF5]">
-                <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
-                  <span>Verxor price</span>
-                  <span>Customer pays you</span>
-                  <span>Your margin</span>
-                </div>
-                {data.tiers.map((t, i) => {
-                  const mult = Number(drafts[t.id]) || 1.25;
-                  const customer = Math.round(t.sampleNgn * mult * 100) / 100;
-                  const margin = Math.round((customer - t.sampleNgn) * 100) / 100;
-                  return (
-                    <div
-                      key={t.id}
-                      className={
-                        "flex items-center justify-between px-4 py-3 text-[12px] " +
-                        (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
-                      }
-                    >
-                      <span className="font-extrabold tabular-nums text-[#0F172A]">
-                        ₦{formatNgn(t.sampleNgn)}
-                      </span>
-                      <span className="font-extrabold tabular-nums text-[#1877F2]">
-                        ₦{formatNgn(customer)}
-                      </span>
-                      <span className="font-extrabold tabular-nums text-emerald-600">
-                        +₦{formatNgn(margin)}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[13px] font-bold text-[#0F172A]">
+                  Price preview — live from Verxor
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void load()}
+                  disabled={loading}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#DCE3EE] bg-white px-2.5 text-[11px] font-bold text-[#1877F2] shadow-sm active:scale-[0.98]"
+                >
+                  <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+                  Refresh
+                </button>
               </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-[#94A3B8]">
-                All prices are in Naira. Your multipliers apply on top of the
-                Naira price from Verxor — if the base rate ever changes, both
-                sides adjust automatically and your margin percentage is always
-                preserved.
+              <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
+                Real service prices coming from Verxor right now, in Naira, with
+                what your customers pay at your current multipliers. When Verxor
+                updates a price, it updates here too.
               </p>
+
+              {data.live ? (
+                <div className="mt-4 space-y-4">
+                  {data.tiers.map((t) => {
+                    const samples = t.samples ?? [];
+                    if (!samples.length) return null;
+                    const m = mult(t.id);
+                    return (
+                      <div key={t.id}>
+                        <div className="mb-1.5 flex items-center gap-2 px-0.5">
+                          <span
+                            className={
+                              "flex h-6 w-6 items-center justify-center rounded-lg " +
+                              (TIER_ACCENTS[t.id] || "bg-[#EFF6FF] text-[#1877F2]")
+                            }
+                          >
+                            <span className="text-[9px] font-extrabold">×{m}</span>
+                          </span>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#94A3B8]">
+                            {t.label} · {t.count.toLocaleString("en-NG")} services
+                          </p>
+                        </div>
+                        <div className="overflow-hidden rounded-2xl border border-[#E8EEF5]">
+                          <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
+                            <span className="flex-1">Service (from Verxor)</span>
+                            <span className="w-[86px] text-right">Verxor price</span>
+                            <span className="w-[86px] text-right">Customer pays</span>
+                            <span className="w-[74px] text-right">Margin</span>
+                          </div>
+                          {samples.map((s, i) => {
+                            const customer = Math.round(s.priceNgn * m * 100) / 100;
+                            const margin = Math.round((customer - s.priceNgn) * 100) / 100;
+                            return (
+                              <div
+                                key={t.id + i}
+                                className={
+                                  "flex items-center justify-between px-4 py-2.5 text-[11px] " +
+                                  (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
+                                }
+                              >
+                                <span className="flex-1 min-w-0 truncate pr-2 font-semibold text-[#0F172A]">
+                                  {shortenName(s.name)}
+                                </span>
+                                <span className="w-[86px] text-right font-extrabold tabular-nums text-[#0F172A]">
+                                  ₦{formatNgn(s.priceNgn)}
+                                </span>
+                                <span className="w-[86px] text-right font-extrabold tabular-nums text-[#1877F2]">
+                                  ₦{formatNgn(customer)}
+                                </span>
+                                <span className="w-[74px] text-right font-extrabold tabular-nums text-emerald-600">
+                                  +₦{formatNgn(margin)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <p className="pt-1 text-center text-[11px] text-[#94A3B8]">
+                    Showing the 3 cheapest services per tier. All prices are per 1,000, in Naira.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[#E8EEF5]">
+                  <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
+                    <span>Verxor price</span>
+                    <span>Customer pays you</span>
+                    <span>Your margin</span>
+                  </div>
+                  {data.tiers.map((t, i) => {
+                    const m = mult(t.id);
+                    const customer = Math.round(t.sampleNgn * m * 100) / 100;
+                    const margin = Math.round((customer - t.sampleNgn) * 100) / 100;
+                    return (
+                      <div
+                        key={t.id}
+                        className={
+                          "flex items-center justify-between px-4 py-3 text-[12px] " +
+                          (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
+                        }
+                      >
+                        <span className="font-extrabold tabular-nums text-[#0F172A]">
+                          ₦{formatNgn(t.sampleNgn)}
+                        </span>
+                        <span className="font-extrabold tabular-nums text-[#1877F2]">
+                          ₦{formatNgn(customer)}
+                        </span>
+                        <span className="font-extrabold tabular-nums text-emerald-600">
+                          +₦{formatNgn(margin)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <p className="bg-white px-4 pb-3 text-[11px] text-[#94A3B8]">
+                    Live Verxor prices are unavailable right now — showing example prices.
+                  </p>
+                </div>
+              )}
             </section>
           </>
         ) : null}
