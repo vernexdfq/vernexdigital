@@ -8,12 +8,13 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/admin/cashback
  *
- * Cashback the panel has earned from completed bill orders:
+ * Unclaimed cashback the panel has earned from completed bill orders:
  *   cashback = what the customer paid (face value)
  *            - what Verxor charged the panel (meta.panelCharge).
  *
  * Aggregated per service kind. Any future service that logs
  * `panelCharge` on its completed transactions appears automatically.
+ * Orders already moved to the wallet (meta.cashbackClaimedAt) are excluded.
  */
 
 const SERVICE_LABELS: Record<string, string> = {
@@ -81,6 +82,8 @@ export async function GET(req: NextRequest) {
     for (const t of (txns ?? []) as Array<Record<string, unknown>>) {
       const kind = String(t.kind || "other");
       const meta = (t.meta && typeof t.meta === "object" ? t.meta : {}) as Record<string, unknown>;
+      // Skip cashback that has already been moved to the panel wallet
+      if (meta.cashbackClaimedAt) continue;
       const panelCharge = Number(meta.panelCharge);
       // Skip orders without a recorded wholesale charge (older records)
       if (!Number.isFinite(panelCharge) || panelCharge <= 0) continue;

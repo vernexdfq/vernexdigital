@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Hash,
+  Plus,
   Signal,
   Tv,
   User,
@@ -162,6 +163,9 @@ export default function AdminPartnerFundPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [cashback, setCashback] = useState<CashbackSummary | null>(null);
   const [cashbackLoading, setCashbackLoading] = useState(true);
+  const [claiming, setClaiming] = useState(false);
+  const [claimMessage, setClaimMessage] = useState("");
+  const [claimError, setClaimError] = useState("");
 
   const expireLeft = useExpireCountdown(
     state.status === "ready" ? state.account.expireAt : null,
@@ -196,43 +200,80 @@ export default function AdminPartnerFundPage() {
     };
   }, [state.status]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setCashbackLoading(true);
-      try {
-        const supabase = createBrowserClient();
-        const { data: sessionData } = await supabase.auth.getSession();
-        const headers: Record<string, string> = {};
-        if (sessionData.session?.access_token) {
-          headers.Authorization = `Bearer ${sessionData.session.access_token}`;
-        }
-        const res = await fetch("/api/admin/cashback", {
-          credentials: "include",
-          cache: "no-store",
-          headers,
-        }).catch(() => null);
-        if (cancelled) return;
-        const data = res ? await res.json().catch(() => ({})) : {};
-        if (res?.ok && data.ok) {
-          setCashback({
-            services: Array.isArray(data.services) ? data.services : [],
-            totalCashback: Number(data.totalCashback) || 0,
-            totalOrders: Number(data.totalOrders) || 0,
-          });
-        } else {
-          setCashback(null);
-        }
-      } catch {
-        if (!cancelled) setCashback(null);
-      } finally {
-        if (!cancelled) setCashbackLoading(false);
+  const loadCashback = useCallback(async () => {
+    setCashbackLoading(true);
+    try {
+      const supabase = createBrowserClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {};
+      if (sessionData.session?.access_token) {
+        headers.Authorization = `Bearer ${sessionData.session.access_token}`;
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      const res = await fetch("/api/admin/cashback", {
+        credentials: "include",
+        cache: "no-store",
+        headers,
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
+      if (res?.ok && data.ok) {
+        setCashback({
+          services: Array.isArray(data.services) ? data.services : [],
+          totalCashback: Number(data.totalCashback) || 0,
+          totalOrders: Number(data.totalOrders) || 0,
+        });
+      } else {
+        setCashback(null);
+      }
+    } catch {
+      setCashback(null);
+    } finally {
+      setCashbackLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadCashback();
+  }, [loadCashback]);
+
+  const claimCashback = useCallback(async () => {
+    if (!cashback || !(cashback.totalCashback > 0) || claiming) return;
+    setClaiming(true);
+    setClaimMessage("");
+    setClaimError("");
+    try {
+      const supabase = createBrowserClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (sessionData.session?.access_token) {
+        headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+      }
+      const res = await fetch("/api/admin/cashback/claim", {
+        method: "POST",
+        credentials: "include",
+        headers,
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
+      if (res?.ok && data.ok) {
+        const credited = Number(data.credited) || 0;
+        setClaimMessage(
+          `₦${formatNgn(credited)} moved to your Panel Wallet — it now works like a normal top-up.`,
+        );
+        if (typeof data.balance === "number") {
+          setBalance(data.balance);
+          setBalanceLoading(false);
+        }
+        await loadCashback();
+      } else {
+        setClaimError(data.error || "Could not move cashback to wallet.");
+      }
+    } catch {
+      setClaimError("Could not move cashback to wallet.");
+    } finally {
+      setClaiming(false);
+    }
+  }, [cashback, claiming, loadCashback]);
 
   const generateAccount = useCallback(async () => {
     const amount = Math.round(Number(amountInput.replace(/,/g, "")));
@@ -336,16 +377,52 @@ export default function AdminPartnerFundPage() {
                 Cashback earnings
               </span>
             </div>
-            {cashback && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-extrabold text-emerald-600">
-                Total ₦{formatNgn(cashback.totalCashback)}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {cashback && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-extrabold text-emerald-600">
+                  Total ₦{formatNgn(cashback.totalCashback)}
+                </span>
+              )}
+              {cashback && cashback.totalCashback > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void claimCashback()}
+                  disabled={claiming}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-[#16A34A] px-3.5 text-[11px] font-extrabold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
+                >
+                  {claiming ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" strokeWidth={2.6} />
+                      Moving…
+                    </>
+                  ) : (
+                    <>
+                      <Plus size={13} strokeWidth={3} />
+                      Add to Panel Wallet
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
           <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
             Automatically calculated from your completed orders — what customers
-            paid minus your wholesale charge.
+            paid minus your wholesale charge. Tap “Add to Panel Wallet” to move
+            it into your balance, exactly like a top-up.
           </p>
+
+          {claimMessage && (
+            <p className="mt-2 flex items-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-600">
+              <Check size={14} strokeWidth={2.6} />
+              {claimMessage}
+            </p>
+          )}
+          {claimError && (
+            <p className="mt-2 flex items-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-[12px] font-bold text-red-600">
+              <Shield size={14} strokeWidth={2.4} />
+              {claimError}
+            </p>
+          )}
 
           {cashbackLoading ? (
             <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] py-5">
@@ -357,11 +434,12 @@ export default function AdminPartnerFundPage() {
           ) : !cashback || cashback.services.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-[#DCE3EE] bg-[#F8FAFC] px-4 py-5 text-center">
               <p className="text-[12px] font-semibold text-[#64748B]">
-                No cashback yet.
+                No unclaimed cashback.
               </p>
               <p className="mt-1 text-[11px] leading-relaxed text-[#94A3B8]">
                 Your airtime, electricity and TV subscription cashback will
-                appear here as orders complete.
+                appear here as orders complete. Cashback you have already moved
+                to your Panel Wallet is in your balance.
               </p>
             </div>
           ) : (
