@@ -18,8 +18,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/boost/pricing — tier multipliers the panel charges its customers,
- * plus live example prices from the Verxor catalog so the panel can see the
- * Naira price coming from Verxor for real services.
+ * plus each tier's Verxor Naira price band so the panel can see exactly what
+ * a Verxor price in each tier looks like and what their customers pay.
  * PUT /api/boost/pricing — admin-only, saves per-tier multipliers.
  *
  * The panel sees only Verxor Naira prices and its own multipliers.
@@ -44,47 +44,47 @@ async function isAdmin(req: NextRequest) {
   return Boolean(profile?.is_admin);
 }
 
-type SampleService = { name: string; priceNgn: number };
+/**
+ * Verxor price band for each tier, in Naira per 1,000.
+ * Computed from the live rate so it updates automatically.
+ */
+const TIER_USD_BANDS: Record<BoostTier, { minUsd: number | null; maxUsd: number | null }> = {
+  economy: { minUsd: null, maxUsd: 0.5 },
+  standard: { minUsd: 0.5, maxUsd: 1.0 },
+  fast: { minUsd: 1.0, maxUsd: 2.0 },
+  premium: { minUsd: 2.0, maxUsd: null },
+};
 
 export async function GET() {
   const { markups, persisted } = await getSharedBoostPricing();
 
-  const tiers = BOOST_TIERS.map((t: BoostTier) => ({
-    id: t,
-    label: BOOST_TIER_META[t].label,
-    blurb: BOOST_TIER_META[t].blurb,
-    sampleNgn: BOOST_TIER_META[t].sampleNgn,
-    count: 0,
-    minNgn: null as number | null,
-    samples: [] as SampleService[],
-  }));
+  const tiers = BOOST_TIERS.map((t: BoostTier) => {
+    const band = TIER_USD_BANDS[t];
+    return {
+      id: t,
+      label: BOOST_TIER_META[t].label,
+      blurb: BOOST_TIER_META[t].blurb,
+      count: 0,
+      band: {
+        // Just above the boundary so the multiplier of THIS tier applies.
+        minNgn: band.minUsd === null ? null : partnerRatePer1000(band.minUsd + 0.0001),
+        maxNgn: band.maxUsd === null ? null : partnerRatePer1000(band.maxUsd),
+      },
+    };
+  });
 
-  let live = false;
   try {
     const { data: catalog } = await getAuthoritativeCatalog({ allowStale: true });
     if (catalog?.services?.length) {
-      const byTier = new Map<BoostTier, SampleService[]>();
+      const counts = new Map<BoostTier, number>();
       for (const s of catalog.services as Array<Record<string, unknown>>) {
-        const usd = Number(s.wholesaleUsd) || 0;
-        const tier = tierFromWholesaleUsd(usd);
-        const price = partnerRatePer1000(usd);
-        if (price <= 0) continue;
-        const name = String(s.name || s.title || "Service");
-        const list = byTier.get(tier) ?? [];
-        list.push({ name, priceNgn: price });
-        byTier.set(tier, list);
+        const tier = tierFromWholesaleUsd(Number(s.wholesaleUsd) || 0);
+        counts.set(tier, (counts.get(tier) ?? 0) + 1);
       }
-      live = byTier.size > 0;
-      for (const tier of BOOST_TIERS) {
-        const items = (byTier.get(tier) ?? []).sort((a, b) => a.priceNgn - b.priceNgn);
-        const row = tiers.find((t) => t.id === tier)!;
-        row.count = items.length;
-        row.minNgn = items.length ? items[0].priceNgn : null;
-        row.samples = items.slice(0, 3);
-      }
+      for (const row of tiers) row.count = counts.get(row.id) ?? 0;
     }
   } catch {
-    /* catalog unavailable — fall back to static examples */
+    /* counts are optional — bands are always available */
   }
 
   return NextResponse.json({
@@ -92,9 +92,8 @@ export async function GET() {
     persisted,
     markups,
     defaultMarkups: BOOST_DEFAULT_MARKUPS,
-    live,
     tiers,
-    note: "Boost service prices come from Verxor in Naira. Customers pay the Verxor price × your tier multiplier.",
+    note: "Verxor price bands are in Naira per 1,000. Customers pay the Verxor price × your tier multiplier.",
   });
 }
 

@@ -11,27 +11,21 @@ import {
   CircleAlert,
   Check,
   Percent,
-  RefreshCw,
 } from "lucide-react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import { createBrowserClient } from "@/lib/supabase/client";
-
-type SampleService = { name: string; priceNgn: number };
 
 type TierInfo = {
   id: "economy" | "standard" | "fast" | "premium";
   label: string;
   blurb: string;
-  sampleNgn: number;
   count: number;
-  minNgn: number | null;
-  samples: SampleService[];
+  band: { minNgn: number | null; maxNgn: number | null };
 };
 
 type PricingData = {
   markups: Record<string, number>;
   persisted: boolean;
-  live: boolean;
   tiers: TierInfo[];
   note: string;
 };
@@ -55,11 +49,6 @@ function formatNgn(n: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-}
-
-function shortenName(name: string) {
-  const cleaned = name.replace(/\[+/g, "· ").replace(/\]/g, "");
-  return cleaned.length > 38 ? cleaned.slice(0, 38) + "…" : cleaned;
 }
 
 export default function BoostPricingPage() {
@@ -143,6 +132,26 @@ export default function BoostPricingPage() {
     return Number.isFinite(m) && m >= 1 && m <= 10 ? m : 1.25;
   };
 
+  const bandText = (t: TierInfo) => {
+    const { minNgn, maxNgn } = t.band ?? {};
+    if (minNgn === null && maxNgn !== null) return `Below ₦${formatNgn(maxNgn)}`;
+    if (maxNgn === null && minNgn !== null) return `₦${formatNgn(minNgn)} and above`;
+    if (minNgn !== null && maxNgn !== null)
+      return `₦${formatNgn(minNgn)} – ₦${formatNgn(maxNgn)}`;
+    return "—";
+  };
+
+  const customerText = (t: TierInfo) => {
+    const m = mult(t.id);
+    const { minNgn, maxNgn } = t.band ?? {};
+    const lo = minNgn === null ? null : Math.round(minNgn * m * 100) / 100;
+    const hi = maxNgn === null ? null : Math.round(maxNgn * m * 100) / 100;
+    if (lo === null && hi !== null) return `Up to ₦${formatNgn(hi)}`;
+    if (hi === null && lo !== null) return `From ₦${formatNgn(lo)}`;
+    if (lo !== null && hi !== null) return `₦${formatNgn(lo)} – ₦${formatNgn(hi)}`;
+    return "—";
+  };
+
   return (
     <div className="min-h-screen bg-[#F4F7FB]">
       <AdminSidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -204,7 +213,7 @@ export default function BoostPricingPage() {
                         <p className="text-[13px] font-extrabold text-[#0F172A]">{t.label}</p>
                         <p className="text-[11px] font-semibold text-[#94A3B8]">
                           {t.count > 0
-                            ? `${t.count.toLocaleString("en-NG")} services · from ₦${formatNgn(t.minNgn ?? 0)} / 1K`
+                            ? `${t.count.toLocaleString("en-NG")} services`
                             : t.blurb}
                         </p>
                       </div>
@@ -250,124 +259,56 @@ export default function BoostPricingPage() {
             </section>
 
             <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-[13px] font-bold text-[#0F172A]">
-                  Price preview — live from Verxor
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void load()}
-                  disabled={loading}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-xl border border-[#DCE3EE] bg-white px-2.5 text-[11px] font-bold text-[#1877F2] shadow-sm active:scale-[0.98]"
-                >
-                  <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-                  Refresh
-                </button>
-              </div>
+              <span className="text-[13px] font-bold text-[#0F172A]">Price preview</span>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Real service prices coming from Verxor right now, in Naira, with
-                what your customers pay at your current multipliers. When Verxor
-                updates a price, it updates here too.
+                The Verxor price for each tier, in Naira per 1,000, and what your
+                customers pay with your current multiplier. If Verxor prices
+                change, these numbers update automatically.
               </p>
 
-              {data.live ? (
-                <div className="mt-4 space-y-4">
-                  {data.tiers.map((t) => {
-                    const samples = t.samples ?? [];
-                    if (!samples.length) return null;
-                    const m = mult(t.id);
-                    return (
-                      <div key={t.id}>
-                        <div className="mb-1.5 flex items-center gap-2 px-0.5">
-                          <span
-                            className={
-                              "flex h-6 w-6 items-center justify-center rounded-lg " +
-                              (TIER_ACCENTS[t.id] || "bg-[#EFF6FF] text-[#1877F2]")
-                            }
-                          >
-                            <span className="text-[9px] font-extrabold">×{m}</span>
-                          </span>
-                          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#94A3B8]">
-                            {t.label} · {t.count.toLocaleString("en-NG")} services
-                          </p>
-                        </div>
-                        <div className="overflow-hidden rounded-2xl border border-[#E8EEF5]">
-                          <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
-                            <span className="flex-1">Service (from Verxor)</span>
-                            <span className="w-[86px] text-right">Verxor price</span>
-                            <span className="w-[86px] text-right">Customer pays</span>
-                            <span className="w-[74px] text-right">Margin</span>
-                          </div>
-                          {samples.map((s, i) => {
-                            const customer = Math.round(s.priceNgn * m * 100) / 100;
-                            const margin = Math.round((customer - s.priceNgn) * 100) / 100;
-                            return (
-                              <div
-                                key={t.id + i}
-                                className={
-                                  "flex items-center justify-between px-4 py-2.5 text-[11px] " +
-                                  (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
-                                }
-                              >
-                                <span className="flex-1 min-w-0 truncate pr-2 font-semibold text-[#0F172A]">
-                                  {shortenName(s.name)}
-                                </span>
-                                <span className="w-[86px] text-right font-extrabold tabular-nums text-[#0F172A]">
-                                  ₦{formatNgn(s.priceNgn)}
-                                </span>
-                                <span className="w-[86px] text-right font-extrabold tabular-nums text-[#1877F2]">
-                                  ₦{formatNgn(customer)}
-                                </span>
-                                <span className="w-[74px] text-right font-extrabold tabular-nums text-emerald-600">
-                                  +₦{formatNgn(margin)}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <p className="pt-1 text-center text-[11px] text-[#94A3B8]">
-                    Showing the 3 cheapest services per tier. All prices are per 1,000, in Naira.
-                  </p>
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E8EEF5]">
+                <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
+                  <span className="flex-1">Tier</span>
+                  <span className="w-[120px] text-right sm:w-[150px]">Verxor price</span>
+                  <span className="w-[50px] text-right">Mult.</span>
+                  <span className="w-[130px] text-right sm:w-[160px]">Customers pay</span>
                 </div>
-              ) : (
-                <div className="mt-4 overflow-hidden rounded-2xl border border-[#E8EEF5]">
-                  <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
-                    <span>Verxor price</span>
-                    <span>Customer pays you</span>
-                    <span>Your margin</span>
-                  </div>
-                  {data.tiers.map((t, i) => {
-                    const m = mult(t.id);
-                    const customer = Math.round(t.sampleNgn * m * 100) / 100;
-                    const margin = Math.round((customer - t.sampleNgn) * 100) / 100;
-                    return (
-                      <div
-                        key={t.id}
-                        className={
-                          "flex items-center justify-between px-4 py-3 text-[12px] " +
-                          (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
-                        }
-                      >
-                        <span className="font-extrabold tabular-nums text-[#0F172A]">
-                          ₦{formatNgn(t.sampleNgn)}
+                {data.tiers.map((t, i) => {
+                  return (
+                    <div
+                      key={t.id}
+                      className={
+                        "flex items-center justify-between px-4 py-3 text-[11px] sm:text-[12px] " +
+                        (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
+                      }
+                    >
+                      <span className="flex flex-1 items-center gap-2 font-extrabold text-[#0F172A]">
+                        <span
+                          className={
+                            "flex h-6 w-6 items-center justify-center rounded-lg " +
+                            (TIER_ACCENTS[t.id] || "bg-[#EFF6FF] text-[#1877F2]")
+                          }
+                        >
+                          {TIER_ICONS[t.id]}
                         </span>
-                        <span className="font-extrabold tabular-nums text-[#1877F2]">
-                          ₦{formatNgn(customer)}
-                        </span>
-                        <span className="font-extrabold tabular-nums text-emerald-600">
-                          +₦{formatNgn(margin)}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <p className="bg-white px-4 pb-3 text-[11px] text-[#94A3B8]">
-                    Live Verxor prices are unavailable right now — showing example prices.
-                  </p>
-                </div>
-              )}
+                        {t.label}
+                      </span>
+                      <span className="w-[120px] text-right font-extrabold tabular-nums text-[#0F172A] sm:w-[150px]">
+                        {bandText(t)}
+                      </span>
+                      <span className="w-[50px] text-right font-extrabold tabular-nums text-[#94A3B8]">
+                        ×{mult(t.id)}
+                      </span>
+                      <span className="w-[130px] text-right font-extrabold tabular-nums text-[#1877F2] sm:w-[160px]">
+                        {customerText(t)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-[11px] text-[#94A3B8]">
+                All prices are in Naira, per 1,000. Customers pay = Verxor price × your multiplier.
+              </p>
             </section>
           </>
         ) : null}
