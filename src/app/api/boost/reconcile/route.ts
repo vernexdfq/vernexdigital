@@ -59,7 +59,7 @@ async function runReconcile(req: NextRequest) {
       .from("transactions")
       .select("id, user_id, title, amount, status, meta, created_at, kind")
       .in("kind", ["boost", "boost_order"])
-      .not("status", "in", '("completed","failed","cancelled","canceled","refunded")')
+      .not("status", "in", '("completed","failed","cancelled","canceled","refunded","success","rejected")')
       .order("created_at", { ascending: false })
       .limit(50);
 
@@ -123,7 +123,6 @@ async function runReconcile(req: NextRequest) {
             providerStatus: mapped,
             japStatus,
             remains: body.remains != null ? body.remains : meta.remains,
-            charge: body.charge != null ? body.charge : meta.charge,
             startCount: body.startCount != null ? body.startCount : meta.startCount,
             reconciledAt: new Date().toISOString(),
           };
@@ -145,8 +144,8 @@ async function runReconcile(req: NextRequest) {
 
           if (!updateRes.error) {
             updatedCount += 1;
-            if (txnStatus === "completed") completedCount += 1;
-            if (txnStatus === "failed" || txnStatus === "cancelled") failedCount += 1;
+            if (txnStatus === "success") completedCount += 1;
+            if (txnStatus === "rejected") failedCount += 1;
           } else {
             errors.push({ id: row.id, error: updateRes.error.message });
           }

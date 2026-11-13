@@ -81,15 +81,14 @@ export async function GET(req: NextRequest) {
           meta.providerStatus = mapped;
           meta.japStatus = japStatus;
           if (data.remains != null) meta.remains = data.remains;
-          if (data.charge != null) meta.charge = data.charge;
           if (data.startCount != null) meta.startCount = data.startCount;
 
           const txnStatus =
             mapped === "completed"
-              ? "completed"
+              ? "success"
               : mapped === "failed" || mapped === "cancelled"
-                ? mapped
-                : "processing";
+                ? "rejected"
+                : "pending";
 
           await admin
             .from("transactions")

@@ -272,7 +272,6 @@ export async function POST(req: NextRequest) {
           link,
           quantity,
           ratePer1000,
-          wholesaleUsd,
           priceNgn,
           providerStatus: "pending",
         },
@@ -315,7 +314,7 @@ export async function POST(req: NextRequest) {
           await admin
             .from("transactions")
             .update({
-              status: "failed",
+              status: "rejected",
               meta: {
                 ref,
                 serviceId: service.id,
@@ -336,7 +335,7 @@ export async function POST(req: NextRequest) {
           await admin
             .from("transactions")
             .update({
-              status: "failed",
+              status: "rejected",
               meta: {
                 ref,
                 serviceId: service.id,
@@ -409,7 +408,7 @@ export async function POST(req: NextRequest) {
         title: japOrderId
           ? `Boost #${japOrderId} — ${serviceTitle}`
           : String(order.title || `Boost — ${serviceTitle}`),
-        status: "processing",
+        status: "pending",
         meta: {
           ref,
           providerOrderId: japOrderId || providerOrderId || undefined,
@@ -425,10 +424,9 @@ export async function POST(req: NextRequest) {
           quantity,
           qty: quantity,
           ratePer1000,
-          wholesaleUsd,
           priceNgn,
           providerStatus,
-          wholesaleCharged: data.balanceDebited,
+          panelCharge: data.balanceDebited,
           walletMode: data.walletMode,
         },
       };
@@ -448,7 +446,7 @@ export async function POST(req: NextRequest) {
             kind: "boost",
             title: patch.title,
             amount: -priceNgn,
-            status: "processing",
+            status: "pending",
             meta: patch.meta,
           });
         }
@@ -490,7 +488,7 @@ export async function POST(req: NextRequest) {
         await admin
           .from("transactions")
           .update({
-            status: "processing",
+            status: "pending",
             meta: {
               ref,
               serviceId: service.id,
@@ -502,7 +500,6 @@ export async function POST(req: NextRequest) {
               quantity,
               priceNgn,
               ratePer1000,
-              wholesaleUsd,
               providerStatus: "processing",
               needsVerification: true,
             },
@@ -519,7 +516,7 @@ export async function POST(req: NextRequest) {
         order: {
           id: ref,
           providerOrderId: ref,
-          status: "processing",
+          status: "pending",
           serviceId: service.id,
           serviceTitle,
           platform: service.platform,

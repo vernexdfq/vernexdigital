@@ -79,10 +79,11 @@ export function extractJapOrderId(meta: Record<string, unknown>, title?: string)
 }
 
 export function toTxnStatus(mapped: string): string {
-  if (mapped === "completed") return "completed";
-  if (mapped === "failed" || mapped === "cancelled") return mapped;
-  if (mapped === "pending") return "pending";
-  return "processing";
+  // DB constraint allows only: pending | success | rejected.
+  // Fine-grained provider state lives in meta.providerStatus.
+  if (mapped === "completed") return "success";
+  if (mapped === "failed" || mapped === "cancelled") return "rejected";
+  return "pending";
 }
 
 /**
@@ -133,7 +134,7 @@ export async function GET(req: NextRequest) {
           const queryId = oid || String(meta.ref || "").trim();
           if (!queryId) return false;
           const st = String(t.status || "").toLowerCase();
-          return !["completed", "failed", "cancelled", "canceled", "refunded"].includes(st);
+          return !["completed", "failed", "cancelled", "canceled", "refunded", "success", "rejected"].includes(st);
         })
         .slice(0, 25);
 
@@ -164,7 +165,6 @@ export async function GET(req: NextRequest) {
               providerStatus: mapped,
               japStatus,
               remains: body.remains != null ? body.remains : meta.remains,
-              charge: body.charge != null ? body.charge : meta.charge,
               startCount: body.startCount != null ? body.startCount : meta.startCount,
               reconciledAt: new Date().toISOString(),
             };
@@ -220,7 +220,6 @@ export async function GET(req: NextRequest) {
         japStatus: meta.japStatus != null ? String(meta.japStatus) : undefined,
         speed: String(meta.speed || ""),
         remains: meta.remains != null ? Number(meta.remains) : undefined,
-        charge: meta.charge != null ? String(meta.charge) : undefined,
         startCount: meta.startCount != null ? String(meta.startCount) : undefined,
         createdAt: t.created_at,
       };
