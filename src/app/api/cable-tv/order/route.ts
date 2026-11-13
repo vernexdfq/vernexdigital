@@ -281,7 +281,7 @@ export async function POST(req: NextRequest) {
 
     const order = (data.order || {}) as Record<string, unknown>;
 
-    void admin.from("transactions").insert({
+    const completedIns = await admin.from("transactions").insert({
       user_id: user.id,
       kind: "cable_tv",
       title: `${label} ${pkgName} · ₦${amount.toLocaleString("en-NG")} — success`,
@@ -300,6 +300,9 @@ export async function POST(req: NextRequest) {
         walletMode: data.walletMode,
       },
     });
+    if (completedIns.error) {
+      console.error("cable_tv completed transaction insert failed:", completedIns.error.message);
+    }
 
     return NextResponse.json({
       ok: true,

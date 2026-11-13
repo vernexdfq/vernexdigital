@@ -15,6 +15,7 @@ import {
   Percent,
   ScrollText,
   Signal,
+  TrendingUp,
   LogOut,
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -23,6 +24,7 @@ type NavItem = { href: string; label: string; icon: React.ReactNode };
 
 const MAIN: NavItem[] = [
   { href: "/admin", label: "Partner Fund", icon: <LayoutDashboard size={18} strokeWidth={2.2} /> },
+  { href: "/admin/earnings", label: "Daily earnings", icon: <TrendingUp size={18} strokeWidth={2.2} /> },
 ];
 
 const SERVICES: NavItem[] = [

@@ -230,7 +230,7 @@ export async function POST(req: NextRequest) {
     const order = (data.order || {}) as Record<string, unknown>;
     const token = order.token ? String(order.token) : null;
 
-    void admin.from("transactions").insert({
+    const completedIns = await admin.from("transactions").insert({
       user_id: user.id,
       kind: "electricity",
       title: token
@@ -251,6 +251,9 @@ export async function POST(req: NextRequest) {
         walletMode: data.walletMode,
       },
     });
+    if (completedIns.error) {
+      console.error("electricity completed transaction insert failed:", completedIns.error.message);
+    }
 
     return NextResponse.json({
       ok: true,
