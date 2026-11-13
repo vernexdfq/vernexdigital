@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
     // 4. Audit record so the movement shows in history.
     await admin.from("transactions").insert({
       kind: "cashback_claim",
-      status: "completed",
+      status: "success",
       amount: credited,
       meta: {
         cashbackClaim: true,

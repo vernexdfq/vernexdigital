@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
         kind: "refund",
         title: `Refund — ${netLabel} airtime`,
         amount: amount,
-        status: "completed",
+        status: "success",
         meta: { network, phone, amount, ref, reason: data.error || "provider_failed" },
       });
       return NextResponse.json(
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       kind: "airtime",
       title: `${netLabel} airtime ₦${amount.toLocaleString("en-NG")} — success`,
       amount: -amount,
-      status: "completed",
+      status: "success",
       meta: {
         network,
         phone,
@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       kind: "refund",
       title: `Refund — ${netLabel} airtime`,
       amount: amount,
-      status: "completed",
+      status: "success",
       meta: { network, phone, amount, ref, reason: aborted ? "timeout" : "exception" },
     });
     return NextResponse.json({ ok: false, error: message, refunded: true }, { status: 502 });

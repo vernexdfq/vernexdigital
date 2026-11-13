@@ -259,7 +259,7 @@ export async function POST(req: NextRequest) {
         kind: "refund",
         title: `Refund — ${label} ${pkgName}`,
         amount: amount,
-        status: "completed",
+        status: "success",
         meta: {
           provider,
           packageId,
@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
       kind: "cable_tv",
       title: `${label} ${pkgName} · ₦${amount.toLocaleString("en-NG")} — success`,
       amount: -amount,
-      status: "completed",
+      status: "success",
       meta: {
         provider,
         packageId,
@@ -332,7 +332,7 @@ export async function POST(req: NextRequest) {
       kind: "refund",
       title: `Refund — ${label} ${pkgName}`,
       amount: amount,
-      status: "completed",
+      status: "success",
       meta: {
         provider,
         packageId,

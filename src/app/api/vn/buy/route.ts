@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Keep a durable ledger reference even if the order migration is temporarily unavailable.
-  const tx = await admin.from("transactions").update({ status: "completed", meta: { service, country, pool: uiPool, wholesaleNgn, providerOrderId, phone, ref } })
+  const tx = await admin.from("transactions").update({ status: "success", meta: { service, country, pool: uiPool, wholesaleNgn, providerOrderId, phone, ref } })
     .eq("user_id", user.id).eq("kind", "virtual_number").contains("meta", { ref });
   if (tx.error) console.error("VN transaction completion write failed", { ref, providerOrderId, error: tx.error.message });
   if (orderInsert.error && savedId === providerOrderId) console.error("VN order persistence failed", { ref, providerOrderId, error: orderInsert.error.message });

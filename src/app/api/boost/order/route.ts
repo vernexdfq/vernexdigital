@@ -367,7 +367,7 @@ export async function POST(req: NextRequest) {
           kind: "boost_refund",
           title: `Refund: Boost failed (${serviceTitle})`,
           amount: priceNgn,
-          status: "completed",
+          status: "success",
           meta: { ref, reason: errMsg },
         });
       } catch {

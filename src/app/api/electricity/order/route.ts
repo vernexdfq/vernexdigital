@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
         kind: "refund",
         title: `Refund — ${discoLabel} electricity`,
         amount: amount,
-        status: "completed",
+        status: "success",
         meta: { disco, meterNo, amount, ref, reason: data.error || "provider_failed" },
       });
       return NextResponse.json(
@@ -237,7 +237,7 @@ export async function POST(req: NextRequest) {
         ? `${discoLabel} token · ₦${amount.toLocaleString("en-NG")}`
         : `${discoLabel} ${typeLabel} · ₦${amount.toLocaleString("en-NG")} — success`,
       amount: -amount,
-      status: "completed",
+      status: "success",
       meta: {
         disco,
         meterType,
@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
       kind: "refund",
       title: `Refund — ${discoLabel} electricity`,
       amount: amount,
-      status: "completed",
+      status: "success",
       meta: { disco, meterNo, amount, ref, reason: aborted ? "timeout" : "exception" },
     });
     return NextResponse.json({ ok: false, error: message, refunded: true }, { status: 502 });
