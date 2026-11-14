@@ -2,6 +2,9 @@
 /**
  * Restore the polished Buy Airtime UI from a known good commit, then
  * swap demo submit for live POST /api/airtime/order. UI stays the same.
+ *
+ * When the page is already live-wired in the repo, skip the network download
+ * (raw.githubusercontent.com returns 404 while the account is spammy-flagged).
  */
 const fs = require("fs");
 const path = require("path");
@@ -139,12 +142,29 @@ function wireLive(s) {
 
 (async () => {
   try {
+    // Fast path: file already live-wired in the repo — do not hit raw.githubusercontent.com
+    if (fs.existsSync(file)) {
+      const existing = fs.readFileSync(file, "utf8");
+      if (existing.includes("submitLivePurchase") && existing.includes("/api/airtime/order")) {
+        console.log("[restore-airtime-live] already live-wired (" + existing.length + " bytes) — skip download");
+        process.exit(0);
+      }
+    }
+
     let raw = await get(URL);
     const wired = wireLive(raw);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, wired);
     console.log("[restore-airtime-live] wrote", file, wired.length, "bytes");
   } catch (e) {
+    // Fallback: if download fails but a usable live file already exists, continue
+    if (fs.existsSync(file)) {
+      const existing = fs.readFileSync(file, "utf8");
+      if (existing.includes("submitLivePurchase") && existing.includes("/api/airtime/order")) {
+        console.warn("[restore-airtime-live] download failed; using existing live page");
+        process.exit(0);
+      }
+    }
     console.error("[restore-airtime-live]", e.message || e);
     process.exit(1);
   }
