@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
 
   const debit = await changeWalletBalance(admin, user.id, (b) => b - retailTotal);
   if (!debit.ok) {
-    await writeLedger("failed");
+    await writeLedger("rejected");
     return NextResponse.json({ ok: false, error: "Insufficient wallet balance. Fund your wallet first." }, { status: 402 });
   }
 
@@ -166,7 +166,19 @@ export async function POST(req: NextRequest) {
         { status: 202 },
       );
     }
-    await writeLedger("refunded", { reason: String(data.error || "") });
+    // Refund trail row — separate kind so earnings never counts it as a sale.
+    try {
+      await admin.from("transactions").insert({
+        user_id: user.id,
+        kind: "logs_refund",
+        status: "success",
+        amount: retailTotal,
+        title: "Refund — Buy logs",
+        meta: { ref, reason: String(data.error || "") },
+      });
+    } catch {
+      /* best-effort */
+    }
     return NextResponse.json({ ok: false, error: data.error || "Purchase failed at provider. Your wallet has been refunded." }, { status: 502 });
   }
 
@@ -196,7 +208,7 @@ export async function POST(req: NextRequest) {
     client_reference: ref,
   }).select("id").maybeSingle();
 
-  await writeLedger("completed", { deliveredQty, chargedTotal, wholesaleTotal, providerOrderId: data.orderId ? String(data.orderId) : null });
+  await writeLedger("success", { deliveredQty, chargedTotal, wholesaleTotal, panelCharge: wholesaleTotal, providerOrderId: data.orderId ? String(data.orderId) : null });
 
   return NextResponse.json({
     ok: true,
@@ -208,7 +220,6 @@ export async function POST(req: NextRequest) {
       quantity: deliveredQty,
       unitPriceNgn: retailUnit,
       totalNgn: chargedTotal,
-      wholesaleNgn: wholesaleTotal,
       credentials,
     },
   });

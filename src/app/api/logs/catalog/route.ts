@@ -46,7 +46,6 @@ export async function GET(req: NextRequest) {
           description: String(o.description || ""),
           stock: Number(o.stock) || 0,
           maxQuantity: Math.min(10, Number(o.stock) || 0),
-          wholesaleNgn: wholesale,
           priceNgn: retail,
         };
       })

@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
  * the discounted amount Verxor actually charged at checkout.
  */
 
-const EXCLUDED_KINDS = new Set(["refund", "cashback_claim", "funding", "deposit", "wallet_fund", "topup"]);
+const EXCLUDED_KINDS = new Set(["refund", "cashback_claim", "funding", "deposit", "wallet_fund", "topup", "boost_refund", "logs_refund"]);
 
 const KIND_LABELS: Record<string, string> = {
   airtime: "Airtime",
@@ -32,6 +32,8 @@ const KIND_LABELS: Record<string, string> = {
   virtual_number: "Virtual numbers",
   shopping: "Shopping",
   gift_card: "Gift cards",
+  buy_logs: "Buy logs",
+  logs: "Buy logs",
 };
 
 const PROVIDER_LABELS: Record<string, string> = {
