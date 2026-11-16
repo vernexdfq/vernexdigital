@@ -14,11 +14,11 @@ let cachedAuthed: boolean | null = null;
 
 /**
  * Wraps app screens that require a logged-in user.
- * Redirects to /login when there is no Supabase session.
+ * Redirects to /login only when there is no valid Supabase user
+ * (after refresh attempt).
  */
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  // If we already confirmed auth this session, render immediately.
   const [ready, setReady] = useState(cachedAuthed === true);
 
   useEffect(() => {
@@ -26,37 +26,46 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     const supabase = createBrowserClient();
 
     async function check() {
-      const { data } = await supabase.auth.getSession();
+      // getUser talks to Auth and refreshes expired access tokens when possible
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+
       if (cancelled) return;
 
-      if (!data.session) {
+      if (!userError && userData.user) {
+        cachedAuthed = true;
+        setReady(true);
+        return;
+      }
+
+      // One explicit refresh before treating the user as logged out
+      const { data: refreshed, error: refreshError } =
+        await supabase.auth.refreshSession();
+
+      if (cancelled) return;
+
+      if (!refreshError && refreshed.session?.user) {
+        cachedAuthed = true;
+        setReady(true);
+        return;
+      }
+
+      cachedAuthed = false;
+      router.replace("/login");
+    }
+
+    void check();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT" || !session) {
         cachedAuthed = false;
         router.replace("/login");
         return;
       }
-
+      // TOKEN_REFRESHED / SIGNED_IN
       cachedAuthed = true;
       setReady(true);
-    }
-
-    // Always re-validate, but only show spinner when we have no cache yet.
-    if (cachedAuthed !== true) {
-      check();
-    } else {
-      // Background re-check without blocking UI
-      check();
-    }
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        cachedAuthed = false;
-        router.replace("/login");
-      } else {
-        cachedAuthed = true;
-        setReady(true);
-      }
     });
 
     return () => {
