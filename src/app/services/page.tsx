@@ -13,25 +13,16 @@ import {
   Zap,
 } from "lucide-react";
 
-/** Services exclusive to this page (not home quick actions) */
-const services = [
+/** Live wallet services — shown first */
+const LIVE_SERVICES = [
   {
-    href: "/services/flights",
-    label: "Flight Booking",
-    desc: "Search and book flights for your next trip with competitive fares.",
-    icon: Plane,
-    accent: "from-[#EFF6FF] to-[#DBEAFE]",
-    iconColor: "text-[#1877F2]",
-    tag: "Travel",
-  },
-  {
-    href: "/services/shopping",
-    label: "Shopping",
-    desc: "Phones, laptops, gadgets and accessories — delivered fast.",
-    icon: ShoppingBag,
-    accent: "from-[#F0FDF4] to-[#DCFCE7]",
-    iconColor: "text-emerald-600",
-    tag: "Retail",
+    href: "/services/gaming",
+    label: "Gaming Top-up",
+    desc: "Instantly fund PUBG, Free Fire, Steam, PSN, Xbox and 137+ more titles.",
+    icon: Gamepad2,
+    accent: "from-[#F5F3FF] to-[#EDE9FE]",
+    iconColor: "text-violet-600",
+    tag: "Gaming",
   },
   {
     href: "/services/cable-tv",
@@ -41,15 +32,6 @@ const services = [
     accent: "from-[#FFF1F2] to-[#FFE4E6]",
     iconColor: "text-rose-600",
     tag: "Bills",
-  },
-  {
-    href: "/services/gaming",
-    label: "Gaming Top-up",
-    desc: "Fund Steam, PlayStation, Xbox, Free Fire and more instantly.",
-    icon: Gamepad2,
-    accent: "from-[#F5F3FF] to-[#EDE9FE]",
-    iconColor: "text-violet-600",
-    tag: "Gaming",
   },
   {
     href: "/services/electricity",
@@ -62,16 +44,38 @@ const services = [
   },
 ];
 
+/** Retail & travel services */
+const RETAIL_SERVICES = [
+  {
+    href: "/services/shopping",
+    label: "Shopping",
+    desc: "Phones, laptops, gadgets and accessories — delivered fast.",
+    icon: ShoppingBag,
+    accent: "from-[#F0FDF4] to-[#DCFCE7]",
+    iconColor: "text-emerald-600",
+    tag: "Retail",
+  },
+  {
+    href: "/services/flights",
+    label: "Flight Booking",
+    desc: "Search and book flights for your next trip — booking flow coming soon.",
+    icon: Plane,
+    accent: "from-[#EFF6FF] to-[#DBEAFE]",
+    iconColor: "text-[#1877F2]",
+    tag: "Travel",
+  },
+];
+
 const INTERVAL_MS = 3800;
 
 const adSlides = [
   {
-    title: "Your next flight is on the way",
-    subtitle: "Book domestic & international routes — competitive fares",
-    cta: "Book Flight",
-    href: "/services/flights",
+    title: "Level up your game",
+    subtitle: "Steam, PlayStation, Xbox & mobile game credits",
+    cta: "Top up Gaming",
+    href: "/services/gaming",
     image:
-      "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=88",
+      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=88",
     position: "center",
   },
   {
@@ -93,15 +97,6 @@ const adSlides = [
     position: "center",
   },
   {
-    title: "Level up your game",
-    subtitle: "Steam, PlayStation, Xbox & mobile game credits",
-    cta: "Top up Gaming",
-    href: "/services/gaming",
-    image:
-      "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=88",
-    position: "center",
-  },
-  {
     title: "Power on in seconds",
     subtitle: "Prepaid electricity tokens for every disco in Nigeria",
     cta: "Buy Electricity",
@@ -117,6 +112,16 @@ const adSlides = [
     href: "/services/shopping",
     image:
       "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=1200&q=88",
+    position: "center",
+  },
+
+  {
+    title: "Your next flight is on the way",
+    subtitle: "Book domestic & international routes — competitive fares",
+    cta: "Book Flight",
+    href: "/services/flights",
+    image:
+      "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=88",
     position: "center",
   },
 ];
@@ -283,46 +288,56 @@ export default function ServicesPage() {
           Services
         </h1>
         <p className="mt-1 text-sm text-[#64748B]">
-          Bills, travel, shopping and more
+          Instant top-ups, bills and shopping
         </p>
       </header>
 
       <main className="px-4 pt-5 space-y-5">
-        {/* Professional list cards — distinct from home quick actions */}
-        <div className="space-y-3">
-          {services.map((service) => {
-            const Icon = service.icon;
-            return (
-              <Link
-                key={service.href}
-                href={service.href}
-                className="group flex items-center gap-3.5 rounded-[16px] border border-[#E2E8F0] bg-white p-3.5 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all hover:border-[#1877F2]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.07)] active:scale-[0.99]"
-              >
-                <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${service.accent}`}
-                >
-                  <Icon size={24} strokeWidth={1.8} className={service.iconColor} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-[15px] font-bold tracking-tight text-[#0F172A]">
-                      {service.label}
-                    </h2>
-                    <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#64748B]">
-                      {service.tag}
-                    </span>
-                  </div>
-                  <p className="mt-0.5 text-[12px] leading-snug text-[#64748B] line-clamp-2">
-                    {service.desc}
-                  </p>
-                </div>
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F8FAFC] text-[#1877F2] transition group-hover:bg-[#EFF6FF]">
-                  <ArrowRight size={16} />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
+        {/* Live wallet services first, like the main Verxor hub */}
+        {[
+          { label: "Top up & bills", items: LIVE_SERVICES },
+          { label: "Shop & travel", items: RETAIL_SERVICES },
+        ].map((group) => (
+          <div key={group.label}>
+            <p className="mb-2.5 mt-5 text-[11px] font-semibold uppercase tracking-wide text-[#64748B] first:mt-0">
+              {group.label}
+            </p>
+            <div className="space-y-3">
+              {group.items.map((service) => {
+                const Icon = service.icon;
+                return (
+                  <Link
+                    key={service.href}
+                    href={service.href}
+                    className="group flex items-center gap-3.5 rounded-[16px] border border-[#E2E8F0] bg-white p-3.5 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all hover:border-[#1877F2]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.07)] active:scale-[0.99]"
+                  >
+                    <div
+                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${service.accent}`}
+                    >
+                      <Icon size={24} strokeWidth={1.8} className={service.iconColor} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-[15px] font-bold tracking-tight text-[#0F172A]">
+                          {service.label}
+                        </h2>
+                        <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#64748B]">
+                          {service.tag}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[12px] leading-snug text-[#64748B] line-clamp-2">
+                        {service.desc}
+                      </p>
+                    </div>
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F8FAFC] text-[#1877F2] transition group-hover:bg-[#EFF6FF]">
+                      <ArrowRight size={16} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
 
         {/* Featured ad strip */}
         <div>
