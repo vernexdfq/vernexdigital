@@ -15,6 +15,7 @@ import {
   Percent,
   ScrollText,
   Signal,
+  Gamepad2,
   TrendingUp,
   LogOut,
 } from "lucide-react";
@@ -34,6 +35,7 @@ const SERVICES: NavItem[] = [
   { href: "/admin/virtual-number", label: "Virtual numbers", icon: <Smartphone size={18} strokeWidth={2.2} /> },
   { href: "/admin/vtu", label: "VTU services", icon: <Signal size={18} strokeWidth={2.2} /> },
   { href: "/admin/boost", label: "Boost pricing", icon: <Percent size={18} strokeWidth={2.2} /> },
+  { href: "/admin/gaming", label: "Gaming pricing", icon: <Gamepad2 size={18} strokeWidth={2.2} /> },
   { href: "/services/boost", label: "Boost account", icon: <Rocket size={18} strokeWidth={2.2} /> },
   { href: "/services/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
 ];
