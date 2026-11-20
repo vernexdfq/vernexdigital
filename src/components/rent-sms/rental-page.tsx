@@ -1011,7 +1011,6 @@ export function RentalPage({
                     : `${currentDurationObj.label} · ${service}`}
                 </small>
               </div>
-              <p className="rsm-price-note">The live price is checked again before your rental is created.</p>
             </div>
 
             {/* RENT NUMBER CTA */}
