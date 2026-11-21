@@ -1,32 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useUser } from "@/lib/useUser";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
-import { createBrowserClient } from "@/lib/supabase/client";
 import {
-  ArrowLeft, Search, X, Link2, Check, Folder, Star, Rocket, Info,
-  RefreshCw, Zap, Wallet, ClipboardPaste, ListOrdered, ChevronDown,
-  Sparkles, ShieldCheck, Users, Clock3, CircleAlert, Globe,
-  CheckCircle2, ExternalLink, RotateCw, Clock,
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  AlertTriangle,
+  Hash,
+  Inbox,
+  Info,
+  Link2,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Wallet,
+  X,
+  Zap,
+  Globe,
 } from "lucide-react";
+import { useUser } from "@/lib/useUser";
+import { createBrowserClient } from "@/lib/supabase/client";
 import "./boost-page.css";
 
 type Platform = {
   id: string;
   name: string;
   color: string;
-  initial: string;
-  placeholder?: string;
-  linkHint?: string;
-  totalServices?: number;
+  placeholder: string;
+  linkHint: string;
+  totalServices: number;
 };
 type Service = {
   id: string;
-  providerId: number;
-  categoryId: string;
-  group: string;
-  name: string;
+  platformId: string;
+  category: string;
+  title: string;
   ratePer1000: number;
   min: number;
   max: number;
@@ -34,32 +46,39 @@ type Service = {
   refill?: boolean | string;
   quality?: string;
 };
-type Order = { id: string; service: string; speed: string; qty: number; total: number; status: string; link: string; platform?: string; createdAt?: string; ref?: string };
-type PickerKind = "platform" | "category" | "service" | null;
+type OrderStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
+type Order = {
+  id: string;
+  service: string;
+  platform: string;
+  link: string;
+  qty: number;
+  total: number;
+  status: OrderStatus;
+  remains?: number;
+  createdAt: string;
+};
 
-const QTY_CHIPS = [500, 1000, 2500, 5000];
-function formatNaira(n: number) {
-  return "₦" + (Number.isFinite(n) ? n : 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatNaira(n: number): string {
+  return "₦" + (Number.isFinite(n) ? n : 0).toLocaleString("en-NG", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
-function formatQty(n: number) { return Number(n || 0).toLocaleString("en-NG"); }
-type OrderStatus = "completed" | "in_progress" | "processing" | "pending" | "failed";
+function formatQty(n: number): string {
+  return Number(n || 0).toLocaleString("en-NG");
+}
 function normalizeStatus(raw: string): OrderStatus {
   const s = String(raw || "").toLowerCase().replace(/[_-]+/g, " ").trim();
   if (s.includes("complete") || s.includes("success") || s === "done") return "completed";
-  if (s.includes("fail") || s.includes("cancel") || s.includes("refund")) return "failed";
-  if (s.includes("progress") || s.includes("processing") || s.includes("partial") || s.includes("running") || s.includes("queued")) return "processing";
-  if (s === "pending" || !s) return "pending";
+  if (s.includes("fail") || s.includes("reject") || s.includes("refund")) return "failed";
+  if (s.includes("cancel")) return "cancelled";
+  if (s.includes("progress") || s.includes("processing") || s.includes("partial")) return "processing";
   return "pending";
 }
-function statusLabel(s: OrderStatus) {
-  if (s === "in_progress" || s === "processing") return "In progress";
-  if (s === "completed") return "Completed";
-  if (s === "pending") return "Pending";
-  if (s === "failed") return "Failed";
-  return (s as string)[0].toUpperCase() + (s as string).slice(1);
-}
+
 function PlatformMark({ platform, size = 22 }: { platform: string; size?: number }) {
-  const s = { width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true as const };
+  const s = { width: size, height: size, viewBox: "0 0 24 24", "aria-hidden": true as const };
   const p = platform.toLowerCase();
 
   switch (p) {
@@ -80,13 +99,13 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
     case 'discord':
       return (
         <svg {...s} fill="#5865F2">
-          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+          <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.929 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.894.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
         </svg>
       );
     case 'facebook':
       return (
         <svg {...s} fill="#1877F2">
-          <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.76 8.44-4.92 8.44-9.94z" />
+          <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06c0 5.02 3.66 9.18 8.44 9.94v-7.03H7.9v-2.91h2.54V9.84c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.44 2.91h-2.34V22c4.78-.76 8.44-4.92 8.44-9.94z"/>
         </svg>
       );
     case 'google':
@@ -102,13 +121,13 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
       return (
         <svg {...s}>
           <defs>
-            <linearGradient id="igGradientLive" x1="0%" y1="100%" x2="100%" y2="0%">
+            <linearGradient id="igGradientPanelBoost" x1="0%" y1="100%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#f58529" />
               <stop offset="50%" stopColor="#dd2a7b" />
               <stop offset="100%" stopColor="#515bd4" />
             </linearGradient>
           </defs>
-          <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igGradientLive)" />
+          <rect x="2" y="2" width="20" height="20" rx="5.5" fill="url(#igGradientPanelBoost)" />
           <circle cx="12" cy="12" r="4.2" fill="none" stroke="#fff" strokeWidth="1.8" />
           <circle cx="17.2" cy="6.8" r="1.2" fill="#fff" />
         </svg>
@@ -135,7 +154,7 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
     case 'reddit':
       return (
         <svg {...s} fill="#FF4500">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.2 13.2c-.4.4-1 .6-1.7.6-.8 0-1.5-.3-2-.8-.2-.2-.2-.5 0-.7.2-.2.5-.2.7 0 .3.4.8.6 1.3.6.5 0 1-.2 1.3-.6.2-.2.5-.2.7 0 .2.2.2.5 0 .7zm-8.4-1.2c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm4.4 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z" />
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm6.2 13.2c-.4.4-1 .6-1.7.6-.8 0-1.5-.3-2-.8-.2-.2-.2-.5 0-.7.2-.2.5-.2.7 0 .3.4.8.6 1.3.6.5 0 1-.2 1.3-.6.2-.2.5-.2.7 0 .2.2.2.5 0 .7zm-8.4-1.2c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1zm4.4 0c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z"/>
         </svg>
       );
     case 'snapchat':
@@ -170,7 +189,7 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
         </svg>
       );
     case 'tiktok':
-      return (
+        return (
         <svg {...s} fill="#0F1419">
           <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1v-3.5a6.37 6.37 0 0 0-.79-.05A6.34 6.34 0 0 0 3.15 15.3 6.34 6.34 0 0 0 9.49 21.64 6.34 6.34 0 0 0 15.83 15.3V8.95a8.27 8.27 0 0 0 4.84 1.55V7.05a4.85 4.85 0 0 1-1.08-.36z" />
         </svg>
@@ -192,7 +211,7 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
     case 'whatsapp':
       return (
         <svg {...s} fill="#25D366">
-          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31c-.82-1.31-1.26-2.83-1.26-4.38 0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42 1.56 1.55 2.41 3.62 2.41 5.83 0 4.54-3.7 8.23-8.23 8.23zm4.52-6.17c-.25-.12-1.47-.72-1.7-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-2-1.23-.74-.66-1.24-1.47-1.39-1.72-.14-.25-.02-.38.11-.5.11-.11.25-.29.37-.43.12-.14.17-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.49-.4-.42-.56-.43h-.48c-.16 0-.43.06-.66.31-.22.25-.86.84-.86 2.06 0 1.21.88 2.39 1.01 2.56.12.17 1.74 2.66 4.22 3.73.59.25 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.1-.23-.17-.48-.29z" />
+          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2zm0 18.15c-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31c-.82-1.31-1.26-2.83-1.26-4.38 0-4.54 3.7-8.24 8.25-8.24 2.2 0 4.27.86 5.82 2.42 1.56 1.55 2.41 3.62 2.41 5.83 0 4.54-3.7 8.23-8.23 8.23z" />
         </svg>
       );
     case 'x':
@@ -213,86 +232,90 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
   }
 }
 
-const BOOST_ORDERS_STORAGE_KEY = 'verxor_boost_orders_v2';
-
-
-
-function Label({ children }: { children: React.ReactNode }) { return <span className="boost-label">{children}</span>; }
-function FormRow({ label, value, placeholder, icon, onClick, disabled }: { label: string; value: string | null; placeholder: string; icon: React.ReactNode; onClick: () => void; disabled?: boolean }) {
-  return <div><Label>{label}</Label><button type="button" onClick={onClick} disabled={disabled} className={"boost-form-trigger " + (disabled ? "is-disabled" : "")}><span className="boost-form-icon">{icon}</span><span className={"boost-form-value " + (value ? "has-value" : "")}>{value ?? placeholder}</span>{value ? <Check size={16} className="boost-selected-check" /> : <ChevronDown size={17} className="boost-chevron" />}</button></div>;
-}
-function PickerPage({ title, open, onClose, search, onSearch, children }: { title: string; open: boolean; onClose: () => void; search: string; onSearch: (v: string) => void; children: React.ReactNode }) {
-  if (!open) return null;
-  return <div className="boost-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
-    <section className="boost-picker-root" role="dialog" aria-modal="true" aria-label={title}>
-      <header className="boost-picker-header">
-        <div className="boost-picker-heading"><h2>{title}</h2><p>Choose an option to continue</p></div>
-        <button type="button" aria-label="Close" className="boost-picker-x" onClick={onClose}><X size={19}/></button>
-      </header>
-      <div className="boost-picker-search"><Search size={16}/><input value={search} onChange={(e) => onSearch(e.target.value)} placeholder="Search by name…" autoFocus/></div>
-      <div className="boost-picker-list">{children}</div>
-    </section>
-  </div>;
-}
-
 export default function BoostAccountPage() {
   const { wallet, refresh: refreshUser } = useUser();
-  const balance = wallet.balance;
+  const walletBalance = wallet.balance;
+
+  const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState("");
-  const [ordering, setOrdering] = useState(false);
-  const [orderError, setOrderError] = useState("");
-  const [platformId, setPlatformId] = useState<string | null>(null);
-  const [group, setGroup] = useState<string | null>(null);
-  const [serviceId, setServiceId] = useState<string | null>(null);
-  const [link, setLink] = useState("");
-  const [qty, setQty] = useState("");
-  const [placed, setPlaced] = useState<Order[]>([]);
-  const [ordersLoading, setOrdersLoading] = useState(true);
-  const [ordersError, setOrdersError] = useState("");
-  const [ordersFilter, setOrdersFilter] = useState<"all" | "completed" | "in_progress" | "processing" | "pending">("all");
-  const [catalogStale, setCatalogStale] = useState(false);
-  const [catalogUpdatedAt, setCatalogUpdatedAt] = useState<string | null>(null);
-  const [picker, setPicker] = useState<PickerKind>(null);
-  const [pSearch, setPSearch] = useState("");
-  const [cSearch, setCSearch] = useState("");
-  const [sSearch, setSSearch] = useState("");
 
-  const loadCatalog = async () => {
-    setCatalogLoading(true);
-    setCatalogError("");
+  const [platformId, setPlatformId] = useState<string>("");
+  const [catFilter, setCatFilter] = useState<string>("all");
+  const [serviceId, setServiceId] = useState<string>("");
+  const [link, setLink] = useState("");
+  const [qty, setQty] = useState("1000");
+
+  const [activeSheet, setActiveSheet] = useState<"platform" | "category" | "service" | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersError, setOrdersError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  const loadCatalog = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const res = await fetch("/api/boost/catalog", { cache: "no-store" });
       const data = await res.json();
-      if (!res.ok || data.ok === false) throw new Error(data.error || "The live catalog could not be loaded.");
-      setCatalogStale(Boolean(data.isStale));
-      setCatalogUpdatedAt(data.updatedAt || null);
-      setPlatforms((Array.isArray(data.platforms) ? data.platforms : []).map((p: any) => ({
-        id: String(p.id), name: String(p.name || p.id), color: String(p.brandColor || p.color || "#0F172A"),
-        initial: String(p.initial || p.name || "?").slice(0, 2).toUpperCase(), placeholder: p.placeholder,
-        linkHint: p.linkHint, totalServices: Number(p.totalServices) || 0,
-      })));
-      setAllServices((Array.isArray(data.services) ? data.services : []).map((s: any) => ({
-        id: String(s.id), providerId: Number(s.providerId) || Number(s.id) || 0,
-        categoryId: String(s.categoryId || s.platform || ""), group: String(s.group || s.categoryName || "Services"),
-        name: String(s.name || s.title || "Service"), ratePer1000: Number(s.ratePer1000) || 0,
-        min: Number(s.min) || 1, max: Number(s.max) || 1000000, speed: String(s.speed || ""), refill: s.refill, quality: s.quality,
-      })));
-    } catch (e) { setCatalogError(e instanceof Error ? e.message : "Catalog error"); }
-    finally { setCatalogLoading(false); }
-  };
-  const loadOrders = async () => {
-    setOrdersLoading(true);
+      if (!res.ok || data.ok === false) throw new Error(data.error || "Catalog unavailable");
+      const ps: Platform[] = (Array.isArray(data.platforms) ? data.platforms : []).map((p: Record<string, unknown>) => ({
+        id: String(p.id),
+        name: String(p.name || p.id),
+        color: String(p.brandColor || p.color || "#0F172A"),
+        placeholder: String(p.placeholder || "https://"),
+        linkHint: String(p.linkHint || ""),
+        totalServices: Number(p.totalServices) || 0,
+      }));
+      const ss: Service[] = (Array.isArray(data.services) ? data.services : []).map((s: Record<string, unknown>) => ({
+        id: String(s.id),
+        platformId: String(s.categoryId || s.platform || ""),
+        category: String(s.group || s.categoryName || "Services"),
+        title: String(s.name || s.title || "Service"),
+        ratePer1000: Number(s.ratePer1000) || 0,
+        min: Number(s.min) || 1,
+        max: Number(s.max) || 1000000,
+        speed: String(s.speed || ""),
+        refill: s.refill,
+        quality: s.quality,
+      }));
+      setPlatforms(ps);
+      setAllServices(ss);
+      setCatalogError(null);
+      setPlatformId((prev) => {
+        if (prev && ps.some((p) => p.id === prev)) return prev;
+        if (!ps.length) return prev;
+        const first = [...ps].sort((a, b) => a.name.localeCompare(b.name))[0];
+        return first.id;
+      });
+      if (isRefresh) showToast("Live catalog refreshed");
+    } catch (e) {
+      setCatalogError(e instanceof Error ? e.message : "Failed to connect to catalog");
+      if (isRefresh) showToast("Failed to refresh catalog");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [showToast]);
+
+  const loadOrders = useCallback(async () => {
     setOrdersError("");
     try {
       const supabase = createBrowserClient();
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token) {
-        setPlaced([]);
-        setOrdersError("Sign in to view your boost order history.");
+        setOrders([]);
+        setOrdersError("Sign in to view your boost orders.");
         return;
       }
       const res = await fetch("/api/boost/orders", {
@@ -300,105 +323,647 @@ export default function BoostAccountPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const payload = await res.json().catch(() => ({}));
-      if (!res.ok || payload.ok === false) throw new Error(payload.error || "Could not load your order history.");
-      setPlaced((Array.isArray(payload.orders) ? payload.orders : []).map((o: any) => ({
-        id: String(o.providerOrderId || o.id || o.txnId || ""),
-        ref: String(o.ref || ""),
-        service: String(o.service || "Boost service"),
-        speed: String(o.speed || ""),
-        qty: Number(o.qty) || Number(o.quantity) || 0,
-        total: Number(o.total) || 0,
-        status: String(o.status || "pending").toLowerCase(),
-        link: String(o.link || ""),
-        platform: String(o.platform || ""),
-        createdAt: o.createdAt,
-      })));
+      if (!res.ok || payload.ok === false) throw new Error(payload.error || "Could not load orders.");
+      setOrders(
+        (Array.isArray(payload.orders) ? payload.orders : []).map((o: Record<string, unknown>) => ({
+          id: String(o.providerOrderId || o.id || o.txnId || ""),
+          service: String(o.service || "Boost"),
+          platform: String(o.platform || ""),
+          link: String(o.link || ""),
+          qty: Number(o.qty) || Number(o.quantity) || 0,
+          total: Number(o.total) || 0,
+          status: normalizeStatus(String(o.status || "pending")),
+          remains: o.remains != null ? Number(o.remains) : undefined,
+          createdAt: String(o.createdAt || ""),
+        })),
+      );
     } catch (e) {
-      setOrdersError(e instanceof Error ? e.message : "Could not load your order history.");
-    } finally {
-      setOrdersLoading(false);
+      setOrdersError(e instanceof Error ? e.message : "Could not load orders.");
     }
-  };
+  }, []);
 
   useEffect(() => {
     void loadCatalog();
     void loadOrders();
-    const id = window.setInterval(() => { void loadOrders(); }, 20000);
+    const id = window.setInterval(() => {
+      void loadOrders();
+    }, 20000);
     return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const platform = platforms.find((p) => p.id === platformId) ?? null;
-  const service = allServices.find((s) => s.id === serviceId) ?? null;
-  const filteredPlatforms = useMemo(() => { const q = pSearch.trim().toLowerCase(); return q ? platforms.filter(p => p.name.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)) : platforms; }, [platforms, pSearch]);
-  const categories = useMemo(() => { if (!platformId) return []; const names = [...new Set(allServices.filter(s => s.categoryId === platformId).map(s => s.group))]; const q = cSearch.trim().toLowerCase(); return ["All Services", ...names].filter(c => !q || c.toLowerCase().includes(q)); }, [platformId, cSearch, allServices]);
-  const services = useMemo(() => { if (!platformId) return []; const base = allServices.filter(s => s.categoryId === platformId); const list = group ? base.filter(s => s.group === group) : base; const q = sSearch.trim().toLowerCase(); return q ? list.filter(s => s.name.toLowerCase().includes(q) || s.group.toLowerCase().includes(q)) : list; }, [platformId, group, sSearch, allServices]);
-  const quantity = Number(qty) || 0;
-  const total = service && quantity > 0 ? Math.round((service.ratePer1000 / 1000) * quantity * 100) / 100 : 0;
-  const shortfall = total > balance ? total - balance : 0;
-  const inRange = service ? quantity >= service.min && quantity <= service.max : false;
-  const canOrder = !!service && link.trim().length > 5 && quantity > 0 && inRange && shortfall === 0 && !ordering;
-  const counts = useMemo(() => ({ platforms: platforms.length, services: allServices.length }), [platforms.length, allServices.length]);
+  const platform = useMemo(() => {
+    return (
+      platforms.find((p) => p.id === platformId) ??
+      platforms[0] ?? {
+        id: "",
+        name: "Loading…",
+        color: "#0F172A",
+        placeholder: "https://",
+        linkHint: "",
+        totalServices: 0,
+      }
+    );
+  }, [platforms, platformId]);
 
-  function selectPlatform(id: string) { if (id !== platformId) { setPlatformId(id); setGroup(null); setServiceId(null); } setPSearch(""); setPicker(null); }
-  async function pasteLink() { try { const text = await navigator.clipboard.readText(); if (text) setLink(text.trim()); } catch { /* clipboard unavailable */ } }
-  async function placeOrder() {
-    if (!canOrder || !service) return;
-    setOrdering(true); setOrderError("");
+  const platformServices = useMemo(() => {
+    return allServices.filter((s) => s.platformId === platform.id);
+  }, [allServices, platform.id]);
+
+  const platformCategories = useMemo(() => {
+    const groups = [...new Set(platformServices.map((s) => s.category))];
+    const list = [{ id: "all", label: `All Services (${platformServices.length})` }];
+    for (const g of groups) {
+      list.push({
+        id: g,
+        label: `${g} (${platformServices.filter((s) => s.category === g).length})`,
+      });
+    }
+    return list;
+  }, [platformServices]);
+
+  const categoryServices = useMemo(() => {
+    if (catFilter === "all") return platformServices;
+    return platformServices.filter((s) => s.category === catFilter);
+  }, [platformServices, catFilter]);
+
+  const selectedService = useMemo(() => {
+    if (!categoryServices.length && !platformServices.length) return null;
+    return (
+      categoryServices.find((s) => s.id === serviceId) ??
+      platformServices.find((s) => s.id === serviceId) ??
+      categoryServices[0] ??
+      platformServices[0]
+    );
+  }, [categoryServices, platformServices, serviceId]);
+
+  useEffect(() => {
+    if (selectedService && selectedService.id !== serviceId) {
+      setServiceId(selectedService.id);
+      setQty((prev) => {
+        const n = Number(prev);
+        if (!Number.isFinite(n) || n < selectedService.min) return String(selectedService.min);
+        if (n > selectedService.max) return String(selectedService.max);
+        return prev;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedService]);
+
+  const handleSelectPlatform = (id: string) => {
+    setPlatformId(id);
+    setCatFilter("all");
+    const firstSvc = allServices.find((s) => s.platformId === id);
+    if (firstSvc) {
+      setServiceId(firstSvc.id);
+      setQty(String(Math.max(firstSvc.min, Math.min(1000, firstSvc.max))));
+    } else {
+      setServiceId("");
+    }
+    setActiveSheet(null);
+    setSearchQuery("");
+  };
+
+  const quickQuantities = useMemo(() => {
+    if (!selectedService) return [500, 1000, 2500, 5000];
+    const { min, max } = selectedService;
+    const candidates = [100, 500, 1000, 2500, 5000, 10000, 20000].filter((q) => q >= min && q <= max);
+    if (candidates.length >= 4) return candidates.slice(0, 4);
+    const custom = [min, min * 2, min * 5, min * 10].filter((q) => q <= max);
+    return custom.length ? custom : [min];
+  }, [selectedService]);
+
+  const qtyNum = Number(qty);
+  const qtyValid = Number.isFinite(qtyNum) && qtyNum > 0;
+  const qtyOutOfRange = selectedService && qtyValid ? qtyNum < selectedService.min || qtyNum > selectedService.max : false;
+
+  const linkFilled = link.trim().length > 5;
+  const linkValidFormat = /^https?:\/\//i.test(link.trim());
+  const linkMismatch = useMemo(() => (link.trim() ? !linkValidFormat : false), [link, linkValidFormat]);
+
+  const totalAmount = useMemo(() => {
+    if (!selectedService || !qtyValid || qtyOutOfRange) return 0;
+    return Math.round((qtyNum / 1000) * selectedService.ratePer1000 * 100) / 100;
+  }, [selectedService, qtyNum, qtyValid, qtyOutOfRange]);
+
+  const isInsufficient = totalAmount > 0 && totalAmount > walletBalance;
+  const shortfall = Math.max(0, totalAmount - walletBalance);
+  const formReady = Boolean(selectedService) && linkFilled && linkValidFormat && qtyValid && !qtyOutOfRange && totalAmount > 0;
+
+  const handlePaste = async () => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setLink(text.trim());
+          showToast("Pasted from clipboard");
+          return;
+        }
+      }
+    } catch {}
+    showToast("Tap input field to paste link");
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!formReady || !selectedService || isInsufficient || submitting) return;
+    setSubmitting(true);
     try {
       const supabase = createBrowserClient();
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
       if (!token) throw new Error("Sign in to place a boost order.");
-      const res = await fetch("/api/boost/order", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ serviceId: service.id, link: link.trim(), quantity }) });
+      const res = await fetch("/api/boost/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ serviceId: selectedService.id, link: link.trim(), quantity: qtyNum }),
+      });
       const result = await res.json().catch(() => ({}));
       if (!res.ok || result.ok === false) throw new Error(result.error || "Order failed. Please retry.");
       const ord = result.order || {};
-      setPlaced(prev => [{ id: String(ord.providerOrderId || ord.id || ""), ref: String(ord.reference || ord.ref || ""), service: service.name, speed: service.speed, qty: quantity, total: Number(ord.amount) || total, status: String(ord.status || "processing").toLowerCase(), link: link.trim(), platform: platform?.id, createdAt: new Date().toISOString() }, ...prev]);
-      setLink(""); setQty("");
-      try { await refreshUser(); } catch { /* wallet refresh is non-critical */ }
+      setOrders((prev) => [
+        {
+          id: String(ord.providerOrderId || ord.id || ""),
+          service: selectedService.title,
+          platform: platform.id,
+          link: link.trim(),
+          qty: qtyNum,
+          total: Number(ord.amount) || totalAmount,
+          status: normalizeStatus(String(ord.status || "processing")),
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+      setLink("");
+      try {
+        await refreshUser();
+      } catch {}
+      showToast(`Boost order placed — ${selectedService.title} × ${formatQty(qtyNum)} for ${formatNaira(totalAmount)}`);
       void loadOrders();
-    } catch (e) { setOrderError(e instanceof Error ? e.message : "Order failed"); }
-    finally { setOrdering(false); }
-  }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Order failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  return <main className="boost-page">
-    <header className="boost-topbar"><button type="button" onClick={() => history.back()} className="boost-back" aria-label="Go back"><ArrowLeft size={18}/></button><div className="boost-title-wrap"><p className="boost-eyebrow">VERNEX DIGITAL · SERVICES</p><h1 className="boost-title">Boost account</h1></div><Link href="/fund" className="boost-wallet-btn"><Wallet size={14}/><span>{formatNaira(balance)}</span></Link></header>
-    <section className="boost-hero"><div className="boost-hero-orb orb-one"/><div className="boost-hero-orb orb-two"/><div className="boost-hero-copy"><span className="boost-hero-kicker"><Sparkles size={13}/> GROW WITH CONFIDENCE</span><h2>Real momentum.<br/><span>Made simple.</span></h2><p>Find the right growth service for your audience, then track it all in one place.</p><div className="boost-hero-trust"><span><ShieldCheck size={14}/> Secure checkout</span><span><Zap size={13}/> Live catalog</span></div></div><div className="boost-hero-art" aria-hidden="true"><div className="boost-art-ring ring-a"/><div className="boost-art-ring ring-b"/><div className="boost-art-core"><Rocket size={28}/></div><span className="boost-art-node node-a"><Users size={15}/></span><span className="boost-art-node node-b"><Star size={14}/></span><span className="boost-art-node node-c"><Zap size={14}/></span></div></section>
-    <section className="boost-wallet-strip"><div className="boost-wallet-icon"><Wallet size={17}/></div><div className="boost-wallet-copy"><span>Available balance</span><strong>{formatNaira(balance)}</strong></div><Link href="/fund" className="boost-fund-link">Add funds <ArrowLeft size={13}/></Link></section>
-    <div className="boost-catalog-line"><div><h2>Build your order</h2><p>Choose a platform, category and service.</p></div><span className={`boost-catalog-badge ${catalogStale ? "catalog-stale" : ""}`}><span className="live-dot"/> {catalogLoading ? "Syncing catalog" : `${counts.platforms} platforms · ${counts.services.toLocaleString()} services`}{catalogStale ? " · cached" : " · live"}</span></div>
-    {catalogLoading && <div className="boost-notice"><RefreshCw size={16} className="boost-spin"/> Connecting to live service catalog…</div>}
-    {catalogStale && <div className="boost-notice notice-warning"><CircleAlert size={16}/><span>Showing cached services because the provider is temporarily unavailable. Prices will be validated again before checkout.</span><button type="button" onClick={() => void loadCatalog()}>Refresh</button></div>}
-    {catalogError && <div className="boost-notice notice-error"><CircleAlert size={16}/><span>{catalogError}</span><button type="button" onClick={() => void loadCatalog()}>Try again</button></div>}
-    {orderError && <div className="boost-notice notice-error"><CircleAlert size={16}/><span>{orderError}</span><button type="button" onClick={() => setOrderError("")} aria-label="Dismiss"><X size={15}/></button></div>}
-    <div className="boost-layout"><div className="boost-main-column">
-      <section className="boost-card boost-flow-card"><div className="boost-card-heading"><span className="boost-step">01</span><div><h3>Select your service</h3><p>Start by choosing where you want to grow.</p></div></div><div className="boost-form-grid"><FormRow label="Platform" value={platform?.name ?? null} placeholder="Choose a platform" icon={platform ? <PlatformMark platform={platform.id} size={19}/> : <Users size={17}/>} onClick={() => { setPSearch(""); setPicker("platform"); }} disabled={catalogLoading || !platforms.length}/><FormRow label="Category" value={platformId ? (group ?? "All Services") : null} placeholder={platformId ? "Choose a category" : "Select platform first"} icon={<Folder size={17}/>} onClick={() => { if (platformId) { setCSearch(""); setPicker("category"); } }} disabled={!platformId}/><FormRow label="Service" value={service?.name ?? null} placeholder={platformId ? "Choose a service" : "Select platform first"} icon={<Star size={17}/>} onClick={() => { if (platformId) { setSSearch(""); setPicker("service"); } }} disabled={!platformId}/></div>{service && <div className="boost-service-meta"><span><Clock3 size={13}/>{service.speed || "Delivery varies"}</span><span className="meta-rate">{formatNaira(service.ratePer1000)} / 1K</span><span>Min {formatQty(service.min)}</span><span>Max {formatQty(service.max)}</span>{service.refill ? <span className="meta-refill">Refill included</span> : null}</div>}</section>
-      {service && <section className="boost-card boost-details-card"><div className="boost-card-heading"><span className="boost-step">02</span><div><h3>Order details</h3><p>Enter the target and the quantity you need.</p></div></div><div className="boost-input-section"><Label>Target URL</Label><div className="boost-input-wrap"><Link2 size={17}/><input value={link} onChange={e => setLink(e.target.value)} placeholder={platform?.placeholder || "Paste a public profile or post URL"} aria-label="Target URL"/><button type="button" onClick={pasteLink} className="boost-paste"><ClipboardPaste size={14}/> Paste</button></div>{platform?.linkHint && <p className="boost-field-hint">{platform.linkHint}</p>}</div><div className="boost-input-section"><Label>Quantity</Label><div className="boost-qty-wrap"><span className="qty-hash">#</span><input value={qty} onChange={e => setQty(e.target.value.replace(/[^0-9]/g, ""))} inputMode="numeric" placeholder={`From ${formatQty(service.min)}`} aria-label="Quantity"/><span className="qty-range">{formatQty(service.min)}–{formatQty(service.max)}</span>{qty && <button type="button" aria-label="Clear quantity" onClick={() => setQty("")}><X size={14}/></button>}</div><div className="boost-qty-chips">{QTY_CHIPS.filter(q => q >= service.min && q <= service.max).map(q => <button type="button" key={q} className={Number(qty) === q ? "active" : ""} onClick={() => setQty(String(q))}>{formatQty(q)}</button>)}</div></div></section>}
-      <section className="boost-card boost-summary-card"><div className="boost-summary-heading"><div><span className="boost-summary-label">ORDER SUMMARY</span><h3>Your order at a glance</h3></div></div>{!service || quantity === 0 ? <div className="boost-summary-empty"><span><ListOrdered size={18}/></span><p>Select a service and quantity to see your total.</p></div> : <div className="boost-summary-rows"><div><span>Rate per 1,000</span><strong>{formatNaira(service.ratePer1000)}</strong></div><div><span>Quantity</span><strong>{formatQty(quantity)}</strong></div></div>}<div className="boost-summary-total"><div><span>Total to pay</span><strong>{formatNaira(total)}</strong></div><div className="boost-summary-balance"><span>Wallet balance</span><strong>{formatNaira(balance)}</strong></div></div>{service && quantity > 0 && !inRange && <p className="boost-inline-warning">Quantity must be between {formatQty(service.min)} and {formatQty(service.max)}.</p>}{shortfall > 0 && <Link href="/fund" className="boost-submit boost-submit-fund">Add {formatNaira(shortfall)} to continue</Link>}{shortfall <= 0 && <button type="button" onClick={placeOrder} disabled={!canOrder} className="boost-submit"><span>{ordering ? "Placing your order…" : "Place boost order"}</span>{ordering ? <RefreshCw size={16} className="boost-spin"/> : <ArrowLeft size={16}/>}</button>}<p className="boost-secure-note"><ShieldCheck size={13}/> Your order is checked against the live catalog before payment.</p></section>
-      </div><aside className="boost-side-column"><section className="boost-tip-card"><span className="tip-icon"><Info size={16}/></span><div><h3>Quick tip</h3><p>Use a public URL that matches your chosen service. Private or restricted accounts may not be eligible.</p></div></section><section className="boost-recent-card" aria-labelledby="boost-recent-title"><div className="boost-recent-head"><div><span className="boost-summary-label">ACTIVITY</span><h3 id="boost-recent-title">Recent orders</h3></div><span className="boost-order-count">{placed.length} {placed.length === 1 ? "order" : "orders"}</span></div>{ordersLoading ? <p className="boost-recent-empty"><RotateCw size={14}/> Loading your orders…</p> : placed.length === 0 ? <p className="boost-recent-empty"><ListOrdered size={16}/> No orders yet. Your recent boost orders will appear here right after checkout.</p> : <div className="boost-recent-list">{placed.slice(0, 5).map((o) => { const status = normalizeStatus(o.status); return <div className="boost-recent-row" key={o.id}><span className="boost-order-mark"><PlatformMark platform={o.platform || "social"} size={17}/></span><div className="boost-recent-info"><strong>{o.service}</strong><small>{formatQty(o.qty)} · {formatNaira(o.total)}</small></div><span className={`boost-order-status status-${status}`}>{status === "completed" ? <CheckCircle2 size={11}/> : status === "processing" || status === "in_progress" ? <RotateCw size={11}/> : <Clock3 size={11}/>} {statusLabel(status)}</span></div>; })}</div>}</section></aside></div>
-    <section className="boost-orders-card" aria-labelledby="boost-orders-title">
-      <div className="boost-orders-head"><div><span className="boost-summary-label">ACTIVITY</span><h2 id="boost-orders-title">Order tracking</h2><p>Track pending, in-progress and completed orders.</p></div><div className="boost-orders-head-actions"><span className="boost-order-count">{placed.length} {placed.length === 1 ? "order" : "orders"}</span><button type="button" className="boost-refresh-orders" onClick={() => void loadOrders()} disabled={ordersLoading} aria-label="Refresh orders"><RotateCw size={15}/></button></div></div>
-      <div className="boost-order-filters" role="tablist" aria-label="Filter boost orders">
-        {(["all", "completed", "in_progress", "processing", "pending"] as const).map((filter) => <button key={filter} type="button" role="tab" aria-selected={ordersFilter === filter} className={ordersFilter === filter ? "active" : ""} onClick={() => setOrdersFilter(filter)}>{filter === "all" ? "All" : statusLabel(filter)}</button>)}
+  const handleCopy = (text: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      showToast("Copied: " + text);
+    }
+  };
+
+  const openSheet = (type: "platform" | "category" | "service") => {
+    setSearchQuery("");
+    setActiveSheet(type);
+  };
+  const closeSheet = () => {
+    setActiveSheet(null);
+    setSearchQuery("");
+  };
+
+  const sheetPlatforms = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [...platforms].sort((a, b) => a.name.localeCompare(b.name));
+    return platforms.filter((p) => p.name.toLowerCase().includes(q));
+  }, [platforms, searchQuery]);
+
+  const sheetCategories = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return platformCategories;
+    return platformCategories.filter((c) => c.label.toLowerCase().includes(q));
+  }, [platformCategories, searchQuery]);
+
+  const sheetServices = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return categoryServices;
+    return categoryServices.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q) ||
+        s.speed.toLowerCase().includes(q),
+    );
+  }, [categoryServices, searchQuery]);
+
+  const selectedCategoryLabel = platformCategories.find((c) => c.id === catFilter)?.label ?? "All Services";
+
+  const recentOrders = useMemo(() => {
+    return [...orders]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 2);
+  }, [orders]);
+
+  return (
+    <div className="boost-page">
+      <header className="boost-topbar">
+        <Link href="/services" className="boost-back" aria-label="Back">
+          <ArrowLeft size={18} strokeWidth={2.4} />
+        </Link>
+        <div className="boost-title-wrap">
+          <h1 className="boost-title">Boost Account</h1>
+          <p className="boost-subtitle">Social media growth &amp; engagement</p>
+        </div>
+        <Link href="/fund" className="boost-wallet-btn" title="Fund wallet">
+          <Wallet size={14} />
+          <span className="boost-wallet-val">{formatNaira(walletBalance)}</span>
+          <span className="boost-wallet-plus" aria-hidden>+</span>
+        </Link>
+      </header>
+
+      <div className="boost-tip">
+        <Info size={14} className="boost-tip-icon" />
+        <span>Select a platform, pick a category, choose a service, then enter your link and quantity.</span>
       </div>
-      {ordersError && <div className="boost-order-load-error"><CircleAlert size={15}/><span>{ordersError}</span><button type="button" onClick={() => void loadOrders()}>Retry</button></div>}
-      {ordersLoading ? <div className="boost-orders-empty"><RefreshCw size={16} className="boost-spin"/><p>Loading your orders…</p></div> : (() => {
-        const filteredOrders = placed.filter((o) => ordersFilter === "all" || normalizeStatus(o.status) === ordersFilter);
-        return filteredOrders.length === 0 ? <div className="boost-orders-empty"><span><ListOrdered size={20}/></span><p>{placed.length === 0 ? "Your boost orders will appear here after checkout." : "No orders in this category."}</p></div> : <div className="boost-orders-list">{filteredOrders.map((o) => {
-          const status = normalizeStatus(o.status);
-          return <article className="boost-order-row" key={o.id}>
-            <span className="boost-order-mark"><PlatformMark platform={o.platform || "social"} size={19}/></span>
-            <div className="boost-order-info"><strong>{o.service}</strong><span>Order #{o.id}</span>{o.createdAt && <small><Clock size={12}/> {new Date(o.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}</small>}{o.link && <a href={o.link} target="_blank" rel="noreferrer">{o.link} <ExternalLink size={11}/></a>}</div>
-            <span className="boost-order-qty">{formatQty(o.qty)}</span>
-            <strong className="boost-order-cost">{formatNaira(o.total)}</strong>
-            <span className={`boost-order-status status-${status}`}>{status === "completed" ? <CheckCircle2 size={12}/> : <Clock3 size={12}/>} {statusLabel(status)}</span>
-          </article>;
-        })}</div>;
-      })()}
-    </section>
-    <p className="boost-footnote"><ShieldCheck size={13}/> Prices are verified live when your order is submitted.</p>
-    <PickerPage title="Choose platform" open={picker === "platform"} onClose={() => setPicker(null)} search={pSearch} onSearch={setPSearch}>{filteredPlatforms.map(p => <button key={p.id} type="button" onClick={() => selectPlatform(p.id)} className={`boost-picker-item ${platformId === p.id ? "selected" : ""}`}><span className="boost-picker-mark" style={{ background: `${p.color}14`, color: p.color }}><PlatformMark platform={p.id} size={22}/></span><span className="boost-picker-main"><strong>{p.name}</strong><small>{formatQty(allServices.filter(s => s.categoryId === p.id).length)} services available</small></span>{platformId === p.id ? <Check size={17}/> : <ChevronDown size={16}/>}</button>)}{!filteredPlatforms.length && <p className="boost-no-results">No platforms found.</p>}</PickerPage>
-    <PickerPage title="Choose category" open={picker === "category"} onClose={() => setPicker(null)} search={cSearch} onSearch={setCSearch}>{categories.map(c => { const active = (group ?? "All Services") === c; const count = c === "All Services" ? allServices.filter(s => s.categoryId === platformId).length : allServices.filter(s => s.categoryId === platformId && s.group === c).length; return <button key={c} type="button" onClick={() => { setGroup(c === "All Services" ? null : c); setServiceId(null); setPicker(null); }} className={`boost-picker-item ${active ? "selected" : ""}`}><span className="boost-picker-mark category-mark"><Folder size={18}/></span><span className="boost-picker-main"><strong>{c}</strong><small>{formatQty(count)} services</small></span>{active && <Check size={17}/>}</button>; })}{!categories.length && <p className="boost-no-results">No categories found.</p>}</PickerPage>
-    <PickerPage title="Choose service" open={picker === "service"} onClose={() => setPicker(null)} search={sSearch} onSearch={setSSearch}>{services.map(s => <button key={s.id} type="button" onClick={() => { setServiceId(s.id); setQty(""); setPicker(null); }} className={`boost-service-item ${serviceId === s.id ? "selected" : ""}`}><span className="boost-service-check"><Check size={13}/></span><span className="boost-service-option"><strong>{s.name}</strong><small>{s.speed || "Delivery varies"} · Min {formatQty(s.min)} · Max {formatQty(s.max)}</small></span><span className="boost-service-rate">{formatNaira(s.ratePer1000)}<small>/ 1K</small></span></button>)}{!services.length && <p className="boost-no-results">No services match this category.</p>}</PickerPage>
-  </main>;
-}
 
+      {catalogError && (
+        <div className="boost-error-banner" role="alert" style={{ margin: '0 12px 14px', padding: '12px 14px', borderRadius: '12px', background: '#FEF2F2', border: '1px solid #FCA5A5', color: '#991B1B', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '13px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={16} />
+            <span>{catalogError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadCatalog(true)}
+            style={{ background: '#DC2626', color: '#fff', border: 'none', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <section className="boost-card" aria-label="Boost configuration">
+        {loading ? (
+          <div style={{ padding: '36px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', color: '#64748B' }}>
+            <Loader2 size={28} className="spin" style={{ color: '#2563EB' }} />
+            <span style={{ fontSize: '13px', fontWeight: 600 }}>Loading live services catalog…</span>
+          </div>
+        ) : (
+          <>
+            <div className="boost-field">
+              <div className="boost-label-row"><span className="boost-label">PLATFORM</span></div>
+              <button type="button" className="boost-select-trigger" onClick={() => openSheet("platform")}>
+                <div className="boost-select-trigger-left">
+                  <div className="boost-select-trigger-icon">
+                    <PlatformMark platform={platform.id} size={22} />
+                  </div>
+                  <span className="boost-select-trigger-text">{platform.name}</span>
+                </div>
+                <ChevronDown size={18} className="boost-select-chevron" />
+              </button>
+            </div>
+
+            <div className="boost-field">
+              <div className="boost-label-row"><span className="boost-label">CATEGORY</span></div>
+              <button type="button" className="boost-select-trigger" onClick={() => openSheet("category")}>
+                <div className="boost-select-trigger-left">
+                  <div className="boost-select-trigger-icon boost-select-trigger-icon-folder">
+                    <Inbox size={18} />
+                  </div>
+                  <span className="boost-select-trigger-text">{selectedCategoryLabel}</span>
+                </div>
+                <ChevronDown size={18} className="boost-select-chevron" />
+              </button>
+            </div>
+
+            <div className="boost-field">
+              <div className="boost-label-row"><span className="boost-label">SERVICE</span></div>
+              <button type="button" className="boost-select-trigger boost-select-trigger-service" onClick={() => openSheet("service")}>
+                <div className="boost-select-trigger-left">
+                  <div className="boost-select-trigger-icon">
+                    <PlatformMark platform={platform.id} size={20} />
+                  </div>
+                  <div className="boost-select-trigger-service-info">
+                    <span className="boost-select-trigger-text">{selectedService?.title ?? "Select a service"}</span>
+                    {selectedService && (
+                      <span className="boost-select-trigger-meta">
+                        {formatNaira(selectedService.ratePer1000)} / 1K · Min {formatQty(selectedService.min)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown size={18} className="boost-select-chevron" />
+              </button>
+            </div>
+
+            <div className="boost-field">
+              <div className="boost-label-row"><span className="boost-label">DETAILS</span></div>
+              <div className="boost-link-row">
+                <div className={"boost-input-wrap" + (linkMismatch ? " is-error" : linkValidFormat ? " is-success" : "")}>
+                  <Link2 size={15} className="boost-input-icon" />
+                  <input type="url" className="boost-input" placeholder={platform.placeholder} value={link} onChange={(e) => setLink(e.target.value)} autoComplete="off" />
+                  {link ? (
+                    <button type="button" className="boost-clear-btn" onClick={() => setLink("")} aria-label="Clear">
+                      <X size={12} />
+                    </button>
+                  ) : null}
+                </div>
+                <button type="button" className="boost-paste-btn" onClick={handlePaste}>Paste</button>
+              </div>
+              {linkMismatch ? (
+                <div className="boost-field-feedback is-error"><AlertTriangle size={12} /> Paste a full link starting with https://</div>
+              ) : !link ? (
+                platform.linkHint ? <div className="boost-field-feedback is-hint">{platform.linkHint}</div> : null
+              ) : null}
+            </div>
+
+            <div className="boost-field">
+              <div className="boost-label-row">
+                <span className="boost-label">QUANTITY</span>
+                {selectedService ? (
+                  <span className="boost-label-aux" style={{ cursor: "default", color: "#94A3B8" }}>
+                    Min {formatQty(selectedService.min)} · Max {formatQty(selectedService.max)}
+                  </span>
+                ) : null}
+              </div>
+              <div className={"boost-input-wrap" + (qtyOutOfRange ? " is-error" : "")}>
+                <Hash size={15} className="boost-input-icon" />
+                <input type="number" className="boost-input" value={qty} onChange={(e) => setQty(e.target.value)} min={selectedService?.min} max={selectedService?.max} />
+              </div>
+              <div className="boost-quick-wrap">
+                <div className="boost-quick-grid">
+                  {quickQuantities.map((q) => (
+                    <button key={q} type="button" className={Number(qty) === q ? "boost-quick-chip active" : "boost-quick-chip"} onClick={() => setQty(String(q))}>
+                      {formatQty(q)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {qtyOutOfRange ? (
+                <div className="boost-field-feedback is-error"><AlertTriangle size={12} /> Quantity outside allowed range</div>
+              ) : null}
+            </div>
+
+            {selectedService && totalAmount > 0 ? (
+              <div className="boost-summary-card">
+                <div className="boost-summary-head">
+                  <span className="boost-summary-title">Order Summary</span>
+                  {selectedService.speed && /instant|0-1|speed/i.test(selectedService.speed) ? (
+                    <span className="boost-summary-pill"><Zap size={10} /> Fast</span>
+                  ) : null}
+                </div>
+                <div className="boost-summary-rows">
+                  <div className="boost-summary-row">
+                    <span className="boost-summary-row-label">Rate per 1,000</span>
+                    <span className="boost-summary-row-val">{formatNaira(selectedService.ratePer1000)}</span>
+                  </div>
+                  <div className="boost-summary-row">
+                    <span className="boost-summary-row-label">Quantity</span>
+                    <span className="boost-summary-row-val">{formatQty(qtyNum)}</span>
+                  </div>
+                </div>
+                <div className="boost-summary-divider" />
+                <div className="boost-summary-total-row">
+                  <span className="boost-summary-total-label">Total</span>
+                  <span className="boost-summary-total-val">{formatNaira(totalAmount)}</span>
+                </div>
+                <div className={isInsufficient ? "boost-wallet-status is-insufficient" : "boost-wallet-status is-sufficient"}>
+                  {isInsufficient ? (
+                    <><AlertTriangle size={14} className="boost-wallet-status-icon" /><span>Need {formatNaira(shortfall)} more · Wallet {formatNaira(walletBalance)}</span></>
+                  ) : (
+                    <><Check size={14} className="boost-wallet-status-icon" /><span>Wallet balance {formatNaira(walletBalance)}</span></>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {isInsufficient ? (
+              <Link href="/fund" className="boost-cta boost-cta-fund">
+                Fund Wallet · Need {formatNaira(shortfall)}
+              </Link>
+            ) : (
+              <button type="button" className="boost-cta" disabled={!formReady || submitting} onClick={handlePlaceOrder}>
+                {submitting
+                  ? "Placing Order…"
+                  : formReady
+                  ? `Place Boost Order · ${formatNaira(totalAmount)}`
+                  : !linkFilled
+                  ? "Enter Target Link"
+                  : !qtyValid || qtyOutOfRange
+                  ? "Enter Valid Quantity"
+                  : "Place Boost Order"}
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="boost-trust-card" aria-label="Vernex Boost Guarantee">
+        <div className="boost-trust-title">
+          <ShieldCheck size={18} className="boost-trust-title-icon" />
+          <span>Vernex Boost Guarantee</span>
+        </div>
+        <div className="boost-trust-items">
+          <div className="boost-trust-item">
+            <Check size={14} className="boost-trust-bullet" />
+            <span><strong>100% Safe &amp; Private:</strong> We never ask for your password. Only public links.</span>
+          </div>
+          <div className="boost-trust-item">
+            <Check size={14} className="boost-trust-bullet" />
+            <span><strong>Automated Dispatch:</strong> Orders route through verified high-speed gateways within minutes.</span>
+          </div>
+          <div className="boost-trust-item">
+            <Check size={14} className="boost-trust-bullet" />
+            <span><strong>Refill &amp; Wallet Protection:</strong> Automatic refill on eligible services or instant wallet credit.</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="boost-orders-section" aria-labelledby="boost-orders-heading">
+        <div className="boost-orders-head">
+          <h2 id="boost-orders-heading" className="boost-orders-title">My Orders</h2>
+          <button type="button" className="boost-refresh-btn" onClick={() => { loadCatalog(true); void loadOrders(); }} disabled={refreshing}>
+            <RefreshCw size={12} className={refreshing ? "spin" : ""} />
+            <span>Refresh</span>
+          </button>
+        </div>
+        {ordersError && (
+          <div className="boost-orders-empty" style={{ color: "#A8463D" }}>
+            <Info size={22} />
+            <p>{ordersError}</p>
+          </div>
+        )}
+        <div className="boost-orders-list">
+          {!ordersError && recentOrders.length === 0 ? (
+            <div className="boost-orders-empty">
+              <Inbox size={28} />
+              <p>No orders yet. Place your first boost above.</p>
+            </div>
+          ) : (
+            recentOrders.map((o) => (
+              <div key={o.id} className="boost-order-item">
+                <div className="boost-order-top">
+                  <div className="boost-order-service">
+                    <div className="boost-order-icon"><PlatformMark platform={o.platform || "social"} size={16} /></div>
+                    <span className="boost-order-title">{o.service}</span>
+                  </div>
+                  <span className={`boost-order-badge st-${o.status}`}>{o.status === "processing" ? "in progress" : o.status}</span>
+                </div>
+                <div className="boost-order-details">
+                  <div className="boost-order-detail-item">
+                    <span className="boost-order-detail-label">Qty</span>
+                    <span className="boost-order-detail-val">{formatQty(o.qty)}</span>
+                  </div>
+                  <div className="boost-order-detail-item">
+                    <span className="boost-order-detail-label">Amount</span>
+                    <span className="boost-order-detail-val">{formatNaira(o.total)}</span>
+                  </div>
+                  {o.remains != null && Number.isFinite(o.remains) ? (
+                    <div className="boost-order-detail-item">
+                      <span className="boost-order-detail-label">Remains</span>
+                      <span className="boost-order-detail-val">{formatQty(o.remains)}</span>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="boost-order-footer">
+                  <button type="button" className="boost-order-ref" onClick={() => handleCopy(o.id)}>
+                    <Copy size={11} /> {o.id || "—"}
+                  </button>
+                  <span className="boost-order-date">
+                    {o.createdAt ? new Date(o.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : ""}
+                  </span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {orders.length > recentOrders.length && (
+          <Link href="/history" className="boost-view-all">
+            <span>View all orders ({orders.length})</span>
+            <ChevronRight size={13} className="boost-view-all-chevron" />
+          </Link>
+        )}
+      </section>
+
+      {activeSheet && (
+        <div className="boost-sheet-root" role="dialog" aria-modal="true">
+          <button type="button" className="boost-sheet-backdrop" onClick={closeSheet} aria-label="Close" />
+          <div className="boost-sheet">
+            <div className="boost-sheet-handle" aria-hidden />
+            <div className="boost-sheet-head">
+              <h3 className="boost-sheet-title">
+                {activeSheet === "platform" && "Select Platform"}
+                {activeSheet === "category" && `Select ${platform.name} Category`}
+                {activeSheet === "service" && `Select ${platform.name} Package`}
+              </h3>
+              <button type="button" className="boost-sheet-close" onClick={closeSheet} aria-label="Close">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="boost-sheet-search">
+              <div className="boost-sheet-search-wrap">
+                <Search size={15} className="boost-sheet-search-icon" />
+                <input
+                  type="text"
+                  className="boost-sheet-search-input"
+                  placeholder={
+                    activeSheet === "platform"
+                      ? "Search platforms…"
+                      : activeSheet === "category"
+                      ? "Search categories…"
+                      : "Search package name or features…"
+                  }
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="boost-sheet-body">
+              {activeSheet === "platform" &&
+                sheetPlatforms.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={p.id === platform.id ? "boost-sheet-item active" : "boost-sheet-item"}
+                    onClick={() => handleSelectPlatform(p.id)}
+                  >
+                    <div className="boost-sheet-item-icon"><PlatformMark platform={p.id} size={24} /></div>
+                    <div className="boost-sheet-item-info">
+                      <span className="boost-sheet-item-title">{p.name}</span>
+                      <span className="boost-sheet-item-meta">{formatQty(allServices.filter((s) => s.platformId === p.id).length)} services available</span>
+                    </div>
+                    {p.id === platform.id ? <Check size={18} className="boost-sheet-item-check" /> : null}
+                  </button>
+                ))}
+
+              {activeSheet === "category" &&
+                sheetCategories.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={c.id === catFilter ? "boost-sheet-item active" : "boost-sheet-item"}
+                    onClick={() => {
+                      setCatFilter(c.id);
+                      const list = c.id === "all" ? platformServices : platformServices.filter((s) => s.category === c.id);
+                      if (list[0]) setServiceId(list[0].id);
+                      closeSheet();
+                    }}
+                  >
+                    <div className="boost-sheet-item-icon boost-sheet-item-icon-folder"><Inbox size={18} /></div>
+                    <div className="boost-sheet-item-info">
+                      <span className="boost-sheet-item-title">{c.label}</span>
+                    </div>
+                    {c.id === catFilter ? <Check size={18} className="boost-sheet-item-check" /> : null}
+                  </button>
+                ))}
+
+              {activeSheet === "service" &&
+                sheetServices.map((s) => {
+                  const isSelected = s.id === selectedService?.id;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className={isSelected ? "boost-sheet-item active" : "boost-sheet-item"}
+                      onClick={() => {
+                        setServiceId(s.id);
+                        const currentN = Number(qty);
+                        if (Number.isFinite(currentN)) {
+                          if (currentN < s.min) setQty(String(s.min));
+                          else if (currentN > s.max) setQty(String(s.max));
+                        }
+                        closeSheet();
+                      }}
+                    >
+                      <div className="boost-sheet-item-info">
+                        <span className="boost-sheet-item-title">{s.title}</span>
+                        <div className="boost-sheet-item-meta">
+                          <span>Min: {formatQty(s.min)}</span>
+                          <span>·</span>
+                          <span>Max: {formatQty(s.max)}</span>
+                          {s.speed ? (
+                            <>
+                              <span>·</span>
+                              <span>{s.speed}</span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="boost-sheet-item-right">
+                        <div className="boost-sheet-item-price">
+                          {formatNaira(s.ratePer1000)}
+                          <span className="boost-sheet-item-price-unit">per 1,000</span>
+                        </div>
+                        {isSelected ? <Check size={18} className="boost-sheet-item-check" /> : null}
+                      </div>
+                    </button>
+                  );
+                })}
+
+              {activeSheet === "service" && sheetServices.length === 0 && (
+                <div className="boost-sheet-empty">No packages match &quot;{searchQuery}&quot;.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="boost-toast" role="status">
+          <Info size={15} />
+          <span>{toast}</span>
+        </div>
+      )}
+    </div>
+  );
+}
