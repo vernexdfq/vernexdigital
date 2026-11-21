@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       error?: string;
-      games?: Array<{ id: string; name: string; fromNgn: number | null }>;
+      games?: Array<{ id: string; name: string; fromNgn: number | null; image?: string | null }>;
     };
     if (!res.ok || data.ok === false || !Array.isArray(data.games)) {
       return NextResponse.json(
@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
     const games = data.games.map((g) => ({
       id: g.id,
       name: g.name,
+      image: g.image || null,
       fromNgn: g.fromNgn && g.fromNgn > 0 ? gamingCustomerPrice(g.fromNgn, markups) : null,
     }));
     return NextResponse.json({ ok: true, games, count: games.length });

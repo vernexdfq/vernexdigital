@@ -19,7 +19,7 @@ import {
  * Catalog → game tile → options → denomination → player details → wallet pay.
  */
 
-type CatalogGame = { id: string; name: string; fromNgn: number | null };
+type CatalogGame = { id: string; name: string; fromNgn: number | null; image?: string | null };
 type Variation = { id: string; name: string; priceNgn: number; inStock: boolean };
 type DetailField = { field: string; label?: string };
 type ProductDetail = {
@@ -52,6 +52,28 @@ function linGrad(id: string): string {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return `linear-gradient(135deg, hsl(${h} 70% 46%), hsl(${(h + 40) % 360} 65% 32%))`;
+}
+
+/** Use the live provider cover; show initials only if the image is missing or fails. */
+function GameCover({
+  game,
+  compact = false,
+}: {
+  game: { id: string; name: string; image?: string | null };
+  compact?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  const validImage = game.image && /^https:\/\//i.test(game.image);
+  const dimensions = compact ? "h-12 w-12 rounded-xl" : "h-20 w-full";
+  if (validImage && !failed) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={game.image!} alt={game.name} loading="lazy" onError={() => setFailed(true)} className={`${dimensions} object-cover`} />;
+  }
+  return (
+    <div className={`flex ${dimensions} items-center justify-center text-xl font-black text-white`} style={{ background: linGrad(game.id) }}>
+      {initialsFor(game.name)}
+    </div>
+  );
 }
 
 export default function GamingPage() {
@@ -119,7 +141,7 @@ export default function GamingPage() {
 
   const variantMode = detail?.id.startsWith("game-") ?? false;
 
-  const openProduct = async (id: string) => {
+  const openProduct = async (id: string, imageFallback?: string | null) => {
     setDetailLoading(true);
     setDetail(null);
     setDetailError("");
@@ -141,7 +163,7 @@ export default function GamingPage() {
       if (!res.ok || !data.ok || !data.product) {
         setDetailError(data.error || "Could not load this product.");
       } else {
-        setDetail(data.product);
+        setDetail({ ...data.product, image: data.product.image || imageFallback || null });
         const first = data.product.variations.find((v) => v.inStock && v.priceNgn > 0);
         if (first) setSelected(first.id);
       }
@@ -309,15 +331,10 @@ export default function GamingPage() {
               <button
                 key={g.id}
                 type="button"
-                onClick={() => void openProduct(`game-${g.id}`)}
+                onClick={() => void openProduct(`game-${g.id}`, g.image)}
                 className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white text-left transition active:scale-[.98]"
               >
-                <div
-                  className="flex h-20 items-center justify-center text-xl font-black text-white"
-                  style={{ background: linGrad(g.id) }}
-                >
-                  {initialsFor(g.name)}
-                </div>
+                <GameCover game={g} />
                 <div className="space-y-0.5 px-3 py-2.5">
                   <p className="line-clamp-1 text-[13px] font-semibold text-[#0F172A]">{g.name}</p>
                   <p className="text-[11px] font-semibold text-[#1877F2]">
@@ -367,12 +384,7 @@ export default function GamingPage() {
             ) : detail ? (
               <>
                 <div className="flex items-center gap-3 pb-4 pt-2">
-                  <span
-                    className="flex h-12 w-12 items-center justify-center rounded-xl text-base font-black text-white"
-                    style={{ background: linGrad(detail.name) }}
-                  >
-                    {initialsFor(detail.name)}
-                  </span>
+                  <GameCover game={{ id: detail.id, name: detail.name, image: detail.image }} compact />
                   <div>
                     <h2 className="text-[15px] font-bold text-[#0F172A]">{detail.name}</h2>
                     <p className="text-[12px] text-[#64748B]">
