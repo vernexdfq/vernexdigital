@@ -81,8 +81,8 @@ export default function DataPage() {
           tab: String(p.tab || "monthly"),
           data: String(p.size || p.name || ""),
           validity: validityLabel(String(p.days || "30")),
-          // face value the customer pays — the child price never leaks here
-          price: Number(p.retail) > 0 ? Number(p.retail) : Number(p.price),
+          // face value the customer pays — child/wholesale price never leaks here
+          price: p.hasCustomPrice ? Number(p.price) : Number(p.retail) > 0 ? Number(p.retail) : Number(p.price),
         }));
         setPlans(mapped);
       }
