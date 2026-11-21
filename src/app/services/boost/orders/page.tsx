@@ -20,6 +20,7 @@ type OrderStatus = "pending" | "processing" | "completed" | "failed" | "cancelle
 type StatusFilter = "all" | OrderStatus;
 type Order = {
   id: string;
+  txnId: string;
   service: string;
   platform: string;
   link: string;
@@ -248,6 +249,7 @@ export default function BoostOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -280,6 +282,7 @@ export default function BoostOrdersPage() {
       setOrders(
         (Array.isArray(payload.orders) ? payload.orders : []).map((o: Record<string, unknown>) => ({
           id: String(o.providerOrderId || o.id || o.txnId || ""),
+          txnId: String(o.txnId || ""),
           service: String(o.service || "Boost"),
           platform: String(o.platform || ""),
           link: String(o.link || ""),
@@ -368,6 +371,47 @@ export default function BoostOrdersPage() {
       }
     },
     [loadOrders, refreshingId, showToast],
+  );
+
+  /**
+   * Cancel an order at the provider. The provider keeps the money for the
+   * part already delivered and refunds only the undelivered part to the
+   * user's wallet (exact remains math happens server-side).
+   */
+  const cancelOrder = useCallback(
+    async (order: Order) => {
+      if (!order.txnId || cancellingId) return;
+      setCancellingId(order.txnId);
+      try {
+        const supabase = createBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) {
+          showToast("Sign in to cancel an order");
+          return;
+        }
+        const res = await fetch("/api/boost/cancel", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ txnId: order.txnId, orderId: order.id }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || payload.ok === false) {
+          showToast(payload.error || "Could not cancel this order");
+          return;
+        }
+        showToast(payload.message || "Order cancelled");
+        await loadOrders(true);
+      } catch {
+        showToast("Could not reach the provider to cancel");
+      } finally {
+        setCancellingId(null);
+      }
+    },
+    [cancellingId, loadOrders, showToast],
   );
 
   const filteredOrders =
@@ -499,6 +543,17 @@ export default function BoostOrdersPage() {
                   {refreshingId === o.id ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
                   <span>{refreshingId === o.id ? "Checking…" : "Refresh Status"}</span>
                 </button>
+                {o.status === "pending" || o.status === "processing" ? (
+                  <button
+                    type="button"
+                    className="bho-cancel"
+                    disabled={!o.txnId || cancellingId === o.txnId}
+                    onClick={() => void cancelOrder(o)}
+                  >
+                    {cancellingId === o.txnId ? <Loader2 size={12} className="spin" /> : null}
+                    <span>{cancellingId === o.txnId ? "Cancelling…" : "Cancel Order"}</span>
+                  </button>
+                ) : null}
               </div>
             </div>
           ))

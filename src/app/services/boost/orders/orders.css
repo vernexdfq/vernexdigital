@@ -283,6 +283,7 @@
 /* Card actions */
 .bho-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .bho-refresh {
@@ -301,6 +302,22 @@
 }
 .bho-refresh:disabled { opacity: 0.6; cursor: default; }
 .bho-refresh:active { transform: scale(0.985); }
+
+.bho-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  color: #B42318;
+  border: 1px solid #FDA29B;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 13px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.bho-cancel:disabled { opacity: 0.6; cursor: default; }
+.bho-cancel:active { transform: scale(0.985); }
 
 /* Empty / loading states */
 .bho-empty {
