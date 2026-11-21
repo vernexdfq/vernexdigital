@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Copy,
+  ExternalLink,
   Globe,
   Inbox,
   Info,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { createBrowserClient } from "@/lib/supabase/client";
 import "../boost-page.css";
+import "./orders.css";
 
 type OrderStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
 type StatusFilter = "all" | OrderStatus;
@@ -25,6 +27,7 @@ type Order = {
   total: number;
   status: OrderStatus;
   remains?: number;
+  startCount?: number;
   createdAt: string;
 };
 
@@ -45,6 +48,14 @@ function formatNaira(v: number | null | undefined): string {
 function formatQty(v: number | null | undefined): string {
   const n = Number(v) || 0;
   return n.toLocaleString("en-NG");
+}
+
+function formatDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
 }
 
 function PlatformMark({ platform, size = 22 }: { platform: string; size?: number }) {
@@ -204,11 +215,11 @@ function PlatformMark({ platform, size = 22 }: { platform: string; size?: number
 
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: "pending",
-  processing: "in progress",
-  completed: "completed",
-  failed: "failed",
-  cancelled: "cancelled",
+  pending: "Pending",
+  processing: "In progress",
+  completed: "Completed",
+  failed: "Failed",
+  cancelled: "Cancelled",
 };
 
 /** Provider-string → UI bucket, same logic as the server. */
@@ -226,20 +237,21 @@ const FILTER_TABS: { id: StatusFilter; label: string }[] = [
 ];
 
 /**
- * /services/boost/orders — the full boost order history.
- * "View all orders" on the boost page links here. Orders live in the panel
- * database forever (nothing is ever deleted), so this page always shows every
- * order with its live provider status.
+ * /services/boost/orders — full boost order history, primex-style:
+ * order count + New Order in the header, status filter tabs, and one card
+ * per order with Order ID / Date / Quantity / Amount / Start Count / Remains /
+ * Link and a per-order Refresh Status that asks the provider directly.
+ * Orders are stored forever in the panel database; nothing is ever deleted.
  */
 export default function BoostOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -247,7 +259,7 @@ export default function BoostOrdersPage() {
   }, []);
 
   const loadOrders = useCallback(async (silent = false) => {
-    if (silent) setRefreshing(true);
+    if (silent) setRefreshingAll(true);
     setOrdersError("");
     try {
       const supabase = createBrowserClient();
@@ -275,6 +287,7 @@ export default function BoostOrdersPage() {
           total: Number(o.total) || 0,
           status: normalizeStatus(String(o.status || "pending")),
           remains: o.remains != null ? Number(o.remains) : undefined,
+          startCount: o.startCount != null ? Number(o.startCount) : undefined,
           createdAt: String(o.createdAt || ""),
         })),
       );
@@ -282,7 +295,7 @@ export default function BoostOrdersPage() {
       setOrdersError(e instanceof Error ? e.message : "Could not load orders.");
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      setRefreshingAll(false);
     }
   }, []);
 
@@ -296,14 +309,11 @@ export default function BoostOrdersPage() {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      showToast("Order ID copied");
+      showToast("Copied");
     } catch {
       /* clipboard unavailable */
     }
   }, [showToast]);
-
-  const filteredOrders =
-    statusFilter === "all" ? orders : orders.filter((o) => o.status === statusFilter);
 
   /** Ask the provider for THIS order's live status and persist it. */
   const refreshOrderStatus = useCallback(
@@ -339,6 +349,10 @@ export default function BoostOrdersPage() {
                     payload.remains != null && Number.isFinite(Number(payload.remains))
                       ? Number(payload.remains)
                       : o.remains,
+                  startCount:
+                    payload.startCount != null && Number.isFinite(Number(payload.startCount))
+                      ? Number(payload.startCount)
+                      : o.startCount,
                 }
               : o,
           ),
@@ -356,132 +370,145 @@ export default function BoostOrdersPage() {
     [loadOrders, refreshingId, showToast],
   );
 
+  const filteredOrders =
+    statusFilter === "all" ? orders : orders.filter((o) => o.status === statusFilter);
+
   return (
-    <div className="boost-page">
-      <header className="boost-topbar">
-        <Link href="/services/boost" className="boost-back" aria-label="Back">
+    <div className="bho-page">
+      <header className="bho-topbar">
+        <Link href="/services/boost" className="bho-back" aria-label="Back">
           <ArrowLeft size={18} strokeWidth={2.4} />
         </Link>
-        <div className="boost-title-wrap">
-          <h1 className="boost-title">Boost Orders</h1>
-          <p className="boost-subtitle">All your boost orders &middot; kept forever</p>
+        <div className="bho-title-wrap">
+          <h1 className="bho-title">
+            Boost Orders
+            <span className="bho-count-badge">{orders.length}</span>
+          </h1>
+          <p className="bho-subtitle">All your boost orders &middot; kept forever</p>
         </div>
-        <span className="boost-wallet-btn" title={`${orders.length} orders`}>
-          <Inbox size={14} />
-          <span className="boost-wallet-val">{orders.length}</span>
-        </span>
+        <Link href="/services/boost" className="bho-new-btn">
+          New Order
+        </Link>
       </header>
 
-      <div className="boost-tip">
-        <Info size={14} className="boost-tip-icon" />
-        <span>Statuses sync live with the provider every 20 seconds. Failed orders are refunded automatically.</span>
+      <div className="bho-tabs" role="tablist" aria-label="Filter orders by status">
+        {FILTER_TABS.map((tab) => {
+          const count = tab.id === "all" ? orders.length : orders.filter((o) => o.status === tab.id).length;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={statusFilter === tab.id}
+              className={`bho-tab${statusFilter === tab.id ? " active" : ""}`}
+              onClick={() => setStatusFilter(tab.id)}
+            >
+              {tab.label}
+              {count ? <span className="bho-tab-count">{count}</span> : null}
+            </button>
+          );
+        })}
       </div>
 
-      <section className="boost-orders-section" aria-labelledby="boost-orders-heading">
-        <div className="boost-orders-head">
-          <h2 id="boost-orders-heading" className="boost-orders-title">My Orders</h2>
-          <button type="button" className="boost-refresh-btn" onClick={() => void loadOrders()} disabled={refreshing || loading}>
-            <RefreshCw size={12} className={refreshing ? "spin" : ""} />
-            <span>Refresh</span>
-          </button>
+      {ordersError && (
+        <div className="bho-empty" style={{ color: "#A8463D" }}>
+          <Info size={22} />
+          <p>{ordersError}</p>
         </div>
-        {ordersError && (
-          <div className="boost-orders-empty" style={{ color: "#A8463D" }}>
-            <Info size={22} />
-            <p>{ordersError}</p>
+      )}
+
+      <div className="bho-list">
+        {loading ? (
+          <div className="bho-empty">
+            <Loader2 size={26} className="spin" />
+            <p>Loading your orders…</p>
           </div>
-        )}
-        <div className="boost-quick-row" role="tablist" aria-label="Filter orders by status">
-          {FILTER_TABS.map((tab) => {
-            const count = tab.id === "all" ? orders.length : orders.filter((o) => o.status === tab.id).length;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={statusFilter === tab.id}
-                className={`boost-quick-chip${statusFilter === tab.id ? " active" : ""}`}
-                onClick={() => setStatusFilter(tab.id)}
-              >
-                {tab.label} ({count})
-              </button>
-            );
-          })}
-        </div>
-        <div className="boost-orders-list">
-          {loading ? (
-            <div style={{ padding: "36px 16px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px", color: "#64748B" }}>
-              <Loader2 size={28} className="spin" style={{ color: "#2563EB" }} />
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>Loading your orders…</span>
-            </div>
-          ) : signedIn === false ? (
-            <div className="boost-orders-empty">
-              <Inbox size={28} />
-              <p>Sign in to view your boost orders.</p>
-            </div>
-          ) : !ordersError && filteredOrders.length === 0 ? (
-            <div className="boost-orders-empty">
-              <Inbox size={28} />
-              <p>
-                {statusFilter === "all"
-                  ? "No boost orders yet. Place your first boost on the Boost page."
-                  : `No ${statusFilter === "processing" ? "in-progress" : statusFilter} orders right now.`}
-              </p>
-            </div>
-          ) : (
-            filteredOrders.map((o) => (
-              <div key={o.id + o.createdAt} className="boost-order-item">
-                <div className="boost-order-top">
-                  <div className="boost-order-service">
-                    <div className="boost-order-icon"><PlatformMark platform={o.platform || "social"} size={16} /></div>
-                    <span className="boost-order-title">{o.service}</span>
-                  </div>
-                  <span className={`boost-order-badge st-${o.status}`}>{STATUS_LABEL[o.status]}</span>
+        ) : signedIn === false ? (
+          <div className="bho-empty">
+            <Inbox size={28} />
+            <p>Sign in to view your boost orders.</p>
+          </div>
+        ) : !ordersError && filteredOrders.length === 0 ? (
+          <div className="bho-empty">
+            <Inbox size={28} />
+            <p>
+              {statusFilter === "all"
+                ? "No boost orders yet. Place your first boost."
+                : `No ${statusFilter === "processing" ? "in-progress" : statusFilter} orders right now.`}
+            </p>
+            <Link href="/services/boost" className="bho-empty-cta">
+              Place your first boost
+            </Link>
+          </div>
+        ) : (
+          filteredOrders.map((o) => (
+            <div key={o.id + o.createdAt} className="bho-card">
+              <div className="bho-card-head">
+                <div className="bho-card-service">
+                  <div className="bho-card-icon"><PlatformMark platform={o.platform || "social"} size={18} /></div>
+                  <span className="bho-card-title">{o.service}</span>
                 </div>
-                <div className="boost-order-details">
-                  <div className="boost-order-detail-item">
-                    <span className="boost-order-detail-label">Qty</span>
-                    <span className="boost-order-detail-val">{formatQty(o.qty)}</span>
-                  </div>
-                  <div className="boost-order-detail-item">
-                    <span className="boost-order-detail-label">Amount</span>
-                    <span className="boost-order-detail-val">{formatNaira(o.total)}</span>
-                  </div>
-                  {o.remains != null && Number.isFinite(o.remains) ? (
-                    <div className="boost-order-detail-item">
-                      <span className="boost-order-detail-label">Remains</span>
-                      <span className="boost-order-detail-val">{formatQty(o.remains)}</span>
-                    </div>
-                  ) : null}
+                <span className={`bho-badge st-${o.status}`}>{STATUS_LABEL[o.status]}</span>
+              </div>
+
+              <div className="bho-grid">
+                <div className="bho-cell">
+                  <span className="bho-label">Order ID</span>
+                  <button type="button" className="bho-id" onClick={() => void handleCopy(o.id)} title="Copy">
+                    <Copy size={10} /> #{o.id || "—"}
+                  </button>
                 </div>
-                <div className="boost-order-footer">
-                  <button type="button" className="boost-order-ref" onClick={() => void handleCopy(o.id)}>
-                    <Copy size={11} /> {o.id || "—"}
-                  </button>
-                  <button
-                    type="button"
-                    className="boost-order-ref"
-                    style={{ marginLeft: 8, color: "#2563EB" }}
-                    disabled={refreshingId === o.id || !o.id}
-                    onClick={() => void refreshOrderStatus(o)}
-                    title="Check this order's live status with the provider"
-                  >
-                    <RefreshCw size={11} className={refreshingId === o.id ? "spin" : ""} />
-                    {refreshingId === o.id ? "Checking…" : "Refresh status"}
-                  </button>
-                  <span className="boost-order-date">
-                    {o.createdAt ? new Date(o.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : ""}
-                  </span>
+                <div className="bho-cell">
+                  <span className="bho-label">Date</span>
+                  <span className="bho-value">{o.createdAt ? formatDate(o.createdAt) : "—"}</span>
+                </div>
+                <div className="bho-cell">
+                  <span className="bho-label">Quantity</span>
+                  <span className="bho-value">{formatQty(o.qty)}</span>
+                </div>
+                <div className="bho-cell">
+                  <span className="bho-label">Amount</span>
+                  <span className="bho-value">{formatNaira(o.total)}</span>
+                </div>
+                <div className="bho-cell">
+                  <span className="bho-label">Start Count</span>
+                  <span className="bho-value">{o.startCount != null ? String(o.startCount) : "—"}</span>
+                </div>
+                <div className="bho-cell">
+                  <span className="bho-label">Remains</span>
+                  <span className="bho-value">{o.remains != null && Number.isFinite(o.remains) ? formatQty(o.remains) : "—"}</span>
                 </div>
               </div>
-            ))
-          )}
-        </div>
-      </section>
+
+              {o.link ? (
+                <div className="bho-link-row">
+                  <ExternalLink size={12} className="bho-link-icon" />
+                  <button type="button" className="bho-link" onClick={() => void handleCopy(o.link)} title={o.link}>
+                    {o.link}
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="bho-actions">
+                <button
+                  type="button"
+                  className="bho-refresh"
+                  disabled={refreshingId === o.id || !o.id}
+                  onClick={() => void refreshOrderStatus(o)}
+                >
+                  {refreshingId === o.id ? <Loader2 size={12} className="spin" /> : <RefreshCw size={12} />}
+                  <span>{refreshingId === o.id ? "Checking…" : "Refresh Status"}</span>
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
       {toast ? (
-        <div style={{ position: "fixed", bottom: 22, left: "50%", transform: "translateX(-50%)", zIndex: 60, background: "#111827", color: "#fff", fontSize: 12, fontWeight: 600, padding: "10px 16px", borderRadius: 999, boxShadow: "0 8px 24px rgba(15,23,42,.25)" }}>
-          {toast}
+        <div className="bho-toast" role="status">
+          <Info size={15} />
+          <span>{toast}</span>
         </div>
       ) : null}
     </div>
