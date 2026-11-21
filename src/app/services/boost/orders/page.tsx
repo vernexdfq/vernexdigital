@@ -16,7 +16,7 @@ import { createBrowserClient } from "@/lib/supabase/client";
 import "../boost-page.css";
 import "./orders.css";
 
-type OrderStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
+type OrderStatus = "pending" | "processing" | "completed" | "failed" | "cancelled" | "unresolved";
 type StatusFilter = "all" | OrderStatus;
 type Order = {
   id: string;
@@ -34,6 +34,7 @@ type Order = {
 
 function normalizeStatus(raw: string): OrderStatus {
   const s = String(raw || "").toLowerCase().replace(/[_-]+/g, " ").trim();
+  if (s.includes("unresolved")) return "unresolved";
   if (s.includes("complete") || s.includes("success") || s === "done") return "completed";
   if (s.includes("fail") || s.includes("reject") || s.includes("refund")) return "failed";
   if (s.includes("cancel")) return "cancelled";
@@ -221,6 +222,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   cancelled: "Cancelled",
+  unresolved: "Unresolved",
 };
 
 /** Provider-string → UI bucket, same logic as the server. */

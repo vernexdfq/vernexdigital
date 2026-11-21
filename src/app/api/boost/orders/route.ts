@@ -27,6 +27,9 @@ export function normalizeStatus(rawStatus: string, providerStatus: string): stri
   const prov = String(providerStatus || "").toLowerCase();
   const blob = `${raw} ${prov}`;
 
+  if (blob.includes("unresolved")) {
+    return "unresolved";
+  }
   if (
     blob.includes("fail") ||
     blob.includes("error") ||

@@ -207,6 +207,7 @@
 .bho-badge.st-completed { background: #DCFCE7; color: #166534; border-color: #BBF7D0; }
 .bho-badge.st-failed { background: #FEE2E2; color: #991B1B; border-color: #FECACA; }
 .bho-badge.st-cancelled { background: #E2E8F0; color: #334155; border-color: #CBD5E1; }
+.bho-badge.st-unresolved { background: #F1F5F9; color: #475569; border-color: #CBD5E1; }
 
 /* Labeled grid of order details */
 .bho-grid {
