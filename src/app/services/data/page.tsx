@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, X, CheckCircle2, Wifi, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, X, CheckCircle2, Wifi, Loader2, Zap } from "lucide-react";
 
 type NetworkId = "mtn" | "airtel" | "glo" | "9mobile";
 
@@ -31,7 +31,7 @@ type Plan = {
   tab: string;
   data: string;
   validity: string;
-  price: number;
+  price: number; // face (retail) price the customer pays
   featured?: boolean;
 };
 
@@ -44,9 +44,10 @@ function formatNaira(n: number) {
 function validityLabel(days: string): string {
   const d = Number(days);
   if (d === 1) return "1 DAY";
-  if (d === 7) return "7 DAYS";
   if (d === 14) return "14 DAYS";
   if (d === 30) return "30 DAYS";
+  if (d === 60) return "2 MONTHS";
+  if (d === 90) return "3 MONTHS";
   if (d === 365) return "1 YEAR";
   return `${d} DAYS`;
 }
@@ -60,7 +61,6 @@ export default function DataPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-  const [buying, setBuying] = useState(false);
   const [paying, setPaying] = useState(false);
   const [buyError, setBuyError] = useState("");
   const [success, setSuccess] = useState<{ message: string; ref: string } | null>(null);
@@ -81,7 +81,8 @@ export default function DataPage() {
           tab: String(p.tab || "monthly"),
           data: String(p.size || p.name || ""),
           validity: validityLabel(String(p.days || "30")),
-          price: Number(p.price),
+          // face value the customer pays — the child price never leaks here
+          price: Number(p.retail) > 0 ? Number(p.retail) : Number(p.price),
         }));
         setPlans(mapped);
       }
@@ -105,7 +106,6 @@ export default function DataPage() {
   const filteredPlans = useMemo(() => {
     const netPlans = plans.filter((p) => p.networkId === networkId);
     if (tab === "Hot") {
-      // featured picks: first few affordable daily bundles
       const hot = netPlans
         .filter((p) => p.tab === "daily" && p.price <= 1000)
         .slice(0, 9);
@@ -146,7 +146,7 @@ export default function DataPage() {
       const data = await res.json();
       if (!res.ok || data.ok === false) {
         setBuyError(String(data.error || "Data purchase failed."));
-        void loadPlans();
+        if (data.refunded) void loadPlans();
         return;
       }
       setSuccess({
@@ -154,8 +154,7 @@ export default function DataPage() {
         ref: data.order?.ref || "",
       });
       setSelectedPlan(null);
-      setBuying(false);
-      setTimeout(() => setSuccess(null), 4000);
+      setTimeout(() => setSuccess(null), 4500);
     } catch {
       setBuyError("Could not complete purchase. Check your connection and try again.");
     } finally {
@@ -164,47 +163,66 @@ export default function DataPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-28">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-[#E2E8F0]">
-        <div className="h-14 px-4 flex items-center justify-between">
-          <Link href="/home" className="flex items-center gap-1.5 text-sm font-medium text-[#0F172A]">
+    <div className="min-h-screen bg-[#F1F5FB] pb-28">
+      <header className="sticky top-0 z-30 bg-gradient-to-r from-[#1877F2] to-[#4A9DFF] shadow-md header-safe">
+        <div className="h-14 px-4 flex items-center justify-between text-white">
+          <Link href="/home" className="flex items-center gap-1.5 text-sm font-medium">
             <ArrowLeft size={18} /> Back
           </Link>
-          <h1 className="text-sm font-semibold text-[#0F172A]">Data</h1>
-          <Link href="/history" className="text-sm font-medium text-[#1877F2]">History</Link>
+          <div className="flex flex-col items-center leading-tight">
+            <h1 className="text-sm font-semibold">Buy Data</h1>
+            <span className="text-[10px] text-white/80">Best rates, instant delivery</span>
+          </div>
+          <Link href="/history" className="text-sm font-medium">History</Link>
         </div>
       </header>
 
       <div className="px-4 pt-4 space-y-4">
-        <div className="rounded-[14px] bg-white border border-[#E2E8F0] p-3.5">
-          <div className="flex items-center gap-2.5">
-            <button type="button" onClick={() => setNetOpen(true)} className="flex items-center gap-1.5 h-11 px-2.5 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] shrink-0">
-              <span className="text-xs font-semibold text-[#0F172A]">{activeNetwork.name}</span>
-              <ChevronDown size={14} className="text-[#94A3B8]" />
-            </button>
-            <div className="flex-1 relative">
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/[^0-9+]/g, "").slice(0, 14))}
-                placeholder="e.g. 0803 000 0000"
-                className="w-full h-11 px-3 rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] text-sm font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1877F2]"
-              />
-              {phone && (
-                <button type="button" onClick={() => { setPhone(""); setNetworkId("mtn"); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#E2E8F0] flex items-center justify-center">
-                  <X size={12} className="text-[#64748B]" />
+        {/* Network + phone */}
+        <div className="rounded-[16px] bg-white border border-[#E2E8F0] shadow-sm p-4">
+          <p className="text-[11px] font-bold tracking-wide text-[#64748B] uppercase">Select Network</p>
+          <div className="mt-2 -mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex w-max min-w-full gap-2">
+              {NETWORKS.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => setNetworkId(n.id)}
+                  className={`h-11 min-w-[92px] px-4 rounded-full text-sm font-bold shrink-0 transition-colors ${
+                    networkId === n.id
+                      ? "bg-gradient-to-r from-[#1877F2] to-[#4A9DFF] text-white shadow-md"
+                      : "bg-[#F8FAFC] border border-[#E2E8F0] text-[#334155]"
+                  }`}
+                >
+                  {n.name}
                 </button>
-              )}
+              ))}
             </div>
           </div>
+          <div className="mt-3 relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg">📱</span>
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/[^0-9+]/g, "").slice(0, 14))}
+              placeholder="Enter phone number"
+              className="w-full h-12 pl-11 pr-10 rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] text-sm font-medium text-[#0F172A] placeholder:text-[#94A3B8] focus:outline-none focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/20"
+            />
+            {phone && (
+              <button type="button" onClick={() => { setPhone(""); setNetworkId("mtn"); }} className="absolute right-2.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#E2E8F0] flex items-center justify-center">
+                <X size={12} className="text-[#64748B]" />
+              </button>
+            )}
+          </div>
           {phone.length >= 4 && (
-            <p className="mt-2 text-[11px] text-[#16A34A] flex items-center gap-1">
-              <CheckCircle2 size={12} /> Detected {activeNetwork.name} network
+            <p className="mt-2 text-[11px] font-medium text-[#16A34A] flex items-center gap-1">
+              <CheckCircle2 size={12} /> {activeNetwork.name} network detected
             </p>
           )}
         </div>
 
+        {/* Tabs */}
         <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-max min-w-full gap-2">
             {TABS.map((t) => (
@@ -212,9 +230,13 @@ export default function DataPage() {
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={`h-10 min-w-[76px] px-4 rounded-full text-xs font-semibold shrink-0 ${tab === t ? "bg-[#1877F2] text-white shadow-sm" : "bg-white border border-[#E2E8F0] text-[#64748B]"}`}
+                className={`h-10 min-w-[80px] px-4 rounded-full text-xs font-bold shrink-0 transition-colors ${
+                  tab === t
+                    ? "bg-gradient-to-r from-[#1877F2] to-[#4A9DFF] text-white shadow-md"
+                    : "bg-white border border-[#E2E8F0] text-[#64748B]"
+                }`}
               >
-                {t}
+                {t === "Hot" ? "🔥 Hot" : t}
               </button>
             ))}
           </div>
@@ -222,47 +244,54 @@ export default function DataPage() {
 
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-12 text-sm text-[#64748B]">
-            <Loader2 size={16} className="animate-spin" /> Loading plans…
+            <Loader2 size={16} className="animate-spin" /> Loading data plans…
           </div>
         ) : loadError ? (
-          <div className="rounded-[12px] bg-[#FEF2F2] border border-[#FECACA] px-3.5 py-3 flex items-center justify-between gap-2">
+          <div className="rounded-[14px] bg-[#FEF2F2] border border-[#FECACA] px-4 py-4 flex items-center justify-between gap-2">
             <p className="text-[12px] text-[#B91C1C]">{loadError}</p>
-            <button type="button" onClick={() => void loadPlans()} className="text-[12px] font-semibold text-[#1877F2] shrink-0">
+            <button type="button" onClick={() => void loadPlans()} className="text-[12px] font-bold text-[#1877F2] shrink-0">
               Retry
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             {filteredPlans.length === 0 ? (
-              <p className="col-span-3 text-center text-sm text-[#94A3B8] py-10">No plans for this tab</p>
+              <p className="col-span-3 text-center text-sm text-[#94A3B8] py-10">No plans for this tab — try another</p>
             ) : (
-              filteredPlans.map((p) => (
-                <div key={p.id} className="min-w-0 rounded-[14px] bg-white border border-[#E2E8F0] p-2.5 flex flex-col gap-2">
-                  <div>
-                    <p className="text-lg leading-tight font-extrabold tracking-tight text-[#0F172A]">{p.data}</p>
-                    <p className="mt-1 text-[11px] leading-tight text-[#64748B]">{p.validity}</p>
-                  </div>
+              filteredPlans.map((p) => {
+                const selected = selectedPlan?.id === p.id && selectedPlan?.networkId === p.networkId;
+                return (
                   <button
+                    key={`${p.networkId}-${p.id}`}
                     type="button"
-                    onClick={() => { setSelectedPlan(p); setBuying(true); setBuyError(""); }}
-                    className="w-full rounded-[9px] bg-[#EFF6FF] px-1.5 py-2 text-[11px] leading-tight font-bold text-[#1877F2] tabular-nums"
+                    onClick={() => { setSelectedPlan(p); setBuyError(""); }}
+                    className={`min-w-0 rounded-[14px] bg-white p-3 flex flex-col gap-2 text-left transition-all border ${
+                      selected
+                        ? "border-[#1877F2] ring-2 ring-[#1877F2]/30 shadow-lg"
+                        : "border-[#E2E8F0] shadow-sm active:scale-[0.97]"
+                    }`}
                   >
-                    Pay {formatNaira(p.price)}
+                    <p className="text-[17px] leading-tight font-extrabold tracking-tight text-[#0F172A]">{p.data}</p>
+                    <p className="text-[10px] leading-tight font-medium text-[#94A3B8] uppercase tracking-wide">{p.validity}</p>
+                    <span className="inline-flex items-center gap-1 self-start rounded-full bg-gradient-to-r from-[#1877F2] to-[#4A9DFF] px-2.5 py-1 text-[11px] leading-none font-bold text-white tabular-nums">
+                      <Zap size={10} /> {formatNaira(p.price)}
+                    </span>
                   </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
 
-        <div className="rounded-[12px] bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-3 flex gap-2.5">
+        <div className="rounded-[14px] bg-gradient-to-r from-[#EFF6FF] to-[#F0F9FF] border border-[#BFDBFE] px-4 py-3 flex gap-2.5">
           <Wifi size={16} className="text-[#1877F2] shrink-0 mt-0.5" />
           <p className="text-[12px] text-[#1E3A5F] leading-relaxed">
-            MTN is selected by default. Enter a number to auto-detect network. Data is delivered instantly after payment.
+            MTN is selected by default. Enter a number to auto-detect the network. Data is delivered instantly after payment.
           </p>
         </div>
       </div>
 
+      {/* Network sheet */}
       {netOpen && (
         <div className="fixed inset-0 z-[60] flex flex-col justify-end">
           <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setNetOpen(false)} />
@@ -290,55 +319,68 @@ export default function DataPage() {
         </div>
       )}
 
-      {buying && selectedPlan && (
+      {/* Confirm / checkout sheet */}
+      {selectedPlan && (
         <div className="fixed inset-0 z-[70] flex flex-col justify-end">
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => { if (!paying) setBuying(false); }} />
-          <div className="relative bg-white rounded-t-[20px] shadow-xl px-4 pt-5 pb-8">
-            <h3 className="text-base font-semibold text-[#0F172A] text-center">Confirm Data</h3>
-            <div className="mt-4 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-[#64748B]">Network</span>
-                <span className="font-medium text-[#0F172A]">{activeNetwork.name}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#64748B]">Plan</span>
-                <span className="font-medium text-[#0F172A]">{selectedPlan.data} · {selectedPlan.validity}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-[#64748B]">Number</span>
-                <span className="font-medium text-[#0F172A] tabular-nums">{phone || "—"}</span>
-              </div>
-              <div className="border-t border-[#E2E8F0] pt-3 flex justify-between">
-                <span className="text-sm font-medium text-[#0F172A]">Amount</span>
-                <span className="text-lg font-bold text-[#1877F2] tabular-nums">{formatNaira(selectedPlan.price)}</span>
-              </div>
+          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => { if (!paying) setSelectedPlan(null); }} />
+          <div className="relative bg-white rounded-t-[24px] shadow-2xl overflow-hidden">
+            <div className="h-8 flex items-end justify-center">
+              <span className="mb-2 h-1.5 w-10 rounded-full bg-[#E2E8F0]" />
             </div>
-            {buyError && (
-              <p className="mt-3 text-[12px] text-[#B91C1C] text-center">{buyError}</p>
-            )}
-            <button
-              type="button"
-              disabled={paying}
-              onClick={() => void confirmPurchase()}
-              className="mt-5 w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {paying ? (<><Loader2 size={16} className="animate-spin" /> Processing…</>) : `Pay ${formatNaira(selectedPlan.price)}`}
-            </button>
-            <button type="button" disabled={paying} onClick={() => setBuying(false)} className="mt-2 w-full h-11 text-sm font-medium text-[#64748B]">
-              Cancel
-            </button>
+            <div className="px-5 pb-8">
+              <div className="rounded-[16px] bg-gradient-to-r from-[#1877F2] to-[#4A9DFF] px-4 py-3.5 text-white flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-extrabold leading-tight">{selectedPlan.data}</p>
+                  <p className="text-[11px] text-white/85 mt-0.5">{activeNetwork.name} · {selectedPlan.validity}</p>
+                </div>
+                <p className="text-xl font-extrabold tabular-nums">{formatNaira(selectedPlan.price)}</p>
+              </div>
+              <div className="mt-4 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#64748B]">Network</span>
+                  <span className="font-semibold text-[#0F172A]">{activeNetwork.name}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#64748B]">Bundle</span>
+                  <span className="font-semibold text-[#0F172A]">{selectedPlan.data} · {selectedPlan.validity}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[#64748B]">Number</span>
+                  <span className="font-semibold text-[#0F172A] tabular-nums">{phone || "—"}</span>
+                </div>
+              </div>
+              {buyError && (
+                <p className="mt-3 rounded-[10px] bg-[#FEF2F2] border border-[#FECACA] px-3 py-2 text-[12px] text-[#B91C1C]">{buyError}</p>
+              )}
+              <button
+                type="button"
+                disabled={paying}
+                onClick={() => void confirmPurchase()}
+                className="mt-5 w-full h-12 rounded-[12px] bg-gradient-to-r from-[#1877F2] to-[#4A9DFF] text-white text-sm font-bold shadow-md disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {paying ? (<><Loader2 size={16} className="animate-spin" /> Processing…</>) : `Continue to Check Out · ${formatNaira(selectedPlan.price)}`}
+              </button>
+              <button type="button" disabled={paying} onClick={() => setSelectedPlan(null)} className="mt-2 w-full h-11 text-sm font-medium text-[#64748B]">
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Success toast */}
       {success && (
         <div className="fixed top-16 left-4 right-4 z-[80] flex justify-center">
-          <div className="bg-[#0F172A] text-white text-sm font-medium px-4 py-3 rounded-[12px] shadow-lg flex items-center gap-2">
+          <div className="bg-[#0F172A] text-white text-sm font-medium px-4 py-3 rounded-[14px] shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-emerald-400" />
             <span>{success.message}{success.ref ? ` · Ref ${success.ref.slice(0, 12)}` : ""}</span>
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        .header-safe { padding-top: env(safe-area-inset-top); }
+      `}</style>
     </div>
   );
 }
