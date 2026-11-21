@@ -18,7 +18,7 @@ const LIVE_SERVICES = [
   {
     href: "/services/gaming",
     label: "Gaming Top-up",
-    desc: "Instantly fund PUBG, Free Fire, Steam, PSN, Xbox and 137+ more titles.",
+    desc: "PUBG, Free Fire, Steam, PSN & 137+ more titles",
     icon: Gamepad2,
     accent: "from-[#F5F3FF] to-[#EDE9FE]",
     iconColor: "text-violet-600",
@@ -27,7 +27,7 @@ const LIVE_SERVICES = [
   {
     href: "/services/cable-tv",
     label: "Cable TV",
-    desc: "Pay DSTV, GOtv, Startimes and Showmax from your wallet.",
+    desc: "DSTV, GOtv, Startimes & Showmax",
     icon: Tv,
     accent: "from-[#FFF1F2] to-[#FFE4E6]",
     iconColor: "text-rose-600",
@@ -36,7 +36,7 @@ const LIVE_SERVICES = [
   {
     href: "/services/electricity",
     label: "Electricity",
-    desc: "Buy prepaid units for any disco — token delivered in seconds.",
+    desc: "Prepaid tokens for any disco",
     icon: Zap,
     accent: "from-[#FFFBEB] to-[#FEF3C7]",
     iconColor: "text-amber-600",
@@ -49,7 +49,7 @@ const RETAIL_SERVICES = [
   {
     href: "/services/shopping",
     label: "Shopping",
-    desc: "Phones, laptops, gadgets and accessories — delivered fast.",
+    desc: "Phones, laptops & gadgets",
     icon: ShoppingBag,
     accent: "from-[#F0FDF4] to-[#DCFCE7]",
     iconColor: "text-emerald-600",
@@ -58,7 +58,7 @@ const RETAIL_SERVICES = [
   {
     href: "/services/flights",
     label: "Flight Booking",
-    desc: "Search and book flights for your next trip — booking flow coming soon.",
+    desc: "Flight search & booking — booking flow coming soon",
     icon: Plane,
     accent: "from-[#EFF6FF] to-[#DBEAFE]",
     iconColor: "text-[#1877F2]",
@@ -293,51 +293,52 @@ export default function ServicesPage() {
       </header>
 
       <main className="px-4 pt-5 space-y-5">
-        {/* Live wallet services first, like the main Verxor hub */}
+        {/* All services — compact 3-per-row tiles, old-Verxor style */}
         {[
-          { label: "Top up & bills", items: LIVE_SERVICES },
-          { label: "Shop & travel", items: RETAIL_SERVICES },
-        ].map((group) => (
-          <div key={group.label}>
-            <p className="mb-2.5 mt-5 text-[11px] font-semibold uppercase tracking-wide text-[#64748B] first:mt-0">
-              {group.label}
-            </p>
-            <div className="space-y-3">
-              {group.items.map((service) => {
-                const Icon = service.icon;
-                return (
-                  <Link
-                    key={service.href}
-                    href={service.href}
-                    className="group flex items-center gap-3.5 rounded-[16px] border border-[#E2E8F0] bg-white p-3.5 shadow-[0_4px_14px_rgba(15,23,42,0.04)] transition-all hover:border-[#1877F2]/30 hover:shadow-[0_8px_22px_rgba(15,23,42,0.07)] active:scale-[0.99]"
-                  >
-                    <div
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${service.accent}`}
+          { label: "Popular Services", items: LIVE_SERVICES },
+          { label: "Additional Services", items: RETAIL_SERVICES },
+        ].map((group) => {
+          const items = group.items;
+          return (
+            <section key={group.label}>
+              <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wide text-[#64748B]">
+                {group.label}
+              </p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {items.map((service) => {
+                  const Icon = service.icon;
+                  const soon = service.href === "/services/flights";
+                  return (
+                    <Link
+                      key={service.href}
+                      href={service.href}
+                      className="group flex min-h-[118px] flex-col items-center justify-center gap-2 rounded-[16px] border border-[#E2E8F0] bg-white px-2 py-3 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:border-[#CBD5E1] hover:shadow-[0_4px_12px_rgba(15,23,42,0.06)] active:scale-[0.97]"
                     >
-                      <Icon size={24} strokeWidth={1.8} className={service.iconColor} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-[15px] font-bold tracking-tight text-[#0F172A]">
+                      <div
+                        className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br ${service.accent}`}
+                      >
+                        <Icon size={20} strokeWidth={1.9} className={service.iconColor} />
+                        {soon && (
+                          <span className="absolute -top-1.5 -right-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-[8px] font-extrabold leading-[1.2] tracking-wide text-white">
+                            SOON
+                          </span>
+                        )}
+                      </div>
+                      <div className="w-full">
+                        <h2 className="text-[11px] font-semibold leading-[13px] text-[#334155] line-clamp-2">
                           {service.label}
                         </h2>
-                        <span className="rounded-full bg-[#F1F5F9] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-[#64748B]">
-                          {service.tag}
-                        </span>
+                        <p className="mt-1 text-[9px] leading-[1.3] text-[#64748B] line-clamp-2">
+                          {service.desc}
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-[12px] leading-snug text-[#64748B] line-clamp-2">
-                        {service.desc}
-                      </p>
-                    </div>
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F8FAFC] text-[#1877F2] transition group-hover:bg-[#EFF6FF]">
-                      <ArrowRight size={16} />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
 
         {/* Featured ad strip */}
         <div>
