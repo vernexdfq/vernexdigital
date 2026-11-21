@@ -15,6 +15,7 @@ import { createBrowserClient } from "@/lib/supabase/client";
 import "../boost-page.css";
 
 type OrderStatus = "pending" | "processing" | "completed" | "failed" | "cancelled";
+type StatusFilter = "all" | OrderStatus;
 type Order = {
   id: string;
   service: string;
@@ -210,6 +211,20 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: "cancelled",
 };
 
+/** Provider-string → UI bucket, same logic as the server. */
+function providerStatusToUi(raw: string): OrderStatus {
+  return normalizeStatus(String(raw || "pending"));
+}
+
+const FILTER_TABS: { id: StatusFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "pending", label: "Pending" },
+  { id: "processing", label: "In progress" },
+  { id: "completed", label: "Completed" },
+  { id: "failed", label: "Failed" },
+  { id: "cancelled", label: "Cancelled" },
+];
+
 /**
  * /services/boost/orders — the full boost order history.
  * "View all orders" on the boost page links here. Orders live in the panel
@@ -223,6 +238,8 @@ export default function BoostOrdersPage() {
   const [ordersError, setOrdersError] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -285,6 +302,60 @@ export default function BoostOrdersPage() {
     }
   }, [showToast]);
 
+  const filteredOrders =
+    statusFilter === "all" ? orders : orders.filter((o) => o.status === statusFilter);
+
+  /** Ask the provider for THIS order's live status and persist it. */
+  const refreshOrderStatus = useCallback(
+    async (order: Order) => {
+      if (!order.id || refreshingId) return;
+      setRefreshingId(order.id);
+      try {
+        const supabase = createBrowserClient();
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) {
+          showToast("Sign in to check status");
+          return;
+        }
+        const res = await fetch(`/api/boost/status?orderId=${encodeURIComponent(order.id)}`, {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || payload.ok === false) {
+          showToast(payload.error || "Could not reach the provider for this order");
+          return;
+        }
+        const nextStatus = providerStatusToUi(String(payload.status || "pending"));
+        const japRaw = String(payload.japStatus || "").trim();
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === order.id
+              ? {
+                  ...o,
+                  status: nextStatus,
+                  remains:
+                    payload.remains != null && Number.isFinite(Number(payload.remains))
+                      ? Number(payload.remains)
+                      : o.remains,
+                }
+              : o,
+          ),
+        );
+        void loadOrders(true);
+        showToast(
+          `Provider says: ${STATUS_LABEL[nextStatus]}${japRaw && japRaw !== nextStatus ? ` (${japRaw})` : ""}`,
+        );
+      } catch {
+        showToast("Could not reach the provider");
+      } finally {
+        setRefreshingId(null);
+      }
+    },
+    [loadOrders, refreshingId, showToast],
+  );
+
   return (
     <div className="boost-page">
       <header className="boost-topbar">
@@ -320,6 +391,23 @@ export default function BoostOrdersPage() {
             <p>{ordersError}</p>
           </div>
         )}
+        <div className="boost-quick-row" role="tablist" aria-label="Filter orders by status">
+          {FILTER_TABS.map((tab) => {
+            const count = tab.id === "all" ? orders.length : orders.filter((o) => o.status === tab.id).length;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={statusFilter === tab.id}
+                className={`boost-quick-chip${statusFilter === tab.id ? " active" : ""}`}
+                onClick={() => setStatusFilter(tab.id)}
+              >
+                {tab.label} ({count})
+              </button>
+            );
+          })}
+        </div>
         <div className="boost-orders-list">
           {loading ? (
             <div style={{ padding: "36px 16px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "10px", color: "#64748B" }}>
@@ -331,13 +419,17 @@ export default function BoostOrdersPage() {
               <Inbox size={28} />
               <p>Sign in to view your boost orders.</p>
             </div>
-          ) : !ordersError && orders.length === 0 ? (
+          ) : !ordersError && filteredOrders.length === 0 ? (
             <div className="boost-orders-empty">
               <Inbox size={28} />
-              <p>No boost orders yet. Place your first boost on the Boost page.</p>
+              <p>
+                {statusFilter === "all"
+                  ? "No boost orders yet. Place your first boost on the Boost page."
+                  : `No ${statusFilter === "processing" ? "in-progress" : statusFilter} orders right now.`}
+              </p>
             </div>
           ) : (
-            orders.map((o) => (
+            filteredOrders.map((o) => (
               <div key={o.id + o.createdAt} className="boost-order-item">
                 <div className="boost-order-top">
                   <div className="boost-order-service">
@@ -365,6 +457,17 @@ export default function BoostOrdersPage() {
                 <div className="boost-order-footer">
                   <button type="button" className="boost-order-ref" onClick={() => void handleCopy(o.id)}>
                     <Copy size={11} /> {o.id || "—"}
+                  </button>
+                  <button
+                    type="button"
+                    className="boost-order-ref"
+                    style={{ marginLeft: 8, color: "#2563EB" }}
+                    disabled={refreshingId === o.id || !o.id}
+                    onClick={() => void refreshOrderStatus(o)}
+                    title="Check this order's live status with the provider"
+                  >
+                    <RefreshCw size={11} className={refreshingId === o.id ? "spin" : ""} />
+                    {refreshingId === o.id ? "Checking…" : "Refresh status"}
                   </button>
                   <span className="boost-order-date">
                     {o.createdAt ? new Date(o.createdAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : ""}
