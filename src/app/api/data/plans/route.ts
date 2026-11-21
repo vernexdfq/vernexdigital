@@ -18,6 +18,12 @@ type VerxorPlan = {
   tab: string;
 };
 
+/** Plan with panel-store enrichment (admin overrides). */
+type StorePlan = VerxorPlan & {
+  featured: boolean;
+  hasCustomPrice: boolean;
+};
+
 type OverrideRow = {
   plan_id: number;
   network: string;
@@ -83,7 +89,7 @@ export async function GET(req: NextRequest) {
       : Object.values(data.networks || {}).flat();
     const overrides = await loadOverrides();
     const visible = plans
-      .map((p) => {
+      .map((p): StorePlan | null => {
         const o = overrides.get(`${p.id}:${p.network}`);
         if (o?.visible === false) return null;
         const custom = Number(o?.override_price);
@@ -96,7 +102,7 @@ export async function GET(req: NextRequest) {
           hasCustomPrice: hasCustom,
         };
       })
-      .filter((p): p is VerxorPlan => Boolean(p));
+      .filter((p): p is StorePlan => Boolean(p));
     return NextResponse.json({ ok: true, plans: visible });
   } catch (e) {
     return NextResponse.json(
