@@ -273,7 +273,7 @@ export default function BoostOrdersPage() {
         return;
       }
       setSignedIn(true);
-      const res = await fetch("/api/boost/orders?limit=200", {
+      const res = await fetch("/api/boost/orders?limit=1000", {
         cache: "no-store",
         headers: { Authorization: `Bearer ${token}` },
       });

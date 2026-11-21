@@ -100,11 +100,11 @@ export async function GET(req: NextRequest) {
   try {
     const admin = createServerClient();
     // Full history lives forever in the DB; ?limit only controls how many
-    // rows a single load returns (the orders page asks for 200).
+    // rows a single load returns (the orders page asks for 1000 — full history).
     const requestedLimit = Number(new URL(req.url).searchParams.get("limit") || "50");
     const limit =
       Number.isSafeInteger(requestedLimit) && requestedLimit > 0
-        ? Math.min(requestedLimit, 200)
+        ? Math.min(requestedLimit, 1000)
         : 50;
     const { data, error } = await admin
       .from("transactions")
