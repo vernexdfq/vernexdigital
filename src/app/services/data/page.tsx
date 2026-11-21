@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, X, CheckCircle2, Wifi } from "lucide-react";
+import { ArrowLeft, ChevronDown, X, CheckCircle2, Wifi, Loader2 } from "lucide-react";
 
 type NetworkId = "mtn" | "airtel" | "glo" | "9mobile";
 
@@ -25,26 +25,30 @@ function detectNetwork(phone: string): NetworkId | null {
   return null;
 }
 
-type Plan = { id: string; networkId: NetworkId; tab: string; data: string; validity: string; price: number; originalPrice?: number; featured?: boolean };
-
-const PLANS: Plan[] = [
-  { id: "mtn-3.2gb", networkId: "mtn", tab: "Best Offers", data: "3.2GB", validity: "2 DAYS", price: 905, originalPrice: 1000, featured: true },
-  { id: "mtn-110mb", networkId: "mtn", tab: "Best Offers", data: "110MB", validity: "1 DAY", price: 50, originalPrice: 100 },
-  { id: "mtn-1gb", networkId: "mtn", tab: "Best Offers", data: "1GB", validity: "1 DAY", price: 405, originalPrice: 500 },
-  { id: "mtn-2gb", networkId: "mtn", tab: "Best Offers", data: "2GB", validity: "2 DAYS", price: 655, originalPrice: 750 },
-  { id: "mtn-3.5gb", networkId: "mtn", tab: "Best Offers", data: "3.5GB", validity: "7 DAYS", price: 1405, originalPrice: 1500 },
-  { id: "mtn-11gb", networkId: "mtn", tab: "Best Offers", data: "11GB", validity: "7 DAYS", price: 3405, originalPrice: 3500, featured: true },
-  { id: "mtn-d-1gb", networkId: "mtn", tab: "Daily", data: "1GB", validity: "1 DAY", price: 405, originalPrice: 500 },
-  { id: "mtn-w-2gb", networkId: "mtn", tab: "Weekly", data: "2GB", validity: "7 DAYS", price: 905, originalPrice: 1000 },
-  { id: "mtn-m-2gb", networkId: "mtn", tab: "Monthly", data: "2GB", validity: "30 DAYS", price: 1405, originalPrice: 1500 },
-  { id: "air-3gb", networkId: "airtel", tab: "Best Offers", data: "3GB", validity: "2 DAYS", price: 655, originalPrice: 750, featured: true },
-  { id: "glo-2gb", networkId: "glo", tab: "Best Offers", data: "2GB", validity: "2 DAYS", price: 480, originalPrice: 550 },
-];
+type Plan = {
+  id: number;
+  networkId: NetworkId;
+  tab: string;
+  data: string;
+  validity: string;
+  price: number;
+  featured?: boolean;
+};
 
 const TABS = ["Hot", "Daily", "Weekly", "Monthly", "Yearly"];
 
 function formatNaira(n: number) {
-  return "\u20a6" + n.toLocaleString("en-NG");
+  return "\u20a6" + Math.round(n).toLocaleString("en-NG");
+}
+
+function validityLabel(days: string): string {
+  const d = Number(days);
+  if (d === 1) return "1 DAY";
+  if (d === 7) return "7 DAYS";
+  if (d === 14) return "14 DAYS";
+  if (d === 30) return "30 DAYS";
+  if (d === 365) return "1 YEAR";
+  return `${d} DAYS`;
 }
 
 export default function DataPage() {
@@ -52,9 +56,44 @@ export default function DataPage() {
   const [networkId, setNetworkId] = useState<NetworkId>("mtn");
   const [netOpen, setNetOpen] = useState(false);
   const [tab, setTab] = useState("Hot");
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [buying, setBuying] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [buyError, setBuyError] = useState("");
+  const [success, setSuccess] = useState<{ message: string; ref: string } | null>(null);
+
+  const loadPlans = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const res = await fetch("/api/data/plans", { cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        setLoadError(String(data.error || "Could not load data plans."));
+        setPlans([]);
+      } else {
+        const mapped: Plan[] = (data.plans || []).map((p: Record<string, unknown>) => ({
+          id: Number(p.id),
+          networkId: String(p.network) as NetworkId,
+          tab: String(p.tab || "monthly"),
+          data: String(p.size || p.name || ""),
+          validity: validityLabel(String(p.days || "30")),
+          price: Number(p.price),
+        }));
+        setPlans(mapped);
+      }
+    } catch {
+      setLoadError("Could not load data plans. Check your connection.");
+      setPlans([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadPlans(); }, [loadPlans]);
 
   useEffect(() => {
     const detected = detectNetwork(phone);
@@ -62,10 +101,69 @@ export default function DataPage() {
   }, [phone]);
 
   const activeNetwork = NETWORKS.find((n) => n.id === networkId) ?? NETWORKS[0];
+
   const filteredPlans = useMemo(() => {
-    const catalogTab = tab === "Hot" ? "Best Offers" : tab;
-    return PLANS.filter((p) => p.networkId === networkId && p.tab === catalogTab);
-  }, [networkId, tab]);
+    const netPlans = plans.filter((p) => p.networkId === networkId);
+    if (tab === "Hot") {
+      // featured picks: first few affordable daily bundles
+      const hot = netPlans
+        .filter((p) => p.tab === "daily" && p.price <= 1000)
+        .slice(0, 9);
+      if (hot.length === 0 && netPlans.length > 0) return netPlans.slice(0, 9);
+      return hot;
+    }
+    if (tab === "Yearly") {
+      return netPlans.filter((p) => p.tab === "threemonths" || p.tab === "yearly");
+    }
+    if (tab === "Monthly") {
+      return netPlans.filter((p) => p.tab === "monthly" || p.tab === "router");
+    }
+    return netPlans.filter((p) => p.tab === tab.toLowerCase());
+  }, [plans, networkId, tab]);
+
+  async function confirmPurchase() {
+    if (!selectedPlan) return;
+    setPaying(true);
+    setBuyError("");
+    try {
+      const token = (await import("@supabase/supabase-js")).createClient;
+      void token;
+      const { createClient } = await import("@supabase/supabase-js");
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+      const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
+      const { data: sess } = await createClient(url, anon).auth.getSession();
+      const jwt = sess.session?.access_token || "";
+      const res = await fetch("/api/data/order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwt}`,
+        },
+        body: JSON.stringify({
+          network: selectedPlan.networkId,
+          planId: selectedPlan.id,
+          phone,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.ok === false) {
+        setBuyError(String(data.error || "Data purchase failed."));
+        void loadPlans();
+        return;
+      }
+      setSuccess({
+        message: data.order?.message || "Data purchase successful",
+        ref: data.order?.ref || "",
+      });
+      setSelectedPlan(null);
+      setBuying(false);
+      setTimeout(() => setSuccess(null), 4000);
+    } catch {
+      setBuyError("Could not complete purchase. Check your connection and try again.");
+    } finally {
+      setPaying(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-28">
@@ -109,7 +207,6 @@ export default function DataPage() {
           )}
         </div>
 
-
         <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-max min-w-full gap-2">
             {TABS.map((t) => (
@@ -125,27 +222,40 @@ export default function DataPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {filteredPlans.length === 0 ? (
-            <p className="col-span-3 text-center text-sm text-[#94A3B8] py-10">No plans for this tab</p>
-          ) : (
-            filteredPlans.map((p) => (
-              <div key={p.id} className="min-w-0 rounded-[14px] bg-white border border-[#E2E8F0] p-2.5 flex flex-col gap-2">
-                <div>
-                  <p className="text-lg leading-tight font-extrabold tracking-tight text-[#0F172A]">{p.data}</p>
-                  <p className="mt-1 text-[11px] leading-tight text-[#64748B]">{p.validity}</p>
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-12 text-sm text-[#64748B]">
+            <Loader2 size={16} className="animate-spin" /> Loading plans…
+          </div>
+        ) : loadError ? (
+          <div className="rounded-[12px] bg-[#FEF2F2] border border-[#FECACA] px-3.5 py-3 flex items-center justify-between gap-2">
+            <p className="text-[12px] text-[#B91C1C]">{loadError}</p>
+            <button type="button" onClick={() => void loadPlans()} className="text-[12px] font-semibold text-[#1877F2] shrink-0">
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {filteredPlans.length === 0 ? (
+              <p className="col-span-3 text-center text-sm text-[#94A3B8] py-10">No plans for this tab</p>
+            ) : (
+              filteredPlans.map((p) => (
+                <div key={p.id} className="min-w-0 rounded-[14px] bg-white border border-[#E2E8F0] p-2.5 flex flex-col gap-2">
+                  <div>
+                    <p className="text-lg leading-tight font-extrabold tracking-tight text-[#0F172A]">{p.data}</p>
+                    <p className="mt-1 text-[11px] leading-tight text-[#64748B]">{p.validity}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedPlan(p); setBuying(true); setBuyError(""); }}
+                    className="w-full rounded-[9px] bg-[#EFF6FF] px-1.5 py-2 text-[11px] leading-tight font-bold text-[#1877F2] tabular-nums"
+                  >
+                    Pay {formatNaira(p.price)}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => { setSelectedPlan(p); setBuying(true); }}
-                  className="w-full rounded-[9px] bg-[#EFF6FF] px-1.5 py-2 text-[11px] leading-tight font-bold text-[#1877F2] tabular-nums"
-                >
-                  Pay {formatNaira(p.price)}
-                </button>
-              </div>
-            ))
-          )}
-        </div>
+              ))
+            )}
+          </div>
+        )}
 
         <div className="rounded-[12px] bg-[#EFF6FF] border border-[#BFDBFE] px-3.5 py-3 flex gap-2.5">
           <Wifi size={16} className="text-[#1877F2] shrink-0 mt-0.5" />
@@ -184,7 +294,7 @@ export default function DataPage() {
 
       {buying && selectedPlan && (
         <div className="fixed inset-0 z-[70] flex flex-col justify-end">
-          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => setBuying(false)} />
+          <button type="button" className="absolute inset-0 bg-black/40" onClick={() => { if (!paying) setBuying(false); }} />
           <div className="relative bg-white rounded-t-[20px] shadow-xl px-4 pt-5 pb-8">
             <h3 className="text-base font-semibold text-[#0F172A] text-center">Confirm Data</h3>
             <div className="mt-4 rounded-[14px] bg-[#F8FAFC] border border-[#E2E8F0] p-4 space-y-3">
@@ -205,19 +315,18 @@ export default function DataPage() {
                 <span className="text-lg font-bold text-[#1877F2] tabular-nums">{formatNaira(selectedPlan.price)}</span>
               </div>
             </div>
+            {buyError && (
+              <p className="mt-3 text-[12px] text-[#B91C1C] text-center">{buyError}</p>
+            )}
             <button
               type="button"
-              onClick={() => {
-                setBuying(false);
-                setSuccess(true);
-                setTimeout(() => setSuccess(false), 2800);
-                setSelectedPlan(null);
-              }}
-              className="mt-5 w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold"
+              disabled={paying}
+              onClick={() => void confirmPurchase()}
+              className="mt-5 w-full h-12 rounded-[12px] bg-[#1877F2] text-white text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Pay {formatNaira(selectedPlan.price)}
+              {paying ? (<><Loader2 size={16} className="animate-spin" /> Processing…</>) : `Pay ${formatNaira(selectedPlan.price)}`}
             </button>
-            <button type="button" onClick={() => setBuying(false)} className="mt-2 w-full h-11 text-sm font-medium text-[#64748B]">
+            <button type="button" disabled={paying} onClick={() => setBuying(false)} className="mt-2 w-full h-11 text-sm font-medium text-[#64748B]">
               Cancel
             </button>
           </div>
@@ -228,7 +337,7 @@ export default function DataPage() {
         <div className="fixed top-16 left-4 right-4 z-[80] flex justify-center">
           <div className="bg-[#0F172A] text-white text-sm font-medium px-4 py-3 rounded-[12px] shadow-lg flex items-center gap-2">
             <CheckCircle2 size={16} className="text-emerald-400" />
-            Data purchase submitted (demo)
+            <span>{success.message}{success.ref ? ` · Ref ${success.ref.slice(0, 12)}` : ""}</span>
           </div>
         </div>
       )}
