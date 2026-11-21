@@ -19,7 +19,7 @@ import {
  * Catalog → game tile → options → denomination → player details → wallet pay.
  */
 
-type CatalogGame = { id: string; name: string; fromNgn: number | null };
+type CatalogGame = { id: string; name: string; fromNgn: number | null; image?: string | null };
 type Variation = { id: string; name: string; priceNgn: number; inStock: boolean };
 type DetailField = { field: string; label?: string };
 type ProductDetail = {
@@ -313,10 +313,29 @@ export default function GamingPage() {
                 className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white text-left transition active:scale-[.98]"
               >
                 <div
-                  className="flex h-20 items-center justify-center text-xl font-black text-white"
+                  className="relative aspect-square w-full overflow-hidden bg-slate-900"
                   style={{ background: linGrad(g.id) }}
                 >
-                  {initialsFor(g.name)}
+                  {g.image && g.image.startsWith("http") ? (
+                    <img
+                      src={g.image}
+                      alt={g.name}
+                      loading="lazy"
+                      referrerPolicy="no-referrer"
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
+                        const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className="absolute inset-0 items-center justify-center text-2xl font-black text-white"
+                    style={{ display: g.image && g.image.startsWith("http") ? "none" : "flex" }}
+                  >
+                    {initialsFor(g.name)}
+                  </span>
                 </div>
                 <div className="space-y-0.5 px-3 py-2.5">
                   <p className="line-clamp-1 text-[13px] font-semibold text-[#0F172A]">{g.name}</p>
