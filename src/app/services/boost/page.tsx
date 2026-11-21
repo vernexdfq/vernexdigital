@@ -827,7 +827,7 @@ export default function BoostAccountPage() {
           )}
         </div>
         {orders.length > recentOrders.length && (
-          <Link href="/history" className="boost-view-all">
+          <Link href="/services/boost/orders" className="boost-view-all">
             <span>View all orders ({orders.length})</span>
             <ChevronRight size={13} className="boost-view-all-chevron" />
           </Link>

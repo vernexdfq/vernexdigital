@@ -99,13 +99,20 @@ export async function GET(req: NextRequest) {
 
   try {
     const admin = createServerClient();
+    // Full history lives forever in the DB; ?limit only controls how many
+    // rows a single load returns (the orders page asks for 200).
+    const requestedLimit = Number(new URL(req.url).searchParams.get("limit") || "50");
+    const limit =
+      Number.isSafeInteger(requestedLimit) && requestedLimit > 0
+        ? Math.min(requestedLimit, 200)
+        : 50;
     const { data, error } = await admin
       .from("transactions")
       .select("id, title, amount, status, meta, created_at, kind")
       .eq("user_id", user.id)
       .in("kind", ["boost", "boost_order"])
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(limit);
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
