@@ -3,9 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { PARTNER_ADMIN_COOKIE, verifyPartnerAdminToken } from "@/lib/partner-admin";
 import {
-  USD_NGN_RATE,
   LOGS_RETAIL_DEFAULT,
-  logsWholesaleNgn,
   logsRetailNgnFor,
 } from "@/lib/logs-pricing";
 import { getSharedLogsPricing } from "@/lib/logs-pricing-server";
@@ -17,8 +15,9 @@ export const dynamic = "force-dynamic";
  * GET /api/logs/pricing — the panel's Buy Logs retail multipliers (admin only).
  * PUT /api/logs/pricing — admin-only, saves the three multipliers.
  *
- * Prices shown to customers = wholesale cost × the tier's multiplier.
- * Wholesale cost = parent catalogue price × the parent's fixed multiplier.
+ * Prices shown to the panel are in Naira only: the Verxor charge (what the
+ * panel pays us per account) and the customer price that the panel charges.
+ * Customers see: Verxor charge × the tier's multiplier.
  */
 
 async function isAdmin(req: NextRequest) {
@@ -40,9 +39,9 @@ async function isAdmin(req: NextRequest) {
 }
 
 const TIERS = [
-  { id: 0, label: "Small", band: "wholesale up to $1.50", sampleUsd: 0.5 },
-  { id: 1, label: "Medium", band: "wholesale $1.51 – $15.00", sampleUsd: 5 },
-  { id: 2, label: "Large", band: "wholesale $15.01 and above", sampleUsd: 50 },
+  { id: 0, label: "Small", band: "Verxor charge up to ₦2,070", sampleWholesaleNgn: 1035 },
+  { id: 1, label: "Medium", band: "Verxor charge ₦2,071 – ₦20,700", sampleWholesaleNgn: 8625 },
+  { id: 2, label: "Large", band: "Verxor charge ₦20,701 and above", sampleWholesaleNgn: 79350 },
 ];
 
 export async function GET(req: NextRequest) {
@@ -50,28 +49,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "Admin access required" }, { status: 403 });
   }
   const { retail, persisted } = await getSharedLogsPricing();
-  const tiers = TIERS.map((t) => {
-    const parentNgn = Math.round(t.sampleUsd * USD_NGN_RATE);
-    const wholesaleNgn = logsWholesaleNgn(parentNgn);
-    return {
-      id: t.id,
-      label: t.label,
-      band: t.band,
-      multiplier: retail[t.id],
-      sampleParentNgn: parentNgn,
-      sampleWholesaleNgn: wholesaleNgn,
-      sampleRetailNgn: logsRetailNgnFor(wholesaleNgn, retail),
-    };
-  });
+  const tiers = TIERS.map((t) => ({
+    id: t.id,
+    label: t.label,
+    band: t.band,
+    multiplier: retail[t.id],
+    sampleWholesaleNgn: t.sampleWholesaleNgn,
+    sampleRetailNgn: logsRetailNgnFor(t.sampleWholesaleNgn, retail),
+  }));
   return NextResponse.json({
     ok: true,
     persisted,
     retail,
     defaultRetail: [...LOGS_RETAIL_DEFAULT],
-    usdRate: USD_NGN_RATE,
-    wholesaleMultipliers: [1.5, 1.25, 1.15],
     tiers,
-    note: "Customers pay wholesale cost × your multiplier. Wholesale = Verxor catalogue price × the parent's multiplier (×1.5 / ×1.25 / ×1.15).",
+    note: "Customers pay the Verxor charge (in Naira) × your multiplier, tiered by the Verxor charge per account.",
   });
 }
 

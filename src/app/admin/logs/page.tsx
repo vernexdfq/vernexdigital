@@ -19,7 +19,6 @@ type TierInfo = {
   label: string;
   band: string;
   multiplier: number;
-  sampleParentNgn: number;
   sampleWholesaleNgn: number;
   sampleRetailNgn: number;
 };
@@ -28,7 +27,6 @@ type PricingData = {
   persisted: boolean;
   retail: number[];
   defaultRetail: number[];
-  usdRate: number;
   tiers: TierInfo[];
   note: string;
 };
@@ -178,9 +176,10 @@ export default function LogsPricingPage() {
                 </span>
               </div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Buy Logs listings come to you from Verxor at wholesale cost. Your
-                customers pay that wholesale cost × your multiplier, by tier based on
-                the wholesale USD value of one account. If the Verxor price ever
+                Buy Logs listings come to you from Verxor in Naira — the Verxor
+                charge is what you pay us per account. Your customers pay the
+                Verxor charge × your multiplier, tiered by that charge. If our
+                price ever
                 changes, your prices follow automatically and your margin is always
                 preserved.
               </p>
@@ -250,15 +249,14 @@ export default function LogsPricingPage() {
             <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
               <span className="text-[13px] font-bold text-[#0F172A]">Price preview</span>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                A sample listing in each tier: what Verxor charges you (wholesale)
-                and what your customers pay with your current multiplier. USD rate
-                ₦{formatNgn(data.usdRate)}.
+                A sample listing in each tier: the Verxor charge in Naira and
+                what your customers pay with your current multiplier.
               </p>
 
               <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E8EEF5]">
                 <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
                   <span className="flex-1">Tier</span>
-                  <span className="w-[110px] text-right sm:w-[140px]">Wholesale cost</span>
+                  <span className="w-[110px] text-right sm:w-[140px]">Verxor charge</span>
                   <span className="w-[50px] text-right">Mult.</span>
                   <span className="w-[120px] text-right sm:w-[150px]">Customers pay</span>
                 </div>
