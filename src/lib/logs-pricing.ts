@@ -1,15 +1,15 @@
 /**
  * Buy Logs pricing for the Vernex Digital panel.
  *
- * The parent (Verxor) sells to us at tiered wholesale over provider cost
- * (rate ₦1,380/$): $0.01–$1.00 ×1.50 · $1.01–$10.00 ×1.25 · $10.01+ ×1.15.
- * The parent catalogue priceNgn already equals providerUsd × 1380, so
- * wholesale = catalogue price × the same tier multiplier.
+ * The parent catalogue (fetched with our panel key) already prices every
+ * listing at the VERXOR CHARGE in Naira — Verxor's wholesale price for this
+ * panel. No further wholesale layer is applied here: charging more than the
+ * catalogue price would be double-counting Verxor's own multiplier.
  *
- * Our retail price to panel customers is tiered over the wholesale price:
- *   wholesale $0.01–$1.50   → ×2.00
- *   wholesale $1.51–$15.00  → ×1.60
- *   wholesale $15.01+        → ×1.22
+ * Our retail price to panel customers is tiered over that Verxor charge:
+ *   charge up to ₦2,070   → ×2.00
+ *   ₦2,071 – ₦20,700      → ×1.60
+ *   ₦20,701 and above     → ×1.22
  */
 
 export const USD_NGN_RATE = 1380;
@@ -17,20 +17,11 @@ export const USD_NGN_RATE = 1380;
 /** Default retail multipliers over our wholesale cost, by wholesale USD tier. */
 export const LOGS_RETAIL_DEFAULT = [2, 1.6, 1.22] as const;
 
-/** Wholesale multiplier the parent applies over provider cost (USD). */
-export function accountsWholesaleMultiplier(providerUsd: number): number {
-  if (!Number.isFinite(providerUsd) || providerUsd <= 0) return 1.5;
-  if (providerUsd <= 1) return 1.5;
-  if (providerUsd <= 10) return 1.25;
-  return 1.15;
-}
-
-/** Wholesale NGN we pay the parent for one unit of a listing (parent priceNgn basis). */
+/** The Verxor charge we pay for one unit — the panel-key catalogue price itself
+ *  is already Verxor's wholesale Naira price for us (do not re-markup it). */
 export function logsWholesaleNgn(parentUnitNgn: number): number {
   const parentUnit = Math.round(Number(parentUnitNgn) || 0);
-  if (parentUnit <= 0) return 0;
-  const providerUsd = parentUnit / USD_NGN_RATE;
-  return Math.max(1, Math.round(parentUnit * accountsWholesaleMultiplier(providerUsd)));
+  return parentUnit <= 0 ? 0 : Math.max(1, parentUnit);
 }
 
 /** Retail multiplier tier index for a wholesale cost, in USD. */
