@@ -111,6 +111,7 @@ export async function POST(req: NextRequest) {
         kind: "buy_logs",
         status,
         amount: -retailTotal,
+        title: `Buy logs — ${platform}${status === "success" ? "" : ` (${status})`}`,
         meta: { ref, platform, providerListingId: adId, quantity: qty, retailUnit, wholesaleUnit, ...extra },
       });
     } catch {
