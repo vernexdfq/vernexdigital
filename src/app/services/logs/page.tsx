@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Check,
   Copy,
+  Download,
   CircleAlert,
   Package,
 } from "lucide-react";
@@ -44,6 +45,49 @@ type PlacedOrder = {
 };
 
 type HistoryOrder = PlacedOrder & { status: string; reference: string; createdAt: string | null };
+
+function downloadCredentialsTxt(orderId: string, platform: string, title: string, credentials: string[]) {
+  const dateStr = new Date().toLocaleString("en-NG", { timeZone: "Africa/Lagos" });
+  const lines = [
+    "============================================================",
+    "DIGITAL GOODS & ACCOUNTS — ORDER DELIVERED",
+    "============================================================",
+    `Order Reference : ${orderId}`,
+    `Platform        : ${platform}`,
+    `Listing         : ${title}`,
+    `Delivered Items : ${credentials.length}`,
+    `Delivery Date   : ${dateStr}`,
+    `Status          : Delivered`,
+    "------------------------------------------------------------",
+    "DELIVERED CREDENTIALS (KEEP PRIVATE):",
+    "------------------------------------------------------------",
+    ...credentials,
+    "------------------------------------------------------------",
+    "USAGE INSTRUCTIONS:",
+    "• Format: login:password (see listing note for details).",
+    "• 2FA Security: If a 2FA code is included, enter it at",
+    "  https://2fa.live or into your Google Authenticator app to generate",
+    "  the 6-digit one-time login code.",
+    "• Cookies: If cookies are provided, use a browser cookie editor",
+    "  extension to import them before logging in.",
+    "------------------------------------------------------------",
+    "24-HOUR REPLACEMENT POLICY:",
+    "• All accounts are covered by a 24-hour replacement window for any",
+    "  credentials that are invalid on first login.",
+    "• Test credentials immediately upon receipt.",
+    "============================================================",
+  ];
+  const blob = new Blob([lines.join("\r\n")], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `accounts-${platform.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${orderId}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 
 const PLATFORMS = [
   "Facebook", "Instagram", "TikTok", "X / Twitter", "Telegram", "Gmail", "YouTube",
@@ -245,7 +289,14 @@ export default function BuyLogsPage() {
         body: JSON.stringify({ platform: selected.platform, providerListingId: selected.providerListingId, quantity: qty }),
       });
       const result = await res.json().catch(() => ({}));
-      if (!res.ok || result.ok === false) throw new Error(result.error || "Purchase failed. Please retry.");
+      if (!res.ok || result.ok === false) {
+        if (res.status === 409) {
+          // Remove out-of-stock listing from UI immediately
+          setOffers((prev) => prev.filter((o) => o.providerListingId !== selected.providerListingId));
+          void loadOffers(selected.platform);
+        }
+        throw new Error(result.error || "Purchase failed. Please retry.");
+      }
       const order = result.order as PlacedOrder;
       setPlaced(order);
       try { await refreshUser(); } catch { /* wallet refresh is non-critical */ }
@@ -489,9 +540,30 @@ export default function BuyLogsPage() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide mb-2">
-                    Your credentials ({placed.credentials.length})
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wide">
+                      Your credentials ({placed.credentials.length})
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => downloadCredentialsTxt(placed.id, placed.platform, placed.title, placed.credentials)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-[#1877F2] text-white text-[11px] font-semibold active:scale-95 transition"
+                        title="Download credentials as .txt"
+                      >
+                        <Download size={12} />
+                        Download (.txt)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void copyCredential(placed.credentials.join("\n"), -1)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[8px] bg-[#F1F5F9] text-[#0F172A] text-[11px] font-medium border border-[#E2E8F0] active:scale-95 transition"
+                      >
+                        <Copy size={12} />
+                        Copy All
+                      </button>
+                    </div>
+                  </div>
                   <div className="space-y-2">
                     {placed.credentials.map((cred, idx) => (
                       <button
@@ -512,6 +584,12 @@ export default function BuyLogsPage() {
                       </button>
                     ))}
                   </div>
+                </div>
+                <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E2E8F0] p-3 text-[11px] text-[#475569] space-y-1.5">
+                  <p className="font-semibold text-[#0F172A]">Important instructions & 24-hr guarantee:</p>
+                  <p>• <strong>Format:</strong> Credentials usually follow <code>login:password</code>.</p>
+                  <p>• <strong>2FA code:</strong> If a 2FA code is included, visit <a href="https://2fa.live" target="_blank" rel="noreferrer" className="text-[#1877F2] font-semibold underline">2fa.live</a> or your authenticator app.</p>
+                  <p>• <strong>Replacement:</strong> Any login issue reported within 24 hours is covered under policy.</p>
                 </div>
                 <p className="text-[11px] text-[#94A3B8] leading-relaxed">
                   Saved to your order history. Secure each account immediately after first login.
@@ -662,13 +740,22 @@ export default function BuyLogsPage() {
                     </span>
                   </div>
                   {o.credentials.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => void copyCredential(o.credentials.join("\n"), -1)}
-                      className="mt-2 w-full flex items-center justify-center gap-1.5 h-8 rounded-[10px] bg-[#F1F5F9] text-[11px] font-medium text-[#0F172A]"
-                    >
-                      <Copy size={12} /> Copy all {o.credentials.length} credentials
-                    </button>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => downloadCredentialsTxt(o.id, o.platform, o.title, o.credentials)}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-[10px] bg-[#1877F2] text-white text-[11px] font-semibold active:scale-[0.98] transition"
+                      >
+                        <Download size={12} /> Download .txt
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void copyCredential(o.credentials.join("\n"), -1)}
+                        className="flex-1 flex items-center justify-center gap-1.5 h-8 rounded-[10px] bg-[#F1F5F9] border border-[#E2E8F0] text-[11px] font-medium text-[#0F172A] active:scale-[0.98] transition"
+                      >
+                        <Copy size={12} /> Copy All
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}

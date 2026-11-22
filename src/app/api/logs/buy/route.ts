@@ -75,16 +75,26 @@ export async function POST(req: NextRequest) {
   }
 
   // Verify the listing, stock and parent price server-side. Client prices are never trusted.
+  // Use fast cached catalog first (<10ms) to avoid rate limits and slow multi-second walks.
   let offer: Record<string, unknown> | null = null;
   try {
-    const qs = new URLSearchParams({ platform, refresh: "1" });
-    const catalogRes = await verxorFetch(`/accounts/catalog?${qs.toString()}`, { method: "GET" });
-    const catalog = await catalogRes.json().catch(() => ({}));
-    const opts: Record<string, unknown>[] = Array.isArray(catalog.offers) ? catalog.offers : [];
+    const qs = new URLSearchParams({ platform });
+    let catalogRes = await verxorFetch(`/accounts/catalog?${qs.toString()}`, { method: "GET" });
+    let catalog = await catalogRes.json().catch(() => ({}));
+    let opts: Record<string, unknown>[] = Array.isArray(catalog.offers) ? catalog.offers : [];
     offer = opts.find((o) => Number(o.providerListingId) === adId) ?? null;
+
+    // Fallback: try one refresh if listing was not found in cache
+    if (!offer) {
+      catalogRes = await verxorFetch(`/accounts/catalog?platform=${encodeURIComponent(platform)}&refresh=1`, { method: "GET" });
+      catalog = await catalogRes.json().catch(() => ({}));
+      opts = Array.isArray(catalog.offers) ? catalog.offers : [];
+      offer = opts.find((o) => Number(o.providerListingId) === adId) ?? null;
+    }
+
     if (!catalogRes.ok || !catalog.ok || !offer || Number(offer.stock) < qty) {
       return NextResponse.json(
-        { ok: false, error: "This listing is no longer available in the requested quantity. Refresh and try again." },
+        { ok: false, error: "This listing is currently unavailable or out of stock. Please choose another listing." },
         { status: 409 },
       );
     }
