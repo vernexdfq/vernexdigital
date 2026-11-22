@@ -10,11 +10,21 @@ import {
   ShoppingBag,
   Tv,
   Gamepad2,
+  PhoneCall,
   Zap,
 } from "lucide-react";
 
 /** Live wallet services — shown first */
 const LIVE_SERVICES = [
+  {
+    href: "/services/rent-sms",
+    label: "Rent for SMS",
+    desc: "Dedicated US numbers for SMS — pick any state's area code",
+    icon: PhoneCall,
+    accent: "from-[#ECFEFF] to-[#CFFAFE]",
+    iconColor: "text-cyan-600",
+    tag: "Numbers",
+  },
   {
     href: "/services/gaming",
     label: "Gaming Top-up",

@@ -14,7 +14,7 @@ const actions = [
   { href: "/services/virtual-number", label: "Virtual Number", icon: Phone, color: "bg-sky-50 text-sky-600" },
   { href: "/services/boost", label: "Boost Account", icon: Rocket, color: "bg-violet-50 text-violet-600" },
   { href: "/services/logs", label: "Buy Logs", icon: FileText, color: "bg-amber-50 text-amber-600" },
-  { href: "/services/rent-number", label: "Rent Number", icon: PhoneCall, color: "bg-cyan-50 text-cyan-600" },
+  { href: "/services/rent-sms", label: "Rent for SMS", icon: PhoneCall, color: "bg-cyan-50 text-cyan-600" },
   { href: "/services/data", label: "Data", icon: Wifi, color: "bg-indigo-50 text-indigo-600" },
   { href: "/services/airtime", label: "Airtime", icon: Smartphone, color: "bg-blue-50 text-blue-600" },
   { href: "/services/gift-card", label: "Gift Card", icon: Gift, color: "bg-pink-50 text-pink-600" },

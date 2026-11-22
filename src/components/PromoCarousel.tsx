@@ -35,10 +35,10 @@ const slides = [
     position: "center",
   },
   {
-    href: "/services/rent-number",
+    href: "/services/rent-sms",
     eyebrow: "Number Rental",
-    title: "Rent a number",
-    subtitle: "Keep a dedicated line for calls and SMS from one hub.",
+    title: "Rent a US line",
+    subtitle: "Dedicated US numbers for SMS — pick any state's area code.",
     cta: "Open hub",
     image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=88",
     position: "center",

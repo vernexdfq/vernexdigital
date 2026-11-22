@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Rent-for-SMS — Grade 1 Fintech build for Verxor.
+ * Rent-for-SMS — Vernex Digital panel (powered by Verxor Rent-for-SMS).
  *
  * Screen flows:
  *  - Home: Compact Top Bar, Promo-Strip Carousel, Rental Type Selection (Service vs General), clean View Rental History link
@@ -41,9 +41,9 @@ import {
 } from 'lucide-react';
 import './rental-page.css';
 
-
 /* ---------------- types ---------------- */
 
+/** Panel session supplied by the host page (wallet chip + user id). */
 export type RentalSession = { userId?: string; balanceNgn?: number } | null;
 
 export type RentalType = 'service' | 'general';
@@ -116,14 +116,16 @@ const MODES: { id: Mode; label: string; hint: string; icon: typeof Flame }[] = [
   { id: 'renewable', label: 'Renewable', hint: 'Renews automatically', icon: RefreshCw },
 ];
 
+// Durations map to Textverified rental durations; every price is quoted LIVE
+// per service + duration via /api/rent-sms/quote (tiered Ngn pricing).
 export const DURATION_OPTIONS = [
-  { id: '1d', label: '1 Day', days: 1, basePriceNgn: 1450 },
-  { id: '3d', label: '3 Days', days: 3, basePriceNgn: 2850 },
-  { id: '7d', label: '7 Days', days: 7, basePriceNgn: 4950 },
-  { id: '14d', label: '14 Days', days: 14, basePriceNgn: 8400 },
-  { id: '30d', label: '30 Days', days: 30, basePriceNgn: 11880 }, // Matches Primex reference ₦11,880.00
-  { id: '90d', label: '90 Days', days: 90, basePriceNgn: 28500 },
-  { id: '365d', label: '1 Year', days: 365, basePriceNgn: 78000 },
+  { id: '1d', label: '1 Day', days: 1, tvId: 'oneDay' },
+  { id: '3d', label: '3 Days', days: 3, tvId: 'threeDay' },
+  { id: '7d', label: '7 Days', days: 7, tvId: 'sevenDay' },
+  { id: '14d', label: '14 Days', days: 14, tvId: 'fourteenDay' },
+  { id: '30d', label: '30 Days', days: 30, tvId: 'thirtyDay' },
+  { id: '90d', label: '90 Days', days: 90, tvId: 'ninetyDay' },
+  { id: '365d', label: '1 Year', days: 365, tvId: 'oneYear' },
 ];
 
 export const DEFAULT_SERVICES = [
@@ -210,26 +212,9 @@ export const DEFAULT_SERVICES = [
 ];
 
 /**
- * Real US area codes (NANP)
+ * Area codes come live from the provider (/api/rent-sms/area-codes).
+ * No hardcoded list — if the provider list is unavailable, honest empty state.
  */
-const US_AREA_CODES: { code: string; place: string }[] = [
-  { code: '212', place: 'New York, NY' }, { code: '310', place: 'Los Angeles, CA' },
-  { code: '305', place: 'Miami, FL' }, { code: '214', place: 'Dallas, TX' },
-  { code: '312', place: 'Chicago, IL' }, { code: '415', place: 'San Francisco, CA' },
-  { code: '404', place: 'Atlanta, GA' }, { code: '702', place: 'Las Vegas, NV' },
-  { code: '202', place: 'Washington, DC' }, { code: '206', place: 'Seattle, WA' },
-  { code: '617', place: 'Boston, MA' }, { code: '713', place: 'Houston, TX' },
-  { code: '408', place: 'San Jose, CA' }, { code: '512', place: 'Austin, TX' },
-  { code: '323', place: 'Los Angeles, CA' }, { code: '646', place: 'Manhattan, NY' },
-  { code: '718', place: 'Brooklyn/Queens, NY' }, { code: '917', place: 'New York, NY' },
-  { code: '347', place: 'New York, NY' }, { code: '407', place: 'Orlando, FL' },
-  { code: '813', place: 'Tampa, FL' }, { code: '954', place: 'Fort Lauderdale, FL' },
-  { code: '215', place: 'Philadelphia, PA' }, { code: '303', place: 'Denver, CO' },
-  { code: '602', place: 'Phoenix, AZ' }, { code: '619', place: 'San Diego, CA' },
-  { code: '704', place: 'Charlotte, NC' }, { code: '615', place: 'Nashville, TN' },
-  { code: '314', place: 'St Louis, MO' }, { code: '504', place: 'New Orleans, LA' },
-  { code: '808', place: 'Honolulu, HI' }, { code: '907', place: 'Anchorage, AK' },
-];
 
 const fmtDate = (iso: string | null) => {
   if (!iso) return '';
@@ -260,11 +245,13 @@ function extractOtpCode(text: string): string | null {
 
 export function RentalPage({
   onBack,
-  session = null,
+  session,
+  onFund,
   initialScreen = 'home',
 }: {
-  onBack?: () => void;
-  session?: RentalSession;
+  onBack: () => void;
+  session: RentalSession;
+  onFund: () => void;
   initialScreen?: Screen;
 }) {
   const [screen, setScreen] = useState<Screen>(initialScreen);
@@ -272,14 +259,15 @@ export function RentalPage({
 
   /* flow state */
   const [mode, setMode] = useState<Mode>('one-time');
-  const [service, setService] = useState<string | null>('WhatsApp'); // Default to WhatsApp like Primex demo
+  const [service, setService] = useState<string | null>('WhatsApp'); // Default service selection
   const [selectedDuration, setSelectedDuration] = useState<string>('30d');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
 
-  /* ordering & demo state */
+  /* ordering state */
   const [isOrdering, setIsOrdering] = useState(false);
   const [orderSuccessMsg, setOrderSuccessMsg] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [copiedNumber, setCopiedNumber] = useState<string | null>(null);
 
   /* promo carousel state */
@@ -289,6 +277,8 @@ export function RentalPage({
   const [areaCode, setAreaCode] = useState<{ code: string; place: string } | null>(null);
   const [acOpen, setAcOpen] = useState(false);
   const [acQuery, setAcQuery] = useState('');
+  const [areaCodes, setAreaCodes] = useState<{ code: string; place: string }[]>([]);
+  const [areaCodesNote, setAreaCodesNote] = useState<string | null>(null);
 
   /* service list */
   const [services, setServices] = useState<string[]>(DEFAULT_SERVICES);
@@ -316,7 +306,18 @@ export function RentalPage({
   }, []);
 
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
-    return { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    try {
+      const { createBrowserClient } = await import('@/lib/supabase/client');
+      const sb = createBrowserClient();
+      if (sb) {
+        const { data: sess } = await sb.auth.getSession();
+        if (sess.session?.access_token) headers.Authorization = `Bearer ${sess.session.access_token}`;
+      }
+    } catch {
+      /* optional */
+    }
+    return headers;
   }, []);
 
   /* Load service list if live API available, else retain DEFAULT_SERVICES */
@@ -324,7 +325,7 @@ export function RentalPage({
     let alive = true;
     (async () => {
       try {
-        const res = await fetch('/api/v1/rent-sms/services', { cache: 'no-store' });
+        const res = await fetch('/api/rent-sms/services', { cache: 'no-store' });
         const data = (await res.json()) as { ok?: boolean; services?: string[] };
         if (!alive) return;
         if (res.ok && data.ok && data.services && data.services.length) {
@@ -339,40 +340,50 @@ export function RentalPage({
     };
   }, []);
 
-  /* Load rentals from backend and localStorage */
-  const loadRentals = useCallback(async () => {
-    let combinedRentals: Rental[] = [];
-
-    // 1. Stored local demo rentals
-    try {
-      const stored = localStorage.getItem('verxor_demo_rentals');
-      if (stored) {
-        const parsed = JSON.parse(stored) as Rental[];
-        if (Array.isArray(parsed)) combinedRentals = [...parsed];
+  /* Load the live provider area-code list (everything comes from the provider). */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch('/api/rent-sms/area-codes', { cache: 'no-store' });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; areaCodes?: { code: string; place: string }[]; error?: string };
+        if (!alive) return;
+        if (res.ok && data.ok && data.areaCodes && data.areaCodes.length) {
+          setAreaCodes(data.areaCodes);
+          setAreaCodesNote(null);
+        } else {
+          setAreaCodes([]);
+          setAreaCodesNote(data.error || 'Area codes unavailable right now — "Any area code" still works.');
+        }
+      } catch {
+        if (alive) {
+          setAreaCodes([]);
+          setAreaCodesNote('Area codes unavailable right now — "Any area code" still works.');
+        }
       }
-    } catch {
-      /* ignore */
-    }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-    // 2. Fetch backend rentals if signed in
+  /* Load rentals from the backend (live orders only) */
+  const loadRentals = useCallback(async () => {
+    let backendRentals: Rental[] = [];
+
+    // Fetch backend rentals if signed in
     try {
       const headers = await authHeaders();
-      const userId = session?.userId || '';
-      const url = userId
-        ? `/api/v1/rent-sms/numbers?userId=${encodeURIComponent(userId)}`
-        : '/api/v1/rent-sms/numbers';
+      const url = '/api/rent-sms/numbers';
       const res = await fetch(url, { headers, cache: 'no-store' });
       const data = (await res.json()) as { ok?: boolean; rentals?: Rental[] };
       if (res.ok && data.ok && data.rentals) {
-        const seenIds = new Set(combinedRentals.map((r) => r.id));
-        for (const r of data.rentals) {
-          if (!seenIds.has(r.id)) combinedRentals.unshift(r);
-        }
+        backendRentals = [...data.rentals];
       }
     } catch {
       /* best effort */
     } finally {
-      setRentals(combinedRentals);
+      setRentals(backendRentals);
       setRentalsLoaded(true);
     }
   }, [authHeaders, session]);
@@ -386,6 +397,20 @@ export function RentalPage({
     return q ? services.filter((s) => s.toLowerCase().includes(q)) : services;
   }, [services, query]);
 
+  /* Area codes grouped by state (multiple codes per state), like the
+   * provider's own selection UI. Search matches state name or code. */
+  const groupedAreaCodes = useMemo(() => {
+    const q = acQuery.trim().toLowerCase();
+    const groups: { state: string; codes: { code: string; place: string }[] }[] = [];
+    for (const a of areaCodes) {
+      if (q && !a.code.includes(q) && !a.place.toLowerCase().includes(q)) continue;
+      const last = groups[groups.length - 1];
+      if (last && last.state === a.place) last.codes.push(a);
+      else groups.push({ state: a.place, codes: [a] });
+    }
+    return groups;
+  }, [areaCodes, acQuery]);
+
   const liveRentals = useMemo(() => rentals.filter(isLive), [rentals]);
   const liveCount = liveRentals.length;
 
@@ -395,7 +420,73 @@ export function RentalPage({
     return DURATION_OPTIONS.find((d) => d.id === selectedDuration) || DURATION_OPTIONS[4];
   }, [selectedDuration]);
 
-  const currentPriceNgn = currentDurationObj.basePriceNgn;
+  /* Live prices: quoted per service + duration. No hardcoded ₦ values. */
+  const [prices, setPrices] = useState<Record<string, number>>({});
+  const [pricesLoading, setPricesLoading] = useState(true);
+  const [pricesNote, setPricesNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    // General rental = provider special-case service 'allservices'.
+    const svc = type === 'general' || service === 'Any Other App (All Services)' ? 'allservices' : service;
+    (async () => {
+      // Client-side quote cache: a service+duration+areaCode price is valid
+      // for 10 minutes; the purchase still re-quotes server-side. Cached
+      // durations are NOT re-requested, so nothing reloads all the time.
+      const CACHE_TTL_MS = 10 * 60 * 1000;
+      const cacheKey = (dur: string) => `vq:${svc}|${dur}|${areaCode ? 1 : 0}`;
+      const readCache = (dur: string): number | null => {
+        try {
+          const raw = sessionStorage.getItem(cacheKey(dur));
+          if (!raw) return null;
+          const c = JSON.parse(raw) as { p?: number; t?: number };
+          if (Number(c.p) > 0 && c.t && Date.now() - c.t < CACHE_TTL_MS) return Number(c.p);
+        } catch {}
+        return null;
+      };
+      setPricesLoading(true);
+      setPricesNote(null);
+      const results = await Promise.all(
+        DURATION_OPTIONS.map(async (d) => {
+          const cached = readCache(d.tvId);
+          if (cached !== null) return { id: d.id, priceNgn: cached, error: '' };
+          try {
+            const res = await fetch('/api/rent-sms/quote', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ serviceName: svc, duration: d.tvId, areaCode: Boolean(areaCode) }),
+            });
+            const data = (await res.json().catch(() => ({}))) as { ok?: boolean; priceNgn?: number; error?: string };
+            if (res.ok && data.ok && Number(data.priceNgn) > 0) {
+              try {
+                sessionStorage.setItem(cacheKey(d.tvId), JSON.stringify({ p: Number(data.priceNgn), t: Date.now() }));
+              } catch {}
+              return { id: d.id, priceNgn: Number(data.priceNgn), error: '' };
+            }
+            return { id: d.id, priceNgn: 0, error: data.error || 'Price unavailable right now.' };
+          } catch {
+            return { id: d.id, priceNgn: 0, error: 'Network error while fetching the price.' };
+          }
+        }),
+      );
+      if (!alive) return;
+      const map: Record<string, number> = {};
+      let okCount = 0;
+      let firstError = '';
+      for (const r of results) {
+        map[r.id] = r.priceNgn;
+        if (r.priceNgn > 0) okCount++; else if (!firstError) firstError = r.error;
+      }
+      setPrices(map);
+      setPricesLoading(false);
+      if (okCount === 0 && firstError) setPricesNote(firstError);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [service, areaCode, type]);
+
+  const currentPriceNgn = prices[selectedDuration] || 0;
 
   /* Provider rule: renewals only for 30 days and above */
   const renewableAllowed = currentDurationObj.days >= 30;
@@ -408,7 +499,7 @@ export function RentalPage({
     setAcOpen(false);
     setAcQuery('');
     setType(t);
-    setService(t === 'general' ? 'General' : 'WhatsApp');
+    setService(t === 'general' ? 'Any Other App (All Services)' : 'WhatsApp');
     setMode('one-time');
     setSelectedDuration((prev) => (t === 'general' && prev === '1d' ? '3d' : prev));
     setOrderSuccessMsg(null);
@@ -434,17 +525,20 @@ export function RentalPage({
 
     setIsOrdering(true);
     setOrderSuccessMsg(null);
+    setOrderError(null);
+
+    const durationId = currentDurationObj.tvId || 'thirtyDay';
 
     try {
-      // 1. Try live API purchase
       const headers = await authHeaders();
-      const res = await fetch('/api/v1/rent-sms/purchase', {
+      const res = await fetch('/api/rent-sms/purchase', {
         method: 'POST',
         headers,
         body: JSON.stringify({
-          serviceName: service,
-          duration: selectedDuration === '1d' ? 'oneDay' : selectedDuration === '3d' ? 'threeDay' : selectedDuration === '7d' ? 'sevenDay' : selectedDuration === '14d' ? 'fourteenDay' : 'thirtyDay',
+          serviceName: type === 'general' || service === 'Any Other App (All Services)' ? 'allservices' : service,
+          duration: durationId,
           userId: session?.userId,
+          areaCode: areaCode?.code || null,
         }),
       });
 
@@ -454,7 +548,7 @@ export function RentalPage({
           ref?: string;
           reservationId?: string;
           number?: string;
-          endsAt?: string;
+          endsAt?: string | null;
           serviceName?: string;
           duration?: string;
           totalNgn?: number;
@@ -470,119 +564,52 @@ export function RentalPage({
           mode,
           duration: currentDurationObj.label,
           number: data.rental.number || '',
-          chargedNgn: Number(data.rental.totalNgn || currentPriceNgn),
+          chargedNgn: Number(data.rental.totalNgn || prices[selectedDuration] || 0),
           status: 'active',
           endsAt: data.rental.endsAt || new Date(Date.now() + currentDurationObj.days * 86400000).toISOString(),
           createdAt: new Date().toISOString(),
         };
 
-        const updated = [liveItem, ...rentals];
-        setRentals(updated);
-        try {
-          localStorage.setItem('verxor_demo_rentals', JSON.stringify(updated));
-        } catch {}
-        setOrderSuccessMsg(`Dedicated line ${liveItem.number} allocated for ${service}. Unlimited SMS is ready.`);
-        window.dispatchEvent(new CustomEvent('verxor:balance-refresh'));
+        setRentals((prev) => [liveItem, ...prev]);
+        setOrderSuccessMsg(`Dedicated line ${liveItem.number || '(number will show in Rental History shortly)'} allocated for ${service}. Incoming SMS appears in Rental History.`);
+        window.dispatchEvent(new CustomEvent('vernex:balance-refresh'));
         setIsOrdering(false);
         return;
       }
+
+      // Honest failure: show the server's reason, never a fake number.
+      setOrderError(data.error || 'The purchase could not be completed. Your wallet was not charged (or has been refunded). Try again.');
     } catch {
-      /* Fallback to smooth demo mode */
+      setOrderError('Network error — the purchase was not completed. Your wallet was not charged (or has been refunded). Try again.');
     }
-
-    // 2. Demo allocation mode
-    const chosenAc = areaCode ? areaCode.code : ['310', '212', '305', '214', '415', '702', '404', '312'][Math.floor(Math.random() * 8)];
-    const middle = Math.floor(200 + Math.random() * 700);
-    const last = Math.floor(1000 + Math.random() * 9000);
-    const allocatedNumber = `+1 (${chosenAc}) ${middle}-${last}`;
-
-    const demoRental: Rental = {
-      id: `rsm-demo-${Date.now()}`,
-      reservationId: `res-${Math.random().toString(36).slice(2, 9)}`,
-      serviceName: service,
-      mode,
-      duration: currentDurationObj.label,
-      number: allocatedNumber,
-      chargedNgn: currentPriceNgn,
-      status: 'active',
-      endsAt: new Date(Date.now() + currentDurationObj.days * 86400000).toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    const updatedRentals = [demoRental, ...rentals];
-    setRentals(updatedRentals);
-    try {
-      localStorage.setItem('verxor_demo_rentals', JSON.stringify(updatedRentals));
-    } catch {}
-
-    // Auto-create incoming initial SMS code in inbox
-    const sampleCode = Math.floor(100000 + Math.random() * 900000);
-    const initialMsg: InboxMsg = {
-      id: `msg-${Date.now()}`,
-      from: service,
-      text: `Your ${service} verification code is: ${sampleCode}. Valid for 10 minutes. Do not share this code.`,
-      receivedAt: new Date().toISOString(),
-    };
-    try {
-      localStorage.setItem(`verxor_demo_inbox_${demoRental.reservationId}`, JSON.stringify([initialMsg]));
-    } catch {}
-
-    setOrderSuccessMsg(`Dedicated number ${allocatedNumber} allocated for ${service}. Check Rental History to view messages.`);
-    window.dispatchEvent(new CustomEvent('verxor:balance-refresh'));
     setIsOrdering(false);
   };
 
-  /* SMS Inbox fetch & simulation */
+  /* SMS Inbox fetch (live backend only) */
   const fetchInbox = useCallback(
     async (reservationId: string) => {
       setInboxLoading(true);
       setInboxError(null);
 
-      // 1. Check local demo inbox storage
-      let localMsgs: InboxMsg[] = [];
-      try {
-        const stored = localStorage.getItem(`verxor_demo_inbox_${reservationId}`);
-        if (stored) localMsgs = JSON.parse(stored) as InboxMsg[];
-      } catch {}
-
-      // 2. Check live backend API
       try {
         const headers = await authHeaders();
-        const url = `/api/v1/rent-sms/numbers?res=${encodeURIComponent(reservationId)}`;
+        const url = `/api/rent-sms/numbers?res=${encodeURIComponent(reservationId)}`;
         const res = await fetch(url, { headers, cache: 'no-store' });
-        const data = (await res.json()) as { ok?: boolean; messages?: InboxMsg[]; error?: string };
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; messages?: InboxMsg[]; error?: string };
         if (res.ok && data.ok && data.messages) {
-          const combined = [...data.messages, ...localMsgs];
-          setInboxMessages(combined);
-          setInboxLoading(false);
-          return;
+          setInboxMessages(data.messages);
+        } else {
+          setInboxMessages([]);
+          setInboxError(data.error || 'Could not load messages for this rental right now.');
         }
       } catch {
-        /* best effort */
+        setInboxMessages([]);
+        setInboxError('Network error while loading messages. Tap Refresh to retry.');
       }
-
-      setInboxMessages(localMsgs);
       setInboxLoading(false);
     },
     [authHeaders],
   );
-
-  const simulateIncomingOtp = (reservationId: string, serviceName: string) => {
-    const code = Math.floor(100000 + Math.random() * 900000);
-    const newMsg: InboxMsg = {
-      id: `msg-${Date.now()}`,
-      from: serviceName,
-      text: `${serviceName} security code: ${code}. Valid for 10 minutes. Never share this with anyone.`,
-      receivedAt: new Date().toISOString(),
-    };
-
-    const current = inboxMessages || [];
-    const updated = [newMsg, ...current];
-    setInboxMessages(updated);
-    try {
-      localStorage.setItem(`verxor_demo_inbox_${reservationId}`, JSON.stringify(updated));
-    } catch {}
-  };
 
   const openInbox = (r: Rental) => {
     setInboxRental(r);
@@ -621,7 +648,7 @@ export function RentalPage({
           onClick={() => {
             if (screen === 'inbox') setScreen('history');
             else if (screen === 'history' || screen === 'flow') setScreen('home');
-            else onBack?.();
+            else onBack();
           }}
           aria-label="Back"
           title="Back"
@@ -861,6 +888,25 @@ export function RentalPage({
             </div>
           )}
 
+          {/* FAILURE NOTIFICATION — honest states only */}
+          {orderError && (
+            <div className="rsm-order-success-banner">
+              <X size={18} />
+              <div className="rsm-order-success-text">
+                <strong>Order not completed</strong>
+                <p>{orderError}</p>
+              </div>
+              <button
+                type="button"
+                className="rsm-order-success-close"
+                onClick={() => setOrderError(null)}
+                aria-label="Dismiss"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
           {/* ORDER A RENTAL CARD */}
           <section className="rsm-order-card">
             <div className="rsm-order-card-header">
@@ -947,7 +993,9 @@ export function RentalPage({
                     onClick={() => setSelectedDuration(d.id)}
                   >
                     <span className="rsm-dur-label">{d.label}</span>
-                    <span className="rsm-dur-state">₦{d.basePriceNgn.toLocaleString('en-NG')}</span>
+                    <span className="rsm-dur-state">
+                      {pricesLoading ? '…' : prices[d.id] > 0 ? `₦${prices[d.id].toLocaleString('en-NG')}` : '—'}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1003,12 +1051,18 @@ export function RentalPage({
               <div className="rsm-price-copy">
                 <span className="rsm-price-label">Total to pay</span>
                 <strong className="rsm-price-amount">
-                  ₦{currentPriceNgn.toLocaleString('en-NG')}.00
+                  {pricesLoading
+                    ? 'Checking live price…'
+                    : currentPriceNgn > 0
+                      ? `₦${currentPriceNgn.toLocaleString('en-NG')}`
+                      : '—'}
                 </strong>
                 <small className="rsm-price-sub">
-                  {type === 'general'
-                    ? `${currentDurationObj.label} general rental`
-                    : `${currentDurationObj.label} · ${service}`}
+                  {pricesNote
+                    ? pricesNote
+                    : type === 'general'
+                      ? `${currentDurationObj.label} general rental`
+                      : `${currentDurationObj.label} · ${service}`}
                 </small>
               </div>
             </div>
@@ -1340,17 +1394,6 @@ export function RentalPage({
             </div>
           </div>
 
-          {/* DEMO SMS SIMULATION BUTTON */}
-          <div className="rsm-inbox-test-bar">
-            <button
-              type="button"
-              className="rsm-test-otp-btn"
-              onClick={() => simulateIncomingOtp(inboxRental.reservationId, inboxRental.serviceName)}
-            >
-              <Sparkles size={13} /> Simulate Incoming SMS Code
-            </button>
-          </div>
-
           <div className="rsm-section-head">
             <h3>
               <MessageSquare size={15} /> Incoming SMS
@@ -1489,40 +1532,28 @@ export function RentalPage({
 
             <div className="rsm-modal-body">
               <ul className="rsm-service-list">
-                {US_AREA_CODES.filter((a) => {
-                  const q = acQuery.trim().toLowerCase();
-                  if (!q) return true;
-                  return a.code.includes(q) || a.place.toLowerCase().includes(q);
-                }).map((a) => (
-                  <li key={a.code}>
-                    <button
-                      type="button"
-                      className={`rsm-service-item-btn ${areaCode?.code === a.code ? 'active' : ''}`}
-                      onClick={() => {
-                        setAreaCode(a);
-                        setAcOpen(false);
-                        setAcQuery('');
-                      }}
-                    >
-                      <div className="rsm-service-item-left">
-                        <span className="rsm-service-item-icon rsm-ac-icon">
-                          <Hash size={14} />
-                        </span>
-                        <span className="rsm-service-item-name rsm-ac-code">{a.code}</span>
-                        <span className="rsm-ac-place">{a.place}</span>
-                      </div>
-                      {areaCode?.code === a.code ? (
-                        <span className="rsm-service-selected-check">
-                          <Check size={16} />
-                        </span>
-                      ) : null}
-                    </button>
+                {groupedAreaCodes.map((g) => (
+                  <li key={g.state} className="rsm-ac-group">
+                    <span className="rsm-ac-state">{g.state}</span>
+                    <div className="rsm-ac-codes">
+                      {g.codes.map((a) => (
+                        <button
+                          type="button"
+                          key={a.code}
+                          className={`rsm-ac-chip ${areaCode?.code === a.code ? 'active' : ''}`}
+                          onClick={() => {
+                            setAreaCode(a);
+                            setAcOpen(false);
+                            setAcQuery('');
+                          }}
+                        >
+                          {a.code}
+                        </button>
+                      ))}
+                    </div>
                   </li>
                 ))}
-                {!US_AREA_CODES.filter((a) => {
-                  const q = acQuery.trim().toLowerCase();
-                  return !q || a.code.includes(q) || a.place.toLowerCase().includes(q);
-                }).length ? (
+                {areaCodes.length && !groupedAreaCodes.length ? (
                   <li className="rsm-service-empty-item">
                     <p>No area code matches “{acQuery}”.</p>
                     <button
@@ -1532,6 +1563,11 @@ export function RentalPage({
                     >
                       Reset search
                     </button>
+                  </li>
+                ) : null}
+                {!areaCodes.length ? (
+                  <li className="rsm-service-empty-item">
+                    <p>{areaCodesNote || 'Area codes unavailable right now — "Any area code" still works.'}</p>
                   </li>
                 ) : null}
               </ul>
