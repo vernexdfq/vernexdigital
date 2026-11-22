@@ -15,6 +15,7 @@ import {
   ScrollText,
   Signal,
   Gamepad2,
+  PhoneCall,
   Wifi,
   TrendingUp,
   LogOut,
@@ -38,6 +39,7 @@ const SERVICES: NavItem[] = [
   { href: "/admin/data-pricing", label: "Data pricing", icon: <Wifi size={18} strokeWidth={2.2} /> },
   { href: "/admin/gaming", label: "Gaming pricing", icon: <Gamepad2 size={18} strokeWidth={2.2} /> },
   { href: "/admin/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
+  { href: "/admin/rent-sms", label: "Rent for SMS", icon: <PhoneCall size={18} strokeWidth={2.2} /> },
 ];
 
 export function AdminMenuButton({ onClick }: { onClick: () => void }) {
