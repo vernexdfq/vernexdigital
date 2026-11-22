@@ -37,7 +37,7 @@ const SERVICES: NavItem[] = [
   { href: "/admin/boost", label: "Boost pricing", icon: <Percent size={18} strokeWidth={2.2} /> },
   { href: "/admin/data-pricing", label: "Data pricing", icon: <Wifi size={18} strokeWidth={2.2} /> },
   { href: "/admin/gaming", label: "Gaming pricing", icon: <Gamepad2 size={18} strokeWidth={2.2} /> },
-  { href: "/services/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
+  { href: "/admin/logs", label: "Buy logs", icon: <ScrollText size={18} strokeWidth={2.2} /> },
 ];
 
 export function AdminMenuButton({ onClick }: { onClick: () => void }) {

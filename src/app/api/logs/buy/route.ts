@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
-import { logsWholesaleNgn, logsRetailNgn } from "@/lib/logs-pricing";
+import { logsWholesaleNgn, logsRetailNgnFor } from "@/lib/logs-pricing";
+import { getSharedLogsPricing } from "@/lib/logs-pricing-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "This listing's price could not be confirmed. Refresh and try again." }, { status: 409 });
   }
   const wholesaleUnit = logsWholesaleNgn(parentUnitNgn);
-  const retailUnit = logsRetailNgn(wholesaleUnit);
+  const retailUnit = logsRetailNgnFor(wholesaleUnit, (await getSharedLogsPricing()).retail);
   const retailTotal = retailUnit * qty;
 
   const admin = createServerClient();

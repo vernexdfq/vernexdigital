@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
-import { logsWholesaleNgn, logsRetailNgn } from "@/lib/logs-pricing";
+import { logsWholesaleNgn, logsRetailNgnFor } from "@/lib/logs-pricing";
+import { getSharedLogsPricing } from "@/lib/logs-pricing-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "VERXOR_PANEL_API_KEY not configured on this panel." }, { status: 503 });
   }
   try {
+    const { retail: multipliers } = await getSharedLogsPricing();
     const qs = new URLSearchParams({ platform });
     if (refresh) qs.set("refresh", "1");
     const res = await verxorFetch(`/accounts/catalog?${qs.toString()}`, { method: "GET" });
@@ -36,7 +38,7 @@ export async function GET(req: NextRequest) {
       .map((o: Record<string, unknown>) => {
         const parentUnit = Math.round(Number(o.priceNgn) || 0);
         const wholesale = logsWholesaleNgn(parentUnit);
-        const retail = logsRetailNgn(wholesale);
+        const retail = logsRetailNgnFor(wholesale, multipliers);
         return {
           providerListingId: Number(o.providerListingId) || 0,
           platform: String(o.platform || platform),
