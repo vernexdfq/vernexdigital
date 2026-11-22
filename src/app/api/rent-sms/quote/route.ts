@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
-import { rentSmsCustomerNgn } from "@/lib/rentsms-pricing";
+import { rentSmsCustomerNgn, rentSmsMultiplierFor } from "@/lib/rentsms-pricing";
 import { getSharedRentSmsPricing } from "@/lib/rentsms-pricing-server";
 
 export const runtime = "nodejs";
@@ -10,10 +10,14 @@ export const dynamic = "force-dynamic";
  * POST /api/rent-sms/quote
  *   { serviceName, duration, areaCode } → { ok, priceNgn, durationLabel, serviceName }
  *
- * Asks Verxor for the live price with the panel key. The parent returns its
- * panel-tier wholesale charge (`priceNgn`) and Verxor retail
- * (`retailPriceNgn`). Our customer pays Verxor retail × the admin multiplier
- * (default 1.0 — same price as verxor.com), rounded up to the nearest ₦50.
+ * Asks Verxor for the live price with the panel key. The parent returns our
+ * panel-tier wholesale charge (`priceNgn`), the Verxor retail price
+ * (`retailPriceNgn`) and the cost tier (1–5). Our customer pays:
+ *
+ *     customer = our wholesale charge × our tier multiplier
+ *
+ * The default multipliers are Verxor retail ÷ Verxor panel per tier, so with
+ * nothing saved we sell at the same price as verxor.com. Rounded up to ₦50.
  */
 export async function POST(req: NextRequest) {
   if (!verxorConfig().configured) {
@@ -35,25 +39,31 @@ export async function POST(req: NextRequest) {
       ok?: boolean;
       priceNgn?: number;
       retailPriceNgn?: number;
+      tier?: number;
       durationLabel?: string;
       error?: string;
     };
-    if (!upstream.ok || !data.ok || !Number(data.retailPriceNgn)) {
+    if (!upstream.ok || !data.ok || !Number(data.priceNgn)) {
       return NextResponse.json(
         { ok: false, error: data.error || "No price available for that option right now." },
         { status: upstream.ok ? 404 : 502 },
       );
     }
-    const { multiplier } = await getSharedRentSmsPricing();
-    const customerPriceNgn = rentSmsCustomerNgn(Number(data.retailPriceNgn), multiplier);
+    const wholesaleNgn = Math.round(Number(data.priceNgn) || 0);
+    const tier = Math.min(Math.max(Number(data.tier) || 1, 1), 5);
+    const { multipliers } = await getSharedRentSmsPricing();
+    const multiplier = rentSmsMultiplierFor(tier, multipliers);
+    const customerPriceNgn = rentSmsCustomerNgn(wholesaleNgn, multiplier);
     if (!customerPriceNgn || customerPriceNgn <= 0) {
       return NextResponse.json({ ok: false, error: "Could not compute the price. Try again." }, { status: 500 });
     }
     return NextResponse.json({
       ok: true,
       priceNgn: customerPriceNgn,
-      wholesalePriceNgn: Math.round(Number(data.priceNgn) || 0),
+      wholesalePriceNgn: wholesaleNgn,
       verxorRetailPriceNgn: Math.round(Number(data.retailPriceNgn) || 0),
+      tier,
+      multiplier,
       durationLabel: data.durationLabel || duration,
       serviceName,
     });

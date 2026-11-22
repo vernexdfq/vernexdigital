@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
-import { rentSmsCustomerNgn } from "@/lib/rentsms-pricing";
+import { rentSmsCustomerNgn, rentSmsMultiplierFor } from "@/lib/rentsms-pricing";
 import { getSharedRentSmsPricing } from "@/lib/rentsms-pricing-server";
 
 export const runtime = "nodejs";
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
   const areaCode = /^\d{3}$/.test(areaCodeRaw) ? areaCodeRaw : "";
 
   // Server-side re-quote: never trust a client-sent price.
-  const { multiplier } = await getSharedRentSmsPricing();
+  const { multipliers } = await getSharedRentSmsPricing();
   let customerPriceNgn = 0;
   let wholesaleNgn = 0;
   try {
@@ -94,17 +94,19 @@ export async function POST(req: NextRequest) {
       ok?: boolean;
       priceNgn?: number;
       retailPriceNgn?: number;
+      tier?: number;
       durationLabel?: string;
       error?: string;
     };
-    if (!q.ok || !qd.ok || !Number(qd.retailPriceNgn)) {
+    if (!q.ok || !qd.ok || !Number(qd.priceNgn)) {
       return NextResponse.json(
         { ok: false, error: qd.error || "That option is not available right now. Try another duration." },
         { status: q.ok ? 404 : 502 },
       );
     }
     wholesaleNgn = Math.round(Number(qd.priceNgn) || 0);
-    customerPriceNgn = rentSmsCustomerNgn(Number(qd.retailPriceNgn), multiplier);
+    const tier = Math.min(Math.max(Number(qd.tier) || 1, 1), 5);
+    customerPriceNgn = rentSmsCustomerNgn(wholesaleNgn, rentSmsMultiplierFor(tier, multipliers));
     if (!customerPriceNgn || customerPriceNgn <= 0) {
       return NextResponse.json({ ok: false, error: "Could not compute the price. Try again." }, { status: 500 });
     }

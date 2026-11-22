@@ -12,37 +12,43 @@ import {
   Gem,
   Wallet,
   ScrollText,
+  Wallet2,
 } from "lucide-react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import { createBrowserClient } from "@/lib/supabase/client";
 
+type Sample = {
+  label: string;
+  tier: number;
+  wholesaleNgn: number;
+  verxorRetailNgn: number;
+  customerNgn: number;
+};
+
 type PricingData = {
   persisted: boolean;
-  multiplier: number;
-  defaultMultiplier: number;
+  multipliers: number[];
+  defaultMultipliers: number[];
   min: number;
   max: number;
+  tiers: { label: string; hint: string; multiplier: number }[];
+  samples: Sample[];
   note: string;
 };
 
-/** Real rentals as priced on verxor.com — NAIRA only. */
-const SAMPLES: { icon: number; label: string; verxorNgn: number }[] = [
-  { icon: 0, label: "WhatsApp · 1 day", verxorNgn: 2050 },
-  { icon: 0, label: "WhatsApp · 30 days", verxorNgn: 9150 },
-  { icon: 1, label: "All-Services · 7 days", verxorNgn: 12100 },
-  { icon: 1, label: "All-Services · 30 days", verxorNgn: 17250 },
-  { icon: 2, label: "All-Services · 1 year", verxorNgn: 103500 },
-];
-
 const ICONS = [
   <Wallet size={18} strokeWidth={2.3} key="t0" />,
-  <Banknote size={18} strokeWidth={2.3} key="t1" />,
-  <Gem size={18} strokeWidth={2.3} key="t2" />,
+  <Wifi size={18} strokeWidth={2.3} key="t1" />,
+  <Banknote size={18} strokeWidth={2.3} key="t2" />,
+  <Gem size={18} strokeWidth={2.3} key="t3" />,
+  <Wallet2 size={18} strokeWidth={2.3} key="t4" />,
 ];
 const ACCENTS = [
   "bg-amber-50 text-amber-600",
   "bg-sky-50 text-sky-600",
+  "bg-emerald-50 text-emerald-600",
   "bg-violet-50 text-violet-600",
+  "bg-rose-50 text-rose-600",
 ];
 
 function formatNgn(n: number) {
@@ -56,7 +62,7 @@ function roundUp50(n: number) {
 export default function RentSmsPricingPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [data, setData] = useState<PricingData | null>(null);
-  const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<string[]>(["", "", "", "", ""]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -76,7 +82,7 @@ export default function RentSmsPricingPage() {
       const payload = await res.json().catch(() => ({}));
       if (res.ok && payload.ok) {
         setData(payload);
-        setDraft(String(payload.multiplier));
+        setDrafts((payload.multipliers as number[]).map((m) => String(m)));
       } else {
         setError(payload.error || "Could not load pricing.");
       }
@@ -91,17 +97,22 @@ export default function RentSmsPricingPage() {
     void load();
   }, []);
 
-  const mult = (() => {
-    const m = Number(draft);
-    return data && Number.isFinite(m) && m >= data.min && m <= data.max ? m : data?.multiplier ?? 1;
-  })();
+  const mult = (i: number) => {
+    const m = Number(drafts[i]);
+    const d = data?.defaultMultipliers[i] ?? RENT_SMS_FALLBACK[i];
+    return Number.isFinite(m) && m >= 1 && m <= 5 ? m : d;
+  };
 
   async function save() {
     if (!data) return;
-    const m = Number(draft);
-    if (!Number.isFinite(m) || m < data.min || m > data.max) {
-      setError(`Multiplier must be between ${data.min} and ${data.max}.`);
-      return;
+    const next: number[] = [];
+    for (let i = 0; i < 5; i += 1) {
+      const m = Number(drafts[i]);
+      if (!Number.isFinite(m) || m < data.min || m > data.max) {
+        setError(`${data.tiers[i].label} multiplier must be between ${data.min} and ${data.max}.`);
+        return;
+      }
+      next.push(m);
     }
     setSaving(true);
     setError("");
@@ -116,21 +127,28 @@ export default function RentSmsPricingPage() {
       const res = await fetch("/api/rent-sms/pricing", {
         method: "PUT",
         headers,
-        body: JSON.stringify({ multiplier: m }),
+        body: JSON.stringify({ multipliers: next }),
       });
       const payload = await res.json().catch(() => ({}));
       if (res.ok && payload.ok) {
-        setMessage("Multiplier saved. New Rent-for-SMS prices apply immediately.");
+        setMessage("Multipliers saved. New Rent-for-SMS prices apply immediately.");
         await load();
       } else {
-        setError(payload.error || "Could not save the multiplier.");
+        setError(payload.error || "Could not save the multipliers.");
       }
     } catch {
-      setError("Could not save the multiplier.");
+      setError("Could not save the multipliers.");
     } finally {
       setSaving(false);
     }
   }
+
+  const liveDraftSample = (s: Sample) => {
+    const wholesaleApprox = Math.round(s.verxorRetailNgn / (data?.defaultMultipliers[s.tier - 1] ?? 1));
+    return roundUp50(Math.max(wholesaleApprox, 1) * mult(s.tier - 1));
+  };
+
+  const draftSample = (s: Sample) => roundUp50(s.wholesaleNgn * mult(s.tier - 1));
 
   return (
     <div className="min-h-screen bg-[#F4F7FB]">
@@ -168,33 +186,52 @@ export default function RentSmsPricingPage() {
                 </span>
               </div>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Rentals come to you from Verxor already priced in Naira. Your
-                customers pay the Verxor retail price × your multiplier, rounded
-                up to the nearest ₦50. At ×1.0 you sell at exactly the same
-                price as verxor.com. If our price ever changes, your prices
-                follow automatically and your margin is always preserved.
+                Verxor charges you a panel-tier wholesale price in Naira, tiered by what
+                each line costs. Your customers pay{" "}
+                <strong>your Verxor charge × the tier multiplier</strong>, rounded up to
+                the nearest ₦50. The defaults (Verxor retail ÷ Verxor panel) sell at
+                exactly the same price as verxor.com — raise a multiplier to earn more
+                on that tier.
               </p>
 
-              <div className="mt-4 flex items-center gap-3 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] px-3.5 py-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-50 text-cyan-600">
-                  <Wallet size={18} strokeWidth={2.3} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-extrabold text-[#0F172A]">Your multiplier</p>
-                  <p className="text-[11px] font-semibold text-[#94A3B8]">
-                    Verxor retail price × this = what customers pay here
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2">
-                  <span className="text-[12px] font-extrabold text-[#94A3B8]">×</span>
-                  <input
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ""))}
-                    inputMode="decimal"
-                    aria-label="Rent-for-SMS multiplier"
-                    className="w-14 border-0 bg-transparent text-center text-[14px] font-extrabold text-[#0F172A] outline-none"
-                  />
-                </div>
+              <div className="mt-4 space-y-3">
+                {data.tiers.map((t, i) => (
+                  <div
+                    key={t.label}
+                    className="flex items-center gap-3 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] px-3.5 py-3"
+                  >
+                    <span
+                      className={
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl " + ACCENTS[i]
+                      }
+                    >
+                      {ICONS[i]}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-extrabold text-[#0F172A]">{t.label}</p>
+                      <p className="text-[11px] font-semibold text-[#94A3B8]">{t.hint}</p>
+                      <p className="text-[10px] font-semibold text-[#CBD5E1]">
+                        default ×{data.defaultMultipliers[i]} (= verxor.com price)
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2">
+                      <span className="text-[12px] font-extrabold text-[#94A3B8]">×</span>
+                      <input
+                        value={drafts[i] ?? ""}
+                        onChange={(e) =>
+                          setDrafts((prev) => {
+                            const next = [...prev];
+                            next[i] = e.target.value.replace(/[^0-9.]/g, "");
+                            return next;
+                          })
+                        }
+                        inputMode="decimal"
+                        aria-label={`${t.label} multiplier`}
+                        className="w-14 border-0 bg-transparent text-center text-[14px] font-extrabold text-[#0F172A] outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <button
@@ -204,7 +241,7 @@ export default function RentSmsPricingPage() {
                 className="mt-4 inline-flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#1877F2] px-5 text-[13px] font-extrabold text-white shadow-sm transition active:scale-[0.99] disabled:opacity-50"
               >
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                Save multiplier
+                Save multipliers
               </button>
 
               {message && (
@@ -223,54 +260,61 @@ export default function RentSmsPricingPage() {
               <p className="mt-3 flex items-center gap-1.5 text-[11px] text-[#94A3B8]">
                 <ScrollText size={12} />
                 {data.persisted
-                  ? `Your saved multiplier (×${data.multiplier}) is live on the Rent-for-SMS page right now.`
-                  : "No multiplier saved yet — the default (×1.0, same price as verxor.com) is live. Save to use your own."}
+                  ? "Your saved multipliers are live on the Rent-for-SMS page right now."
+                  : "No multipliers saved yet — the defaults (same price as verxor.com) are live. Save to use your own."}
               </p>
             </section>
 
             <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
-              <span className="text-[13px] font-bold text-[#0F172A]">Price preview</span>
+              <span className="text-[13px] font-bold text-[#0F172A]">Live price preview</span>
               <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
-                Real rentals with their current Verxor price in Naira, and what
-                your customers pay here with your multiplier (rounded up to the
-                nearest ₦50).
+                Real rentals quoted live from Verxor: what they charge you in Naira, the
+                verxor.com price, and what your customers pay with the multipliers in the
+                boxes above (rounded up to the nearest ₦50).
               </p>
 
-              <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E8EEF5]">
-                <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
-                  <span className="flex-1">Rental</span>
-                  <span className="w-[110px] text-right sm:w-[140px]">Verxor price</span>
-                  <span className="w-[50px] text-right">Mult.</span>
-                  <span className="w-[120px] text-right sm:w-[150px]">Customers pay</span>
-                </div>
-                {SAMPLES.map((s, i) => (
-                  <div
-                    key={s.label}
-                    className={
-                      "flex items-center justify-between px-4 py-3 text-[11px] sm:text-[12px] " +
-                      (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
-                    }
-                  >
-                    <span className="flex flex-1 items-center gap-2 font-extrabold text-[#0F172A]">
-                      <span className={"flex h-6 w-6 items-center justify-center rounded-lg " + ACCENTS[s.icon]}>
-                        {ICONS[s.icon]}
-                      </span>
-                      {s.label}
-                    </span>
-                    <span className="w-[110px] text-right font-extrabold tabular-nums text-[#0F172A] sm:w-[140px]">
-                      ₦{formatNgn(s.verxorNgn)}
-                    </span>
-                    <span className="w-[50px] text-right font-extrabold tabular-nums text-[#94A3B8]">
-                      ×{mult}
-                    </span>
-                    <span className="w-[120px] text-right font-extrabold tabular-nums text-[#1877F2] sm:w-[150px]">
-                      ₦{formatNgn(roundUp50(s.verxorNgn * mult))}
-                    </span>
+              {data.samples.length === 0 ? (
+                <p className="mt-4 text-[12px] font-semibold text-[#A8463D]">
+                  Live quotes are unavailable right now — pricing still works, preview will return shortly.
+                </p>
+              ) : (
+                <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E8EEF5]">
+                  <div className="flex items-center justify-between bg-[#F8FAFC] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] text-[#94A3B8]">
+                    <span className="flex-1">Rental</span>
+                    <span className="w-[90px] text-right sm:w-[110px]">Verxor charges you</span>
+                    <span className="w-[90px] text-right sm:w-[110px]">verxor.com price</span>
+                    <span className="w-[120px] text-right sm:w-[150px]">Customers pay (you)</span>
                   </div>
-                ))}
-              </div>
+                  {data.samples.map((s, i) => (
+                    <div
+                      key={s.label}
+                      className={
+                        "flex items-center justify-between px-4 py-3 text-[11px] sm:text-[12px] " +
+                        (i % 2 === 0 ? "bg-[#F8FAFC]" : "bg-white")
+                      }
+                    >
+                      <span className="flex flex-1 items-center gap-2 font-extrabold text-[#0F172A]">
+                        <span className={"flex h-6 w-6 items-center justify-center rounded-lg " + ACCENTS[s.tier - 1]}>
+                          {ICONS[s.tier - 1]}
+                        </span>
+                        {s.label}
+                      </span>
+                      <span className="w-[90px] text-right font-extrabold tabular-nums text-[#0F172A] sm:w-[110px]">
+                        ₦{formatNgn(s.wholesaleNgn)}
+                      </span>
+                      <span className="w-[90px] text-right font-extrabold tabular-nums text-[#94A3B8] sm:w-[110px]">
+                        ₦{formatNgn(s.verxorRetailNgn)}
+                      </span>
+                      <span className="w-[120px] text-right font-extrabold tabular-nums text-[#1877F2] sm:w-[150px]">
+                        ₦{formatNgn(draftSample(s))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <p className="mt-3 text-[11px] text-[#94A3B8]">
                 Choosing a specific state area code costs the same — no extra charge.
+                Every price is recomputed live at checkout, so editing here never breaks an order.
               </p>
             </section>
           </>
@@ -279,3 +323,5 @@ export default function RentSmsPricingPage() {
     </div>
   );
 }
+
+const RENT_SMS_FALLBACK = [1.44, 1.23, 1.14, 1.08, 1.07];

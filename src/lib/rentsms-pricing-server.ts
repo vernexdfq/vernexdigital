@@ -1,22 +1,27 @@
 import { createServerClient } from "@/lib/supabase/server";
-import { RENT_SMS_DEFAULT_MULTIPLIER } from "@/lib/rentsms-pricing";
+import {
+  RENT_SMS_DEFAULT_MULTIPLIERS,
+  RENT_SMS_MULTIPLIER_COUNT,
+  rentSmsNormalizeMultipliers,
+} from "@/lib/rentsms-pricing";
 
 export type RentSmsPricingConfig = {
-  multiplier?: number;
+  multipliers?: number[];
 };
 
 export type SharedRentSmsPricing = {
-  multiplier: number;
+  multipliers: number[];
   persisted: boolean;
 };
 
 /**
- * Admin-editable Rent-for-SMS multiplier, stored in
- * site_settings.rent_sms_pricing (jsonb). Falls back to 1.0
- * (sell at the same price as Verxor retail) when nothing is saved
- * or the column has not been migrated yet.
+ * Admin-editable Rent-for-SMS tier multipliers (5 slots, one per Verxor cost
+ * tier), stored in site_settings.rent_sms_pricing (jsonb). Defaults are the
+ * retail ÷ panel ratios, so nothing saved = sell at the same price as
+ * verxor.com. Falls back to defaults when the column has not been migrated.
  */
 export async function getSharedRentSmsPricing(): Promise<SharedRentSmsPricing> {
+  const fallback = [...RENT_SMS_DEFAULT_MULTIPLIERS];
   try {
     const db = createServerClient();
     const { data, error } = await db
@@ -24,13 +29,15 @@ export async function getSharedRentSmsPricing(): Promise<SharedRentSmsPricing> {
       .select("rent_sms_pricing")
       .eq("id", 1)
       .maybeSingle();
-    if (error) return { multiplier: RENT_SMS_DEFAULT_MULTIPLIER, persisted: false };
+    if (error) return { multipliers: fallback, persisted: false };
     const cfg = (data?.rent_sms_pricing ?? null) as RentSmsPricingConfig | null;
-    if (cfg && Number.isFinite(Number(cfg.multiplier)) && Number(cfg.multiplier) >= 1 && Number(cfg.multiplier) <= 5) {
-      return { multiplier: Math.round(Number(cfg.multiplier) * 100) / 100, persisted: true };
-    }
-    return { multiplier: RENT_SMS_DEFAULT_MULTIPLIER, persisted: false };
+    const normalized = rentSmsNormalizeMultipliers(cfg?.multipliers);
+    if (normalized) return { multipliers: normalized, persisted: true };
+    return { multipliers: fallback, persisted: false };
   } catch {
-    return { multiplier: RENT_SMS_DEFAULT_MULTIPLIER, persisted: false };
+    return { multipliers: fallback, persisted: false };
   }
 }
+
+/** Number of multiplier slots (exported for the admin routes). */
+export const RENT_SMS_SLOTS = RENT_SMS_MULTIPLIER_COUNT;
