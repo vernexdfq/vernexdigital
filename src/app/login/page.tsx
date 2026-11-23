@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Mail,
   Lock,
@@ -12,6 +12,7 @@ import {
   ArrowRight,
   MessageCircle,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import VernexLogo from "@/components/VernexLogo";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -26,11 +27,42 @@ export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode] = useState<"password" | "pin">("password");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successNotice, setSuccessNotice] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("reset") === "success") {
+        setSuccessNotice("Your password has been reset successfully! Please sign in with your new password.");
+      }
+    }
+  }, []);
+
+  async function resolveTargetEmail(raw: string): Promise<string | null> {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    if (trimmed.includes("@")) return trimmed.toLowerCase();
+
+    // If numeric / phone number
+    const cleanPhone = trimmed.replace(/\D/g, "");
+    if (cleanPhone.length >= 7) {
+      try {
+        const res = await fetch(`/api/auth/lookup?phone=${encodeURIComponent(cleanPhone)}`);
+        const json = await res.json().catch(() => ({}));
+        if (json?.ok && json?.email) {
+          return json.email.toLowerCase();
+        }
+      } catch (e) {
+        console.error("Phone lookup failed:", e);
+      }
+    }
+    return null;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,30 +71,52 @@ export default function LoginPage() {
 
     try {
       const supabase = createBrowserClient();
+      const rawInput = identifier.trim();
+
+      if (!rawInput) {
+        setError("Enter your email address or phone number");
+        setLoading(false);
+        return;
+      }
+
+      const targetEmail = await resolveTargetEmail(rawInput);
+      if (!targetEmail) {
+        if (!rawInput.includes("@")) {
+          setError("No account found with this phone number. Please check or use your email address.");
+        } else {
+          setError("Please enter a valid email address.");
+        }
+        setLoading(false);
+        return;
+      }
 
       if (mode === "password") {
-        if (!email.trim() || !password) {
-          setError("Enter your email and password");
+        if (!password) {
+          setError("Enter your password");
+          setLoading(false);
           return;
         }
 
         if (password.length < 6) {
           setError("Password looks too short. Use your account password, or tap “Use PIN”.");
+          setLoading(false);
           return;
         }
 
         const { data, error: signError } = await supabase.auth.signInWithPassword({
-          email: email.trim().toLowerCase(),
+          email: targetEmail,
           password,
         });
 
         if (signError) {
-          setError(signError.message || "Invalid email or password");
+          setError(signError.message || "Invalid email, phone number, or password");
+          setLoading(false);
           return;
         }
 
         if (!data.session) {
           setError("Could not start session. Try again.");
+          setLoading(false);
           return;
         }
 
@@ -71,15 +125,16 @@ export default function LoginPage() {
       }
 
       // PIN mode
-      if (!email.trim() || pin.length !== 4) {
-        setError("Enter your email and 4-digit PIN");
+      if (pin.length !== 4) {
+        setError("Enter your 4-digit PIN");
+        setLoading(false);
         return;
       }
 
       const res = await fetch("/api/auth/pin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), pin }),
+        body: JSON.stringify({ email: targetEmail, pin }),
       });
 
       let json: {
@@ -92,16 +147,19 @@ export default function LoginPage() {
         json = await res.json();
       } catch {
         setError("Server error during PIN login. Check API / env vars.");
+        setLoading(false);
         return;
       }
 
       if (!res.ok || !json.ok) {
-        setError(json.error || "Invalid email or PIN");
+        setError(json.error || "Invalid PIN");
+        setLoading(false);
         return;
       }
 
       if (!json.token_hash || !json.email) {
         setError("Could not complete PIN login (missing session token)");
+        setLoading(false);
         return;
       }
 
@@ -112,7 +170,6 @@ export default function LoginPage() {
       });
 
       if (otpError) {
-        // Fallback: try email type (older Supabase clients)
         const { error: otpError2 } = await supabase.auth.verifyOtp({
           email: json.email,
           token_hash: json.token_hash,
@@ -120,6 +177,7 @@ export default function LoginPage() {
         });
         if (otpError2) {
           setError(otpError2.message || otpError.message || "Could not complete PIN login");
+          setLoading(false);
           return;
         }
       }
@@ -159,6 +217,13 @@ export default function LoginPage() {
             Sign in to manage your services and wallet.
           </p>
 
+          {successNotice && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[13px] font-medium text-emerald-800">
+              <CheckCircle2 size={18} className="shrink-0 text-emerald-600" />
+              <span>{successNotice}</span>
+            </div>
+          )}
+
           <div className="mt-5 grid h-11 grid-cols-2 items-center rounded-full border border-[#E2E8F0] bg-[#F8FAFC] p-1">
             <Link
               href="/login"
@@ -177,16 +242,16 @@ export default function LoginPage() {
           <form className="mt-5 flex flex-col gap-4" onSubmit={handleSubmit}>
             <div>
               <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748B]">
-                Email address
+                Email address or phone number
               </label>
               <div className="relative">
                 <Mail size={16} className={iconClass} />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="you@example.com or 08012345678"
+                  autoComplete="username"
                   required
                   className={fieldClass}
                 />
@@ -213,25 +278,35 @@ export default function LoginPage() {
               </div>
 
               {mode === "password" ? (
-                <div className="relative">
-                  <Lock size={16} className={iconClass} />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password (8+ characters)"
-                    autoComplete="current-password"
-                    required={mode === "password"}
-                    className={`${fieldClass} pr-11`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
-                    aria-label="Toggle password"
-                  >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
+                <div>
+                  <div className="relative">
+                    <Lock size={16} className={iconClass} />
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      autoComplete="current-password"
+                      required={mode === "password"}
+                      className={`${fieldClass} pr-11`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
+                      aria-label="Toggle password"
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                  <div className="mt-1.5 flex justify-end">
+                    <Link
+                      href="/forgot-password"
+                      className="text-[12px] font-semibold text-[#1877F2] transition hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 <div className="relative">
