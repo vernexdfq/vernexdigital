@@ -104,49 +104,33 @@ export async function GET(req: NextRequest) {
       const options = data.options.map(
         (
           o: {
+            optionId?: string;
+            id?: string;
             priceUsd?: number;
             fromUsd?: number;
             priceNgn?: number;
             stock?: number;
             label?: string;
             grizzlyCountry?: string;
+            country?: string;
           },
           i: number,
         ) => {
-          const costUsdRaw = o.priceUsd ?? o.fromUsd ?? null;
-          const costUsd = costUsdRaw != null ? Number(costUsdRaw) : null;
-
-          let wholesale: number;
-          let retail: number;
-          let wholesaleMult = WHOLESALE_MULT[tier];
-          let retailMult = RETAIL_MULT[tier];
-
-          if (costUsd != null && costUsd > 0) {
-            const q = quoteFromProviderUsd(costUsd, tier);
-            wholesale = q.wholesaleNgn;
-            retail = vnCustomerPrice(q.wholesaleNgn, pricingConfig);
-            wholesaleMult = q.wholesaleMult;
-            retailMult = q.retailMult;
-          } else {
-            wholesale = panelWholesaleNgn({
-              costNgn: o.priceNgn
-                ? Number(o.priceNgn) / (WHOLESALE_MULT[tier] || 1.5)
-                : null,
-              tier,
-            });
-            retail = vnCustomerPrice(wholesale, pricingConfig);
-          }
+          // Verxor gives us the wholesale price in Naira (o.priceNgn) — no provider rate is exposed
+          const wholesale = Number(o.priceNgn) || (o.priceUsd != null ? quoteFromProviderUsd(Number(o.priceUsd), tier).wholesaleNgn : 0);
+          const retail = vnCustomerPrice(wholesale, pricingConfig);
+          const optId = o.optionId || o.id;
 
           return {
+            optionId: optId,
             label: o.label || `Route ${i + 1}`,
-            costUsd,
             wholesaleNgn: wholesale,
             priceNgn: retail,
             stock: Number(o.stock) || 0,
-            grizzlyCountry: o.grizzlyCountry || country || "",
+            grizzlyCountry: o.grizzlyCountry || o.country || country || "",
             tier,
-            wholesaleMult,
-            retailMult: retail / Math.max(1, wholesale),
+            wholesaleMult: WHOLESALE_MULT[tier],
+            retailMult: wholesale > 0 ? retail / wholesale : RETAIL_MULT[tier],
           };
         },
       );

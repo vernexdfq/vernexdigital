@@ -28,24 +28,31 @@ export async function POST(req: NextRequest) {
   const serviceRaw = String(body.service || "").trim();
   const country = String(body.country || "").trim();
   const uiPool = String(body.pool || body.poolId || "").trim();
-  const costUsd = Math.round(Number(body.costUsd) * 100) / 100;
+  const requestedOptionId = body.optionId ? String(body.optionId).trim() : null;
   const service = SERVICE_NAME_TO_CODE[serviceRaw] || serviceRaw.toLowerCase();
   const pool = UI_POOL_TO_VERXOR[uiPool];
-  if (!service || !country || !pool || !Number.isFinite(costUsd) || costUsd <= 0) {
+  if (!service || !country || !pool) {
     return NextResponse.json({ ok: false, error: "Select a current service, country, and available route." }, { status: 400 });
   }
 
-  // Verify the chosen cost against the current parent catalog. Client retail and wholesale amounts are never trusted.
+  // Verify the chosen option against the current parent catalog in Naira wholesale pricing.
+  let wholesaleNgn = 0;
+  let optionId: string | null = requestedOptionId;
   try {
     const qs = new URLSearchParams({ mode: "prices", pool: pool.verxorPool, service, country });
     const catalogRes = await verxorFetch(`/catalog?${qs.toString()}`, { method: "GET" });
     const catalog = await catalogRes.json().catch(() => ({}));
-    const option = Array.isArray(catalog.options) ? catalog.options.find((o: Record<string, unknown>) =>
-      Math.round(Number(o.priceUsd) * 100) / 100 === costUsd && String(o.grizzlyCountry || "") === country && Number(o.stock) > 0
-    ) : null;
-    if (!catalogRes.ok || !catalog.ok || !option) {
+    if (!catalogRes.ok || !catalog.ok || !Array.isArray(catalog.options) || catalog.options.length === 0) {
       return NextResponse.json({ ok: false, error: "That route is no longer available. Refresh prices and try again." }, { status: 409 });
     }
+    const option = requestedOptionId
+      ? catalog.options.find((o: Record<string, unknown>) => String(o.optionId || o.id) === requestedOptionId && Number(o.stock) > 0)
+      : catalog.options.find((o: Record<string, unknown>) => Number(o.stock) > 0);
+    if (!option) {
+      return NextResponse.json({ ok: false, error: "The selected number option is out of stock. Refresh prices." }, { status: 409 });
+    }
+    optionId = String(option.optionId || option.id || "");
+    wholesaleNgn = Number(option.priceNgn || option.wholesaleNgn) || 0;
   } catch {
     return NextResponse.json({ ok: false, error: "Could not verify the route with Verxor. Please try again." }, { status: 502 });
   }
@@ -56,7 +63,6 @@ export async function POST(req: NextRequest) {
   const { data: historyCheck, error: historyError } = await admin.from("vn_orders").select("id").limit(1);
   void historyCheck;
   if (historyError) return NextResponse.json({ ok: false, error: "Virtual-number order history is not initialized. Contact support before purchasing." }, { status: 503 });
-  const wholesaleNgn = panelWholesaleNgn({ costUsd, tier: pool.tier });
   const priceNgn = vnCustomerPrice(wholesaleNgn, pricingState.config);
   if (priceNgn < 50 || wholesaleNgn <= 0) return NextResponse.json({ ok: false, error: "Invalid route price." }, { status: 409 });
   const ref = `vn_${crypto.randomUUID()}`;
@@ -75,7 +81,7 @@ export async function POST(req: NextRequest) {
   try {
     upstream = await verxorFetch("/numbers/buy", {
       method: "POST",
-      body: JSON.stringify({ service, country, maxPriceUsd: costUsd, poolId: pool.verxorPool, priceNgn: wholesaleNgn }),
+      body: JSON.stringify({ service, country, optionId, poolId: pool.verxorPool, priceNgn: wholesaleNgn }),
     });
     data = await upstream.json().catch(() => ({}));
   } catch {

@@ -53,10 +53,11 @@ const PROVIDERS: {
 ];
 
 type PriceOption = {
+  optionId?: string;
   label: string;
   priceNgn: number;
   wholesaleNgn: number;
-  costUsd: number;
+  costUsd?: number;
   stock: number;
   grizzlyCountry: string;
 };
@@ -383,6 +384,7 @@ export default function VirtualNumberPage() {
           const opts: PriceOption[] = data.options.map((o: any, i: number) => {
             const wholesale = Number(o.wholesaleNgn) || 0;
             return {
+              optionId: o.optionId,
               label: o.label || `Route ${i + 1}`,
               priceNgn: Number(o.priceNgn) || 0,
               wholesaleNgn: wholesale,
@@ -435,6 +437,7 @@ export default function VirtualNumberPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
+          optionId: selectedPrice.optionId,
           service: service.name,
           country: selectedPrice.grizzlyCountry || country?.grizzlyCode || country?.code || "US",
           pool: provider,
