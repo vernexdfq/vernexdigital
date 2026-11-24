@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { verxorFetch } from "@/lib/verxor-api";
+import crypto from "crypto";
 
 function maskEmail(em: string): string {
   const parts = em.split("@");
@@ -8,6 +9,28 @@ function maskEmail(em: string): string {
   const [name, domain] = parts;
   if (name.length <= 2) return `${name[0]}***@${domain}`;
   return `${name.slice(0, 2)}***${name.slice(-1)}@${domain}`;
+}
+
+function getSecretKey(): string {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.VERXOR_PANEL_API_KEY ||
+    "vernex-digital-recovery-secret-2026"
+  );
+}
+
+function createResetToken(userId: string, email: string): string {
+  const payload = {
+    userId,
+    email: email.toLowerCase(),
+    iat: Date.now(),
+    exp: Date.now() + 60 * 60 * 1000, // 60 minutes
+    nonce: crypto.randomBytes(16).toString("hex"),
+  };
+  const data = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const secret = getSecretKey();
+  const sig = crypto.createHmac("sha256", secret).update(data).digest("base64url");
+  return `${data}.${sig}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -19,6 +42,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = createServerClient();
+    let targetUserId = "";
     let targetEmail = "";
     let fullName = "";
 
@@ -31,6 +55,7 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .maybeSingle();
       if (data) {
+        targetUserId = data.id || "";
         fullName = data.full_name || "";
       }
     } else {
@@ -43,13 +68,32 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .maybeSingle();
       if (data?.email) {
+        targetUserId = data.id || "";
         targetEmail = data.email.toLowerCase();
         fullName = data.full_name || "";
       }
     }
 
-    if (!targetEmail) {
-      // Do not disclose whether account exists
+    // Fallback: search auth.users if not resolved via profiles table
+    if (!targetUserId && targetEmail) {
+      try {
+        const { data: usersData } = await supabase.auth.admin.listUsers({ perPage: 100 });
+        const matched = usersData?.users?.find(
+          (u) => u.email?.toLowerCase() === targetEmail
+        );
+        if (matched) {
+          targetUserId = matched.id;
+          if (!fullName && matched.user_metadata?.full_name) {
+            fullName = matched.user_metadata.full_name;
+          }
+        }
+      } catch (e) {
+        console.warn("[forgot-password] admin listUsers fallback warning:", e);
+      }
+    }
+
+    if (!targetEmail || !targetUserId) {
+      // Return safe message without disclosing whether account exists
       return NextResponse.json({
         ok: true,
         maskedEmail: rawInput.includes("@") ? maskEmail(rawInput) : "your registered email",
@@ -57,36 +101,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Always target canonical production origin
-    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "vernexdigital.com";
+    // Always target canonical live domain
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
     const proto = req.headers.get("x-forwarded-proto") || "https";
-    const origin = host.includes("localhost") ? `${proto}://${host}` : "https://vernexdigital.com";
-    const redirectTo = `${origin}/reset-password`;
+    const origin =
+      host.startsWith("localhost") || host.startsWith("127.0.0.1")
+        ? `${proto}://${host}`
+        : "https://vernexdigital.com";
 
-    // 1. Generate Supabase recovery link via Admin API
-    let resetUrl = "";
-    let fallbackToken = "";
-    try {
-      const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-        type: "recovery",
-        email: targetEmail,
-        options: { redirectTo },
-      });
-
-      if (!linkError && linkData?.properties?.action_link) {
-        resetUrl = linkData.properties.action_link;
-        fallbackToken = linkData.properties.hashed_token || "";
-      }
-    } catch (e) {
-      console.warn("[forgot-password] generateLink warning:", e);
-    }
-
-    // Direct app reset URL fallback
-    const directResetUrl = fallbackToken
-      ? `${redirectTo}?token_hash=${encodeURIComponent(fallbackToken)}&email=${encodeURIComponent(targetEmail)}`
-      : resetUrl || `${redirectTo}?email=${encodeURIComponent(targetEmail)}`;
-
-    const effectiveResetUrl = resetUrl || directResetUrl;
+    // Generate secure cryptographic tamper-proof reset token
+    const token = createResetToken(targetUserId, targetEmail);
+    const effectiveResetUrl = `${origin}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(targetEmail)}`;
 
     const emailSubject = "Reset your Vernex Digital password";
     const fromAddress = "Vernex Digital <no-reply@vernexdigital.com>";
@@ -243,13 +268,6 @@ export async function POST(req: NextRequest) {
       } catch (err) {
         console.warn("[forgot-password] Verxor relay error:", err);
       }
-    }
-
-    // Path 3: Supabase built-in auth reset as fallback
-    if (!emailSent) {
-      await supabase.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo,
-      });
     }
 
     return NextResponse.json({

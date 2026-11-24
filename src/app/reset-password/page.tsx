@@ -29,17 +29,18 @@ export default function ResetPasswordPage() {
     // Read tokens or email from URL if present
     if (typeof window !== "undefined") {
       const sp = new URLSearchParams(window.location.search);
-      const th = sp.get("token_hash") || sp.get("token") || "";
+      const th = sp.get("token") || sp.get("token_hash") || "";
       const em = sp.get("email") || "";
       if (th) setTokenHash(th);
       if (em) setEmailParam(em);
 
-      // Also parse hash fragment if Supabase redirected with #access_token=...&type=recovery
+      // Also parse hash fragment if redirected with #access_token=...
       if (window.location.hash) {
         const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        const hashToken = hashParams.get("access_token");
         const hashType = hashParams.get("type");
-        if (hashType === "recovery") {
-          // Recovery session active
+        if (hashToken && hashType === "recovery") {
+          // Recovery token in hash
         }
       }
     }
@@ -71,25 +72,15 @@ export default function ResetPasswordPage() {
       const supabase = createBrowserClient();
       let updated = false;
 
-      // 1. First attempt: If user is authenticated via recovery session in browser
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData?.session) {
-        const { error: updErr } = await supabase.auth.updateUser({
-          password,
-        });
-        if (!updErr) {
-          updated = true;
-        }
-      }
-
-      // 2. Second attempt: If token_hash or email is in query params, call API endpoint
-      if (!updated && (tokenHash || emailParam)) {
+      // 1. Primary method: call our secured reset-password endpoint with the token from query params
+      if (tokenHash || emailParam) {
         const res = await fetch("/api/auth/reset-password", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             password,
             confirmPassword,
+            token: tokenHash,
             token_hash: tokenHash,
             email: emailParam,
           }),
@@ -97,23 +88,30 @@ export default function ResetPasswordPage() {
         const resJson = await res.json().catch(() => ({}));
         if (res.ok && resJson.ok) {
           updated = true;
-        } else if (!sessionData?.session) {
+        } else {
           setError(resJson.error || "Could not update password. Please request a new reset link.");
           setLoading(false);
           return;
         }
       }
 
-      // 3. Fallback: try direct updateUser if not yet updated
+      // 2. Secondary method: check browser recovery session
       if (!updated) {
-        const { error: finalErr } = await supabase.auth.updateUser({
-          password,
-        });
-        if (finalErr) {
-          setError(finalErr.message || "Session expired. Please request a new password reset link.");
-          setLoading(false);
-          return;
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session) {
+          const { error: updErr } = await supabase.auth.updateUser({
+            password,
+          });
+          if (!updErr) {
+            updated = true;
+          }
         }
+      }
+
+      if (!updated) {
+        setError("No valid reset token found. Please click the reset link in your email again.");
+        setLoading(false);
+        return;
       }
 
       // Sign out so they log in cleanly with their new credentials
