@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
         ok: true,
         mode: "services",
         live: false,
-        message: "Set VERXOR_PANEL_API_KEY to load live Grizzly catalog",
+        message: "Set VERXOR_PANEL_API_KEY to load live catalog",
         services: Object.entries(SERVICE_NAME_TO_CODE).map(([name, code]) => ({
           code,
           name,

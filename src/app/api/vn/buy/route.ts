@@ -97,7 +97,12 @@ export async function POST(req: NextRequest) {
     if (refund.error || !(refund.data as { ok?: boolean } | null)?.ok) {
       return NextResponse.json({ ok: false, pending: true, error: "The purchase failed upstream and the refund needs reconciliation. Contact support with this reference: " + ref }, { status: 202 });
     }
-    return NextResponse.json({ ok: false, error: data.error || "Purchase failed at provider. Your wallet has been refunded." }, { status: 502 });
+    const rawError = String(data.error || "Provider get number failed");
+    const sanitized = rawError
+      .replace(/grizzly\s*(sms)?/gi, "provider")
+      .replace(/textverified/gi, "provider")
+      .replace(/getnumber/gi, "get number");
+    return NextResponse.json({ ok: false, error: sanitized }, { status: 502 });
   }
 
   const order = data.order || {};

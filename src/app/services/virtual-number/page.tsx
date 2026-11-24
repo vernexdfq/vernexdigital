@@ -448,7 +448,8 @@ export default function VirtualNumberPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        setBuyError(data.error || "Purchase failed");
+        const raw = String(data.error || "Provider get number failed");
+        setBuyError(raw.replace(/grizzly\s*(sms)?/gi, "provider").replace(/textverified/gi, "provider").replace(/getnumber/gi, "get number"));
         return;
       }
       const now = Date.now();
@@ -457,8 +458,8 @@ export default function VirtualNumberPage() {
         id: String(data.order?.id || providerOrderId || `local_${now}`),
         phone: data.order?.phone || "",
         service: service.name,
-        provider: "Grizzly",
-        providerSlug: "grizzly",
+        provider: "Provider",
+        providerSlug: "provider",
         providerOrderId: providerOrderId || undefined,
         status: "waiting",
         priceNgn: selectedPrice.priceNgn,
