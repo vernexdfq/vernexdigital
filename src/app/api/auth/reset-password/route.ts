@@ -21,8 +21,8 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServerClient();
 
-    // If tokenHash was provided, verify with Supabase OTP verification
-    if (tokenHash && email) {
+    // Verify recovery token hash with Supabase Auth
+    if (tokenHash) {
       const { data, error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
         type: "recovery",
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Update password for verified user
+      // Update password for verified user ID
       const { error: updError } = await supabase.auth.admin.updateUserById(data.user.id, {
         password,
       });
@@ -47,29 +47,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: "Password updated successfully" });
     }
 
-    // Direct user lookup by email if token was already exchanged or admin update requested
-    if (email) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email)
-        .limit(1)
-        .maybeSingle();
-
-      if (profile?.id) {
-        const { error: updError } = await supabase.auth.admin.updateUserById(profile.id, {
+    // Check if the request carries an authenticated Bearer token
+    const authHeader = req.headers.get("authorization") || "";
+    if (authHeader.startsWith("Bearer ")) {
+      const accessToken = authHeader.slice(7).trim();
+      const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
+      if (!userError && userData?.user) {
+        const { error: updError } = await supabase.auth.admin.updateUserById(userData.user.id, {
           password,
         });
-
-        if (updError) {
-          return NextResponse.json({ error: updError.message || "Failed to update password" }, { status: 500 });
+        if (!updError) {
+          return NextResponse.json({ ok: true, message: "Password updated successfully" });
         }
-
-        return NextResponse.json({ ok: true, message: "Password updated successfully" });
       }
     }
 
-    return NextResponse.json({ error: "Missing verification token or account email" }, { status: 400 });
+    return NextResponse.json(
+      { error: "A valid verification token or recovery session is required to reset password" },
+      { status: 401 },
+    );
   } catch (err) {
     console.error("auth/reset-password route error:", err);
     return NextResponse.json({ error: "Failed to reset password" }, { status: 500 });
