@@ -9,7 +9,7 @@ const SECTIONS = [
     id: "01",
     title: "Information We Collect",
     icon: User,
-    body: "We may collect personal details such as your full name, email address, phone number, payment information, and usage data when you create an account or use our services (Virtual Numbers, Boost Account, Buy Logs, Rent Number, Data, Airtime, Gift Cards, and more). Additional verification details may be requested for security and compliance purposes.",
+    body: "We may collect personal details such as your full name, email address, phone number, payment information, and usage data when you create an account or use our services (Virtual Numbers, Boost Account, Buy Logs, Rent Number, Data, Airtime, Gaming Top-up, and more). Additional verification details may be requested for security and compliance purposes.",
   },
   {
     id: "02",
@@ -90,7 +90,7 @@ export default function PrivacyPage() {
           <p className="text-sm text-[#334155] leading-relaxed">
             At <strong>Vernex Digital</strong>, your privacy and trust are our top priorities. This policy describes how
             we collect, use, and protect your personal data when you use Virtual Numbers, Boost Account, Buy Logs, Rent
-            Number, Data, Airtime, Gift Cards, and related services.
+            Number, Data, Airtime, Gaming Top-up, and related services.
           </p>
         </div>
 

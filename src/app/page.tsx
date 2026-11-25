@@ -1131,8 +1131,8 @@ export default function VernexLandingPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/services/gift-card" className="hover:text-[#1877F2]">
-                    Gift Cards
+                  <Link href="/services/gaming" className="hover:text-[#1877F2]">
+                    Gaming Top-Up
                   </Link>
                 </li>
               </ul>

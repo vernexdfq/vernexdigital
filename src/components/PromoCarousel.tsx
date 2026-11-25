@@ -62,12 +62,12 @@ const slides = [
     position: "center",
   },
   {
-    href: "/services/gift-card",
-    eyebrow: "Gift Cards",
-    title: "Turn cards into Naira",
-    subtitle: "Sell supported gift cards with a straightforward settlement flow.",
-    cta: "Sell now",
-    image: "https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?auto=format&fit=crop&w=1200&q=88",
+    href: "/services/gaming",
+    eyebrow: "Gaming Top-Up",
+    title: "Level up instantly",
+    subtitle: "Game credits and top-ups delivered to your account in minutes.",
+    cta: "Top up now",
+    image: "https://images.unsplash.com/photo-1552820726-703ef1b685e9?auto=format&fit=crop&w=1200&q=88",
     position: "center",
   },
   {

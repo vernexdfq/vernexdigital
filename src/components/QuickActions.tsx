@@ -6,7 +6,7 @@ import {
   PhoneCall,
   Wifi,
   Smartphone,
-  Gift,
+  Gamepad2,
   CreditCard,
 } from "lucide-react";
 
@@ -17,7 +17,7 @@ const actions = [
   { href: "/services/rent-sms", label: "Rent for SMS", icon: PhoneCall, color: "bg-cyan-50 text-cyan-600" },
   { href: "/services/data", label: "Data", icon: Wifi, color: "bg-indigo-50 text-indigo-600" },
   { href: "/services/airtime", label: "Airtime", icon: Smartphone, color: "bg-blue-50 text-blue-600" },
-  { href: "/services/gift-card", label: "Gift Card", icon: Gift, color: "bg-pink-50 text-pink-600" },
+  { href: "/services/gaming", label: "Gaming Top-up", icon: Gamepad2, color: "bg-pink-50 text-pink-600" },
   { href: "/services/virtual-card", label: "Virtual Card", icon: CreditCard, color: "bg-emerald-50 text-emerald-600" },
 ];
 

@@ -26,8 +26,8 @@ const FAQS = [
     a: "If an OTP is not received for your order, the amount is refunded to your wallet according to the server refund policy.",
   },
   {
-    q: "How do I sell a gift card?",
-    a: "Open Gift Card from Services, select the brand, choose Physical or E-Gift, enter face value and code (or upload card images), then submit. Settlement is paid in Naira to your saved bank account after approval.",
+    q: "How do I buy a gaming top-up?",
+    a: "Open Gaming Top-up from the home screen or Services, pick your game and the credit amount, enter the required account or player ID, and pay from your wallet. Credits are delivered to your game account in minutes.",
   },
   {
     q: "How do I buy data or airtime?",
@@ -40,10 +40,6 @@ const FAQS = [
   {
     q: "How do Buy Logs and Rent Number work?",
     a: "Buy Logs offers pre-verified account logs for supported platforms. Rent Number lets you rent a number for a set period. Both are paid from your wallet and appear in your history.",
-  },
-  {
-    q: "How do I withdraw earnings from gift cards?",
-    a: "Add a Nigerian bank account under Gift Card → Withdraw / Add Bank, then request withdrawal. Funds are sent to your saved account after processing.",
   },
 ];
 
