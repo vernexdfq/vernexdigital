@@ -150,6 +150,33 @@ export async function updateShopProductStock(id: string, stock: number): Promise
   if (error) throw new Error(error.message);
 }
 
+/** Edit a product's details. Photos and stock stepper stay untouched. */
+export async function updateShopProduct(
+  id: string,
+  input: {
+    title: string;
+    category: string;
+    condition: ShopCondition;
+    description: string;
+    price: number;
+    stock: number;
+  },
+): Promise<void> {
+  const supabase = createBrowserClient();
+  const { error } = await supabase
+    .from("shop_products")
+    .update({
+      title: input.title,
+      category: input.category,
+      condition: input.condition,
+      description: input.description,
+      price: input.price,
+      stock: input.stock,
+    })
+    .eq("id", id);
+  if (error) throw new Error(friendlyError(error.message));
+}
+
 function storagePathFromPublicUrl(url: string): string | null {
   const marker = "/object/public/" + SHOP_PRODUCTS_BUCKET + "/";
   const index = url.indexOf(marker);

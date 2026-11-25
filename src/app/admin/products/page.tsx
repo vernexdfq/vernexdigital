@@ -6,8 +6,10 @@ import {
   Check,
   ChevronDown,
   ImagePlus,
+  Loader2,
   Minus,
   Package,
+  Pencil,
   Plus,
   Trash2,
   X,
@@ -16,6 +18,7 @@ import {
   createShopProduct,
   deleteShopProduct,
   fetchShopProducts,
+  updateShopProduct,
   updateShopProductStock,
   SHOP_CATEGORIES,
   SHOP_CONDITIONS,
@@ -93,6 +96,16 @@ export default function AdminShoppingPage() {
   const [products, setProducts] = useState<ShopAdminProduct[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ShopAdminProduct | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /* edit state */
+  const [editTarget, setEditTarget] = useState<ShopAdminProduct | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState<string | null>(null);
+  const [editCondition, setEditCondition] = useState<ShopCondition | null>(null);
+  const [editDescription, setEditDescription] = useState("");
+  const [editPriceText, setEditPriceText] = useState("");
+  const [editStockText, setEditStockText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const reload = useCallback(async () => {
     try {
@@ -221,6 +234,61 @@ export default function AdminShoppingPage() {
         setToast(e instanceof Error ? e.message : "Could not delete product");
         reload();
       });
+  }
+
+  function openEdit(product: ShopAdminProduct) {
+    setEditTarget(product);
+    setEditTitle(product.title);
+    setEditCategory(product.category);
+    setEditCondition(product.condition);
+    setEditDescription(product.description);
+    setEditPriceText(String(product.price || ""));
+    setEditStockText(String(product.stock ?? 0));
+  }
+
+  async function saveEdit() {
+    if (!editTarget || savingEdit) return;
+    const price2 = Math.round(Number(editPriceText) || 0);
+    const stock2 = Math.max(0, Math.round(Number(editStockText) || 0));
+    if (editTitle.trim().length < 3) {
+      setToast("Title must be at least 3 characters");
+      return;
+    }
+    if (!editCategory || !editCondition) return;
+    if (editDescription.trim().length < 10) {
+      setToast("Description must be at least 10 characters");
+      return;
+    }
+    if (price2 <= 0) {
+      setToast("Enter a valid price");
+      return;
+    }
+
+    setSavingEdit(true);
+    try {
+      const updated = {
+        title: editTitle.trim(),
+        category: editCategory!,
+        condition: editCondition!,
+        description: editDescription.trim(),
+        price: price2,
+        stock: stock2,
+      };
+      await updateShopProduct(editTarget.id, updated);
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === editTarget.id
+            ? { ...p, ...updated, isActive: p.isActive }
+            : p,
+        ),
+      );
+      setEditTarget(null);
+      setToast("Product updated");
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Could not update product");
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   const err = (flag?: boolean) => (flag ? "This field is required" : null);
@@ -512,14 +580,24 @@ export default function AdminShoppingPage() {
                         >
                           {out ? "Out of stock" : product.stock + " in stock"}
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(product)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-500 active:bg-red-50"
-                          aria-label={"Delete " + product.title}
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEdit(product)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#1877F2]/30 text-[#1877F2] active:bg-[#EFF6FF]"
+                            aria-label={"Edit " + product.title}
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(product)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-500 active:bg-red-50"
+                            aria-label={"Delete " + product.title}
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -613,6 +691,151 @@ export default function AdminShoppingPage() {
               </button>
               <button type="button" onClick={confirmDelete} className="h-11 flex-1 rounded-xl bg-red-500 text-[13px] font-bold text-white active:opacity-90">
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* edit product */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" onClick={() => !savingEdit && setEditTarget(null)}>
+          <div className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px]" />
+          <div
+            className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-[24px] bg-white p-5 shadow-2xl sm:rounded-[24px]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200 sm:hidden" />
+            <div className="flex items-center gap-2">
+              <Pencil size={18} className="text-[#1877F2]" />
+              <h3 className="text-[15px] font-bold text-slate-900">Edit product</h3>
+            </div>
+
+            {/* title */}
+            <div className="mt-4">
+              <label className="text-[12px] font-semibold text-slate-700">Title</label>
+              <input
+                value={editTitle}
+                maxLength={70}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="mt-1.5 h-[48px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-[14px] text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            {/* category */}
+            <div className="mt-4">
+              <label className="text-[12px] font-semibold text-slate-700">Category</label>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {SHOP_CATEGORIES.map((option) => {
+                  const active = editCategory === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setEditCategory(option)}
+                      className={
+                        "h-9 rounded-xl border px-3 text-[11.5px] font-semibold transition " +
+                        (active
+                          ? "border-[#1877F2] bg-[#1877F2] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+                      }
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* condition */}
+            <div className="mt-4">
+              <label className="text-[12px] font-semibold text-slate-700">Condition</label>
+              <div className="mt-1.5 grid grid-cols-3 gap-2">
+                {SHOP_CONDITIONS.map((option) => {
+                  const active = editCondition === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setEditCondition(option)}
+                      className={
+                        "h-10 rounded-xl border text-[12px] font-semibold transition " +
+                        (active
+                          ? "border-[#1877F2] bg-[#1877F2] text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300")
+                      }
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* description */}
+            <div className="mt-4">
+              <label className="text-[12px] font-semibold text-slate-700">Description</label>
+              <textarea
+                value={editDescription}
+                maxLength={1000}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={5}
+                className="mt-1.5 min-h-[110px] w-full resize-y rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-[13px] leading-relaxed text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
+
+            {/* price + stock */}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[12px] font-semibold text-slate-700">Price (₦)</label>
+                <div className="relative mt-1.5">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[14px] font-bold text-slate-400">{"\u20A6"}</span>
+                  <input
+                    value={editPriceText}
+                    inputMode="numeric"
+                    onChange={(e) => setEditPriceText(e.target.value.replace(/[^0-9]/g, ""))}
+                    className="h-[48px] w-full rounded-xl border border-slate-200 bg-slate-50 pl-8 pr-3 text-[14px] font-semibold text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[12px] font-semibold text-slate-700">Stock</label>
+                <input
+                  value={editStockText}
+                  inputMode="numeric"
+                  onChange={(e) => setEditStockText(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="mt-1.5 h-[48px] w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 text-[14px] font-semibold text-slate-900 focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
+            </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-slate-400">
+              Photos stay as they are — post a new product if you need new pictures.
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setEditTarget(null)}
+                disabled={savingEdit}
+                className="h-11 flex-1 rounded-xl bg-slate-100 text-[13px] font-semibold text-slate-600 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveEdit()}
+                disabled={savingEdit}
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-[#1877F2] text-[13px] font-bold text-white disabled:opacity-60"
+              >
+                {savingEdit ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" strokeWidth={2.6} />
+                    Saving…
+                  </>
+                ) : (
+                  "Save changes"
+                )}
               </button>
             </div>
           </div>
