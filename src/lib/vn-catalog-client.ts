@@ -134,10 +134,18 @@ export function highlightMatch(
   return { parts };
 }
 
+const servicesCache = new Map<string, { at: number; data: { services: CatalogService[]; live: boolean } }>();
+const countriesCache = new Map<string, { at: number; data: CatalogCountry[] }>();
+const CLIENT_CACHE_MS = 60_000;
+
 export async function fetchServices(pool: string): Promise<{
   services: CatalogService[];
   live: boolean;
 }> {
+  const cached = servicesCache.get(pool);
+  if (cached && Date.now() - cached.at < CLIENT_CACHE_MS) {
+    return cached.data;
+  }
   try {
     const res = await fetch(
       `/api/vn/catalog?mode=services&pool=${encodeURIComponent(pool)}`,
@@ -153,7 +161,11 @@ export async function fetchServices(pool: string): Promise<{
         }))
         .filter((s: CatalogService) => s.code && s.name);
       mapped.sort((a, b) => a.name.localeCompare(b.name));
-      if (mapped.length > 0) return { services: mapped, live: Boolean(data.live) };
+      if (mapped.length > 0) {
+        const ret = { services: mapped, live: Boolean(data.live) };
+        servicesCache.set(pool, { at: Date.now(), data: ret });
+        return ret;
+      }
     }
   } catch {}
   return { services: FALLBACK_SERVICES, live: false };
@@ -168,6 +180,11 @@ export async function fetchCountries(
   serviceCode: string,
 ): Promise<CatalogCountry[]> {
   if (!serviceCode) return FALLBACK_COUNTRIES;
+  const cKey = `${pool}-${serviceCode}`;
+  const cached = countriesCache.get(cKey);
+  if (cached && Date.now() - cached.at < CLIENT_CACHE_MS) {
+    return cached.data;
+  }
   try {
     const qs = new URLSearchParams({
       mode: "countries",
@@ -221,7 +238,10 @@ export async function fetchCountries(
         return a.name.localeCompare(b.name);
       });
 
-      if (mapped.length > 0) return mapped;
+      if (mapped.length > 0) {
+        countriesCache.set(cKey, { at: Date.now(), data: mapped });
+        return mapped;
+      }
     }
   } catch {}
   return FALLBACK_COUNTRIES;
