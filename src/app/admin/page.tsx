@@ -7,6 +7,7 @@ import {
   Copy,
   Check,
   Hash,
+  History,
   Plus,
   Signal,
   Tv,
@@ -16,6 +17,8 @@ import {
   Clock,
   Wallet,
   Zap,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import AdminSidebar, { AdminMenuButton } from "@/components/admin/AdminSidebar";
 import { createBrowserClient } from "@/lib/supabase/client";
@@ -40,6 +43,14 @@ type VirtualAccount = {
   accountName: string;
   amount: number;
   expireAt?: string | null;
+};
+
+type HistoryEntry = {
+  id: string;
+  type: "deposit" | "admin_credit" | "admin_debit";
+  title: string;
+  amount: number;
+  createdAt: string;
 };
 
 type FundState =
@@ -160,6 +171,8 @@ export default function AdminPartnerFundPage() {
   const [amountInput, setAmountInput] = useState("10000");
   const [balance, setBalance] = useState<number | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
+  const [history, setHistory] = useState<HistoryEntry[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [cashback, setCashback] = useState<CashbackSummary | null>(null);
   const [cashbackLoading, setCashbackLoading] = useState(true);
@@ -199,6 +212,35 @@ export default function AdminPartnerFundPage() {
       cancelled = true;
     };
   }, [state.status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setHistoryLoading(true);
+      try {
+        const res = await fetch("/api/admin/partner-history", {
+          credentials: "include",
+          cache: "no-store",
+        }).catch(() => null);
+        if (cancelled) return;
+        if (res?.ok) {
+          const data = await res.json().catch(() => ({ entries: [] }));
+          if (Array.isArray(data.entries)) {
+            setHistory(data.entries);
+            return;
+          }
+        }
+        setHistory([]);
+      } catch {
+        if (!cancelled) setHistory([]);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadCashback = useCallback(async () => {
     setCashbackLoading(true);
@@ -625,6 +667,93 @@ export default function AdminPartnerFundPage() {
             </button>
           </section>
         )}
+
+        <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <History size={16} className="text-[#475569]" strokeWidth={2.4} />
+              <span className="text-[13px] font-bold text-[#0F172A]">
+                Funding history
+              </span>
+            </div>
+            {history && history.length > 0 && (
+              <span className="rounded-full bg-[#EFF6FF] px-3 py-1 text-[11px] font-extrabold text-[#1877F2] tabular-nums">
+                {history.length} {history.length === 1 ? "entry" : "entries"}
+              </span>
+            )}
+          </div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-[#64748B]">
+            Every movement on this panel wallet — bank-transfer top-ups here and
+            funding or adjustments made by the Verxor admin.
+          </p>
+
+          {historyLoading ? (
+            <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] py-5">
+              <Loader2 size={16} className="animate-spin text-[#94A3B8]" />
+              <span className="text-[12px] font-semibold text-[#64748B]">
+                Loading history…
+              </span>
+            </div>
+          ) : !history || history.length === 0 ? (
+            <div className="mt-4 rounded-2xl border border-dashed border-[#DCE3EE] bg-[#F8FAFC] px-4 py-5 text-center">
+              <p className="text-[12px] font-semibold text-[#64748B]">
+                No funding yet.
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[#94A3B8]">
+                Your first top-up will appear here as soon as the bank confirms it.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2.5">
+              {history.slice(0, 20).map((entry) => {
+                const isDebit = entry.type === "admin_debit";
+                const EntryIcon = isDebit ? ArrowUpRight : ArrowDownLeft;
+                const when = new Date(entry.createdAt);
+                const dateLabel = Number.isNaN(when.getTime())
+                  ? ""
+                  : when.toLocaleString("en-NG", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    });
+                return (
+                  <div
+                    key={entry.id}
+                    className="flex items-center gap-3 rounded-2xl border border-[#E8EEF5] bg-[#F8FAFC] px-3.5 py-3"
+                  >
+                    <span
+                      className={
+                        "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl " +
+                        (isDebit
+                          ? "bg-red-50 text-red-500"
+                          : "bg-emerald-50 text-emerald-600")
+                      }
+                    >
+                      <EntryIcon size={17} strokeWidth={2.4} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-extrabold text-[#0F172A]">
+                        {entry.title}
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-semibold text-[#94A3B8]">
+                        {dateLabel}
+                      </p>
+                    </div>
+                    <p
+                      className={
+                        "shrink-0 text-[14px] font-extrabold tabular-nums " +
+                        (isDebit ? "text-red-500" : "text-emerald-600")
+                      }
+                    >
+                      {isDebit ? "−" : "+"}₦{formatNgn(entry.amount)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         <section className="rounded-[20px] border border-[#E2E8F0] bg-white p-5 shadow-[0_4px_20px_rgba(15,23,42,0.05)]">
           <h3 className="text-[11px] font-extrabold uppercase tracking-[0.1em] text-[#94A3B8]">
