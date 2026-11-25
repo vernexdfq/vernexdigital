@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { verxorConfig, verxorFetch } from "@/lib/verxor-api";
 import { logsWholesaleNgn, logsRetailNgnFor } from "@/lib/logs-pricing";
 import { getSharedLogsPricing } from "@/lib/logs-pricing-server";
+import { buildLogsDownloadUrl } from "@/lib/logs-download";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -222,17 +223,172 @@ export async function POST(req: NextRequest) {
 
   await writeLedger("success", { deliveredQty, chargedTotal, wholesaleTotal, panelCharge: wholesaleTotal, providerOrderId: data.orderId ? String(data.orderId) : null });
 
+  const orderId = insert.data?.id ? String(insert.data.id) : ref;
+  const downloadUrl = buildLogsDownloadUrl(orderId);
+
+  // Send customer delivery email asynchronously (fire-and-forget, never breaks purchase)
+  if (user.email && user.email.includes("@")) {
+    const toEmail = user.email.trim();
+    void (async () => {
+      try {
+        const fromAddress = "Vernex Digital <no-reply@vernexdigital.com>";
+        const emailSubject = `Your ${platformName} accounts are delivered · #${orderId.slice(0, 8)}`;
+        const credItemsHtml = credentials
+          .map(
+            (c: string) =>
+              `<div style="padding:10px 14px;background:#0F172A;color:#38BDF8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;border-radius:6px;margin-bottom:6px;word-break:break-all;">${c
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")}</div>`,
+          )
+          .join("");
+
+        const emailHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Your Accounts Are Delivered</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F8FAFC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0F172A;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#F8FAFC;padding:36px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:540px;background:#FFFFFF;border-radius:20px;border:1px solid #E2E8F0;box-shadow:0 16px 40px -10px rgba(15,23,42,0.07);overflow:hidden;">
+          <tr>
+            <td style="height:5px;background:linear-gradient(90deg, #1877F2 0%, #00D4FF 100%);"></td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px 20px 32px;border-bottom:1px solid #F1F5F9;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="vertical-align:middle;width:44px;">
+                    <img src="https://vernexdigital.com/vernex-icon.jpg" alt="Vernex Digital" width="40" height="40" style="display:block;border-radius:10px;" />
+                  </td>
+                  <td style="vertical-align:middle;padding-left:12px;text-align:left;">
+                    <span style="font-size:18px;font-weight:800;color:#0B1F4D;display:block;">Vernex Digital</span>
+                    <span style="font-size:11px;font-weight:600;color:#64748B;">Order Delivered · Digital Goods</span>
+                  </td>
+                  <td style="vertical-align:middle;text-align:right;">
+                    <span style="display:inline-block;padding:4px 10px;background-color:#F0FDF4;border:1px solid #DCFCE7;border-radius:100px;font-size:11px;font-weight:700;color:#16A34A;">
+                      ✓ Delivered
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 32px;">
+              <h2 style="margin:0 0 10px;font-size:20px;font-weight:800;color:#0B1F4D;">
+                Your ${platformName} accounts are ready
+              </h2>
+              <p style="margin:0 0 20px;font-size:14px;color:#334155;line-height:1.5;">
+                Hello${customerName ? ` <strong>${customerName}</strong>` : ""}, your purchase has been processed and your accounts are delivered below.
+              </p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;margin-bottom:24px;">
+                <tr>
+                  <td style="font-size:12px;color:#64748B;padding-bottom:6px;">Order Reference:</td>
+                  <td style="font-size:12px;font-weight:700;color:#0B1F4D;text-align:right;padding-bottom:6px;">${orderId}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;color:#64748B;padding-bottom:6px;">Platform:</td>
+                  <td style="font-size:12px;font-weight:700;color:#0B1F4D;text-align:right;padding-bottom:6px;">${platformName}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;color:#64748B;padding-bottom:6px;">Listing:</td>
+                  <td style="font-size:12px;font-weight:700;color:#0B1F4D;text-align:right;padding-bottom:6px;">${title}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;color:#64748B;padding-bottom:6px;">Quantity:</td>
+                  <td style="font-size:12px;font-weight:700;color:#0B1F4D;text-align:right;padding-bottom:6px;">${deliveredQty}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;color:#64748B;">Total Paid:</td>
+                  <td style="font-size:13px;font-weight:800;color:#1877F2;text-align:right;">₦${chargedTotal.toLocaleString()}</td>
+                </tr>
+              </table>
+
+              <div style="margin-bottom:24px;">
+                <div style="font-size:13px;font-weight:700;color:#0B1F4D;margin-bottom:8px;">Delivered Credentials (Keep Private):</div>
+                <div style="background:#020617;padding:14px;border-radius:12px;border:1px solid #1E293B;">
+                  ${credItemsHtml}
+                </div>
+              </div>
+
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:24px auto;">
+                <tr>
+                  <td style="border-radius:30px;background:#1877F2;text-align:center;">
+                    <a href="${downloadUrl}" target="_blank" rel="noopener noreferrer" style="background:#1877F2;border:1px solid #1877F2;border-radius:30px;color:#FFFFFF;display:inline-block;font-size:14px;font-weight:700;padding:14px 32px;text-decoration:none;">
+                      Download Credentials (.txt) &rarr;
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:12px;padding:16px;margin-bottom:20px;">
+                <div style="font-size:12px;font-weight:700;color:#92400E;margin-bottom:6px;">Usage & Security Guidelines:</div>
+                <ul style="margin:0;padding-left:16px;font-size:12px;color:#78350F;line-height:1.6;">
+                  <li><strong>Format:</strong> Credentials follow <code>login:password</code> or <code>login:password:email:2fa</code>.</li>
+                  <li><strong>2FA Codes:</strong> If a 2FA secret key is included, generate your code at <a href="https://2fa.live" style="color:#B45309;">2fa.live</a> or Google Authenticator.</li>
+                  <li><strong>24-Hour Replacement:</strong> Accounts are covered by a 24-hour guarantee for credentials invalid on first login. Contact support with reference #${orderId}.</li>
+                </ul>
+              </div>
+
+              <p style="margin:0;font-size:12px;color:#64748B;">
+                Need assistance? Contact us at <a href="mailto:support@vernexdigital.com" style="color:#1877F2;text-decoration:none;font-weight:600;">support@vernexdigital.com</a>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 32px;background:#F8FAFC;border-top:1px solid #F1F5F9;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#94A3B8;">
+                Vernex Digital • support@vernexdigital.com • vernexdigital.com
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+        let sent = false;
+        const resendKey = process.env.RESEND_API_KEY;
+        if (resendKey) {
+          const r = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: fromAddress, to: toEmail, subject: emailSubject, html: emailHtml }),
+          }).catch(() => null);
+          sent = Boolean(r && r.ok);
+        }
+        if (!sent) {
+          await verxorFetch("/email/send", {
+            method: "POST",
+            body: JSON.stringify({ from: fromAddress, to: toEmail, subject: emailSubject, html: emailHtml }),
+          }).catch(() => null);
+        }
+      } catch (e) {
+        console.warn("[email] Customer delivery email failed:", e);
+      }
+    })();
+  }
+
   return NextResponse.json({
     ok: true,
     warning: insert.error ? "Purchase accepted, but order history could not be saved. Save your credentials and contact support." : undefined,
+    downloadUrl,
     order: {
-      id: insert.data?.id ? String(insert.data.id) : ref,
+      id: orderId,
       title,
       platform: platformName,
       quantity: deliveredQty,
       unitPriceNgn: retailUnit,
       totalNgn: chargedTotal,
       credentials,
+      downloadUrl,
     },
   });
 }

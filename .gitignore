@@ -47,3 +47,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Do not ignore app routes for Buy Logs
+!src/app/api/logs/**
+!src/app/api/logs/
+!src/app/api/logs/*
+!src/app/api/logs/**/*
