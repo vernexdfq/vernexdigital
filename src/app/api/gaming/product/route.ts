@@ -42,7 +42,11 @@ export async function GET(req: NextRequest) {
 
   const cacheKey = `${productId}:${fallbackImage || ""}`;
   const memCached = serverProductCache.get(cacheKey);
-  if (memCached && Date.now() - memCached.timestamp < PRODUCT_CACHE_TTL_MS) {
+  const memAllZero =
+    memCached?.product?.variations?.length &&
+    memCached.product.variations.every((v: any) => !v.priceNgn || v.priceNgn <= 0);
+
+  if (memCached && !memAllZero && Date.now() - memCached.timestamp < PRODUCT_CACHE_TTL_MS) {
     return NextResponse.json(
       { ok: true, product: memCached.product, cached: true },
       {
@@ -64,7 +68,7 @@ export async function GET(req: NextRequest) {
       product?: UpstreamProduct;
     };
     if (!res.ok || data.ok === false || !data.product) {
-      if (memCached && memCached.product) {
+      if (memCached && memCached.product && !memAllZero) {
         return NextResponse.json(
           { ok: true, product: memCached.product, stale: true },
           {
@@ -96,10 +100,13 @@ export async function GET(req: NextRequest) {
       })),
     };
 
-    serverProductCache.set(cacheKey, {
-      timestamp: Date.now(),
-      product: finalProduct,
-    });
+    const hasValidPrice = finalProduct.variations.some((v) => v.priceNgn > 0);
+    if (hasValidPrice) {
+      serverProductCache.set(cacheKey, {
+        timestamp: Date.now(),
+        product: finalProduct,
+      });
+    }
 
     return NextResponse.json(
       {
@@ -113,7 +120,7 @@ export async function GET(req: NextRequest) {
       },
     );
   } catch (e) {
-    if (memCached && memCached.product) {
+    if (memCached && memCached.product && !memAllZero) {
       return NextResponse.json(
         { ok: true, product: memCached.product, stale: true },
         {

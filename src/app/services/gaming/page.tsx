@@ -278,7 +278,8 @@ export default function GamingPage() {
 
     // Instant open if already viewed in this session
     const cached = memProductDetails.get(id);
-    if (cached) {
+    const cachedAllZero = cached?.variations?.length && cached.variations.every((v) => !v.priceNgn || v.priceNgn <= 0);
+    if (cached && !cachedAllZero) {
       setDetail(cached);
       setDetailLoading(false);
       const first = cached.variations.find((v) => v.inStock && v.priceNgn > 0);
@@ -309,7 +310,9 @@ export default function GamingPage() {
       if (!res.ok || !data.ok || !data.product) {
         setDetailError(data.error || "Could not load this product.");
       } else {
-        memProductDetails.set(id, data.product);
+        if (data.product.variations.some((v: any) => v.priceNgn > 0)) {
+          memProductDetails.set(id, data.product);
+        }
         setDetail(data.product);
         const first = data.product.variations.find((v) => v.inStock && v.priceNgn > 0);
         if (first) setSelected(first.id);
@@ -702,7 +705,7 @@ export default function GamingPage() {
                             }`}
                           >
                             <p className="text-[12px] font-semibold leading-tight">{v.name || "Option"}</p>
-                            <p className="mt-1 text-[12px] font-bold">{oos ? "Out of stock" : ngn(v.priceNgn)}</p>
+                            <p className="mt-1 text-[12px] font-bold">{oos ? "Out of stock" : v.priceNgn > 0 ? ngn(v.priceNgn) : "Unavailable"}</p>
                           </button>
                         );
                       })}
@@ -729,7 +732,7 @@ export default function GamingPage() {
                     {!variantMode ? (
                       <button
                         type="button"
-                        disabled={buying || !chosen || Boolean(missingField)}
+                        disabled={buying || !chosen || Boolean(missingField) || chosen.priceNgn <= 0}
                         onClick={() => void pay()}
                         className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#1877F2] text-sm font-semibold text-white shadow-[0_10px_24px_rgba(24,119,242,0.28)] disabled:opacity-60"
                       >
@@ -743,7 +746,9 @@ export default function GamingPage() {
                             {chosen
                               ? missingField
                                 ? `Enter ${missingField}`
-                                : `Pay ${ngn(chosen.priceNgn * quantity)}`
+                                : chosen.priceNgn <= 0
+                                  ? "Price unavailable"
+                                  : `Pay ${ngn(chosen.priceNgn * quantity)}`
                               : "Select a denomination"}
                           </>
                         )}
