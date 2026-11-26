@@ -33,6 +33,7 @@ type ProductDetail = {
 type OrderResult = {
   ref: string;
   status: string;
+  message?: string;
   productName: string;
   variationName: string;
   quantity: number;
@@ -72,6 +73,42 @@ export default function GamingPage() {
   const [msg, setMsg] = useState("");
   const [needsFund, setNeedsFund] = useState(false);
   const [order, setOrder] = useState<OrderResult | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  /* Live delivery status (processing -> completed), synced via Verxor. */
+  const checkStatus = useCallback(async () => {
+    if (!order) return;
+    setChecking(true);
+    try {
+      const supabase = createBrowserClient();
+      const { data: sess } = await supabase.auth.getSession();
+      const sessionToken = sess.session?.access_token;
+      if (!sessionToken) return;
+      const res = await fetch("/api/gaming/order-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${sessionToken}` },
+        body: JSON.stringify({ ref: order.ref }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        status?: string;
+        message?: string;
+      };
+      if (data.ok && data.status) {
+        setOrder({ ...order, status: data.status, message: data.message || order.message });
+      }
+    } catch {
+      /* ignore: next poll retries */
+    } finally {
+      setChecking(false);
+    }
+  }, [order]);
+
+  useEffect(() => {
+    if (!order || order.status !== "processing") return;
+    const t = setInterval(checkStatus, 15000);
+    return () => clearInterval(t);
+  }, [order, checkStatus]);
 
   const loadGames = useCallback(async () => {
     setLoading(true);
@@ -414,8 +451,25 @@ export default function GamingPage() {
                       {order.quantity > 1 ? ` ×${order.quantity}` : ""} — {ngn(order.totalNgn)}
                     </p>
                     <p className="text-[12px] text-[#94A3B8]">Ref: <code>{order.ref}</code></p>
+                    <p className="text-[13px] font-semibold text-[#0F172A]">
+                      Status:{" "}
+                      <span
+                        className={
+                          order.status === "completed"
+                            ? "text-[#16A34A]"
+                            : order.status === "refunded"
+                              ? "text-[#DC2626]"
+                              : "text-[#1877F2]"
+                        }
+                      >
+                        {order.status}
+                      </span>
+                    </p>
+                    {order.message ? (
+                      <p className="text-[12px] text-[#64748B]">{order.message}</p>
+                    ) : null}
                     <p className="text-[13px] text-[#64748B]">
-                      Credits are usually delivered within minutes.
+                      Credits are usually delivered within minutes. The status here updates automatically.
                     </p>
                     <button
                       type="button"
@@ -424,6 +478,16 @@ export default function GamingPage() {
                     >
                       Done
                     </button>
+                    {order.status === "processing" ? (
+                      <button
+                        type="button"
+                        onClick={checkStatus}
+                        disabled={checking}
+                        className="h-11 w-full rounded-full border border-[#E2E8F0] bg-white text-sm font-semibold text-[#334155] disabled:opacity-60"
+                      >
+                        {checking ? "Checking…" : "Refresh status"}
+                      </button>
+                    ) : null}
                   </div>
                 ) : (
                   <>
