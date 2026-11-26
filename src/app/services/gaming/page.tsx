@@ -10,8 +10,11 @@ import {
   Gamepad2,
   Loader2,
   Search,
+  ShieldCheck,
+  Sparkles,
   Wallet,
   X,
+  Zap,
 } from "lucide-react";
 
 /**
@@ -53,6 +56,69 @@ function linGrad(id: string): string {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 360;
   return `linear-gradient(135deg, hsl(${h} 70% 46%), hsl(${(h + 40) % 360} 65% 32%))`;
+}
+
+/** Honest in-house promo slides — no fake discounts, only what we deliver. */
+const PROMOS = [
+  {
+    key: "instant",
+    icon: Zap,
+    title: "Instant delivery",
+    text: "Credits land on your player ID in minutes — automatically.",
+    grad: "linear-gradient(135deg, #1877F2, #6D28D9)",
+  },
+  {
+    key: "wallet",
+    icon: Wallet,
+    title: "Pay from your Vernex wallet",
+    text: "Fund once, top up anytime. No card needed.",
+    grad: "linear-gradient(135deg, #0E7490, #1877F2)",
+  },
+  {
+    key: "tracked",
+    icon: ShieldCheck,
+    title: "Every order tracked",
+    text: "Watch your top-up go from processing to completed, live.",
+    grad: "linear-gradient(135deg, #4F46E5, #9333EA)",
+  },
+];
+
+function AdStrip() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % PROMOS.length), 4000);
+    return () => clearInterval(t);
+  }, []);
+  const p = PROMOS[i];
+  const Icon = p.icon;
+  return (
+    <div className="relative overflow-hidden rounded-[18px] text-white shadow-[0_12px_28px_rgba(24,119,242,0.22)]">
+      <div key={p.key} style={{ background: p.grad }}>
+        <div className="flex items-center gap-4 px-5 py-5">
+          <div className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-white/20">
+            <Icon size={22} />
+          </div>
+          <div>
+            <p className="text-[15px] font-extrabold leading-tight">{p.title}</p>
+            <p className="mt-0.5 text-[12px] font-medium text-white/85">{p.text}</p>
+          </div>
+        </div>
+      </div>
+      <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
+        {PROMOS.map((s, n) => (
+          <button
+            key={s.key}
+            type="button"
+            aria-label={`Show promo ${n + 1}`}
+            onClick={() => setI(n)}
+            className={`h-1.5 rounded-full transition-all ${
+              n === i ? "w-5 bg-white" : "w-1.5 bg-white/50"
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function GamingPage() {
@@ -110,8 +176,26 @@ export default function GamingPage() {
     return () => clearInterval(t);
   }, [order, checkStatus]);
 
-  const loadGames = useCallback(async () => {
-    setLoading(true);
+  // Returning visitors see the cached catalog instantly; it refreshes in the
+  // background only when stale (6h). Purchases always re-verify live.
+  const loadGames = useCallback(async (force = false) => {
+    if (!force) {
+      try {
+        const raw = localStorage.getItem("nex-gaming-catalog");
+        if (raw) {
+          const cached = JSON.parse(raw) as { at?: number; games?: CatalogGame[] };
+          if (Array.isArray(cached.games) && cached.games.length) {
+            setGames(cached.games);
+            setLoading(false);
+            if (Date.now() - (cached.at || 0) < 6 * 60 * 60 * 1000) return;
+          }
+        }
+      } catch {
+        /* cache unavailable — load normally */
+      }
+    } else {
+      setLoading(true);
+    }
     setLoadError("");
     try {
       const res = await fetch("/api/gaming/catalog", { cache: "no-store" });
@@ -125,6 +209,14 @@ export default function GamingPage() {
         setGames([]);
       } else {
         setGames(data.games);
+        try {
+          localStorage.setItem(
+            "nex-gaming-catalog",
+            JSON.stringify({ at: Date.now(), games: data.games }),
+          );
+        } catch {
+          /* storage full/unavailable — non-fatal */
+        }
       }
     } catch {
       setLoadError("Network error loading the catalog.");
@@ -275,9 +367,30 @@ export default function GamingPage() {
       </header>
 
       <div className="mx-auto max-w-lg space-y-4 px-4 pt-5">
-        <p className="text-sm text-[#64748B]">
-          Instant game credits delivered to your player ID — pay from your Vernex wallet.
-        </p>
+        {/* Hero */}
+        <div className="overflow-hidden rounded-[18px] bg-gradient-to-br from-[#1877F2] to-[#6D28D9] px-5 py-6 text-white shadow-[0_12px_28px_rgba(24,119,242,0.25)]">
+          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
+            <Sparkles size={12} /> Official game credits
+          </div>
+          <h2 className="text-xl font-extrabold leading-tight">Gaming Top-up</h2>
+          <p className="mt-1 text-[13px] font-medium text-white/85">
+            Instant game credits delivered straight to your player ID — pay from your Vernex wallet.
+          </p>
+          <div className="mt-3.5 flex flex-wrap gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold">
+              <Zap size={12} /> Instant delivery
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold">
+              <ShieldCheck size={12} /> Official publishers
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold">
+              <Wallet size={12} /> Vernex wallet
+            </span>
+          </div>
+        </div>
+
+        {/* Ad strip */}
+        <AdStrip />
 
         {/* Search */}
         <label className="flex h-12 items-center gap-2 rounded-[12px] border border-[#E2E8F0] bg-white px-3">
@@ -330,13 +443,21 @@ export default function GamingPage() {
         {loadError ? (
           <div className="flex items-center gap-2 rounded-[12px] bg-red-50 px-3 py-2.5 text-[13px] font-medium text-red-600">
             <AlertCircle size={15} /> {loadError}
-            <button type="button" onClick={() => void loadGames()} className="ml-auto font-bold underline">
+            <button type="button" onClick={() => void loadGames(true)} className="ml-auto font-bold underline">
               Retry
             </button>
           </div>
         ) : null}
 
         {/* Grid */}
+        <div className="flex items-end justify-between pt-1">
+          <h3 className="text-[13px] font-bold uppercase tracking-wide text-[#0F172A]">
+            {query ? "Search results" : letter ? `Games · ${letter}` : "All games"}
+          </h3>
+          {!loading && games.length ? (
+            <span className="text-[11px] font-semibold text-[#94A3B8]">{visible.length} shown</span>
+          ) : null}
+        </div>
         {loading ? (
           <div className="grid grid-cols-2 gap-2.5">
             {Array.from({ length: 8 }).map((_, i) => (
@@ -350,7 +471,7 @@ export default function GamingPage() {
                 key={g.id}
                 type="button"
                 onClick={() => void openProduct(`game-${g.id}`, g.image)}
-                className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white text-left transition active:scale-[.98]"
+                className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white text-left shadow-sm transition-all duration-200 hover:border-[#CBD5E1] hover:shadow-md active:scale-[.98]"
               >
                 <div
                   className="relative aspect-square w-full overflow-hidden bg-slate-900"
