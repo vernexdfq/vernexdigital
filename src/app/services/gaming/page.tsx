@@ -121,9 +121,33 @@ function AdStrip() {
   );
 }
 
+
+/** Module-level in-memory cache to prevent reloading across page navigations */
+let memGames: CatalogGame[] | null = null;
+let memGamesAt = 0;
+const memProductDetails = new Map<string, ProductDetail>();
+
+function getInitialGames(): CatalogGame[] {
+  if (memGames && memGames.length > 0) return memGames;
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("nex-gaming-catalog");
+      if (raw) {
+        const cached = JSON.parse(raw) as { at?: number; games?: CatalogGame[] };
+        if (Array.isArray(cached.games) && cached.games.length > 0) {
+          memGames = cached.games;
+          memGamesAt = cached.at || Date.now();
+          return cached.games;
+        }
+      }
+    } catch {}
+  }
+  return [];
+}
+
 export default function GamingPage() {
-  const [games, setGames] = useState<CatalogGame[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [games, setGames] = useState<CatalogGame[]>(() => getInitialGames());
+  const [loading, setLoading] = useState<boolean>(() => getInitialGames().length === 0);
   const [loadError, setLoadError] = useState("");
 
   const [query, setQuery] = useState("");
@@ -177,38 +201,27 @@ export default function GamingPage() {
   }, [order, checkStatus]);
 
   // Returning visitors see the cached catalog instantly; it refreshes in the
-  // background only when stale (6h). Purchases always re-verify live.
+  // background without blocking navigation. Purchases always re-verify live.
   const loadGames = useCallback(async (force = false) => {
-    if (!force) {
-      try {
-        const raw = localStorage.getItem("nex-gaming-catalog");
-        if (raw) {
-          const cached = JSON.parse(raw) as { at?: number; games?: CatalogGame[] };
-          if (Array.isArray(cached.games) && cached.games.length) {
-            setGames(cached.games);
-            setLoading(false);
-            if (Date.now() - (cached.at || 0) < 6 * 60 * 60 * 1000) return;
-          }
-        }
-      } catch {
-        /* cache unavailable — load normally */
-      }
-    } else {
+    if (force || (!memGames?.length && games.length === 0)) {
       setLoading(true);
     }
     setLoadError("");
     try {
-      const res = await fetch("/api/gaming/catalog", { cache: "no-store" });
+      const res = await fetch("/api/gaming/catalog");
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         games?: CatalogGame[];
       };
       if (!res.ok || !data.ok || !Array.isArray(data.games)) {
-        setLoadError(data.error || "Could not load the gaming catalog.");
-        setGames([]);
+        if (!games.length && !memGames?.length) {
+          setLoadError(data.error || "Could not load the gaming catalog.");
+        }
       } else {
         setGames(data.games);
+        memGames = data.games;
+        memGamesAt = Date.now();
         try {
           localStorage.setItem(
             "nex-gaming-catalog",
@@ -219,11 +232,13 @@ export default function GamingPage() {
         }
       }
     } catch {
-      setLoadError("Network error loading the catalog.");
+      if (!games.length && !memGames?.length) {
+        setLoadError("Network error loading the catalog.");
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [games.length]);
 
   useEffect(() => {
     void loadGames();
@@ -249,8 +264,6 @@ export default function GamingPage() {
   const variantMode = detail?.id.startsWith("game-") ?? false;
 
   const openProduct = async (id: string, initialImage?: string | null) => {
-    setDetailLoading(true);
-    setDetail(null);
     setDetailError("");
     setSelected(null);
     setFieldValues({});
@@ -258,13 +271,36 @@ export default function GamingPage() {
     setMsg("");
     setOrder(null);
     setNeedsFund(false);
+
+    const query = `/api/gaming/product?product_id=${encodeURIComponent(id)}${
+      initialImage ? `&image=${encodeURIComponent(initialImage)}` : ""
+    }`;
+
+    // Instant open if already viewed in this session
+    const cached = memProductDetails.get(id);
+    if (cached) {
+      setDetail(cached);
+      setDetailLoading(false);
+      const first = cached.variations.find((v) => v.inStock && v.priceNgn > 0);
+      if (first) setSelected(first.id);
+
+      // Background revalidation
+      void fetch(query)
+        .then((r) => r.json())
+        .then((d: { ok?: boolean; product?: ProductDetail }) => {
+          if (d.ok && d.product) {
+            memProductDetails.set(id, d.product);
+            setDetail((current) => (current && current.id === id ? d.product! : current));
+          }
+        })
+        .catch(() => null);
+      return;
+    }
+
+    setDetail(null);
+    setDetailLoading(true);
     try {
-      const query = `/api/gaming/product?product_id=${encodeURIComponent(id)}${
-        initialImage ? `&image=${encodeURIComponent(initialImage)}` : ""
-      }`;
-      const res = await fetch(query, {
-        cache: "no-store",
-      });
+      const res = await fetch(query);
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
@@ -273,6 +309,7 @@ export default function GamingPage() {
       if (!res.ok || !data.ok || !data.product) {
         setDetailError(data.error || "Could not load this product.");
       } else {
+        memProductDetails.set(id, data.product);
         setDetail(data.product);
         const first = data.product.variations.find((v) => v.inStock && v.priceNgn > 0);
         if (first) setSelected(first.id);
