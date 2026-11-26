@@ -119,7 +119,7 @@ export default function GamingPage() {
 
   const variantMode = detail?.id.startsWith("game-") ?? false;
 
-  const openProduct = async (id: string) => {
+  const openProduct = async (id: string, initialImage?: string | null) => {
     setDetailLoading(true);
     setDetail(null);
     setDetailError("");
@@ -130,7 +130,10 @@ export default function GamingPage() {
     setOrder(null);
     setNeedsFund(false);
     try {
-      const res = await fetch(`/api/gaming/product?product_id=${encodeURIComponent(id)}`, {
+      const query = `/api/gaming/product?product_id=${encodeURIComponent(id)}${
+        initialImage ? `&image=${encodeURIComponent(initialImage)}` : ""
+      }`;
+      const res = await fetch(query, {
         cache: "no-store",
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -309,7 +312,7 @@ export default function GamingPage() {
               <button
                 key={g.id}
                 type="button"
-                onClick={() => void openProduct(`game-${g.id}`)}
+                onClick={() => void openProduct(`game-${g.id}`, g.image)}
                 className="overflow-hidden rounded-[16px] border border-[#E2E8F0] bg-white text-left transition active:scale-[.98]"
               >
                 <div

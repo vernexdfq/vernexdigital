@@ -27,13 +27,15 @@ export async function GET(req: NextRequest) {
     );
   }
   const productId = (req.nextUrl.searchParams.get("product_id") || "").trim();
+  const fallbackImage = (req.nextUrl.searchParams.get("image") || "").trim() || null;
   if (!productId) {
     return NextResponse.json({ ok: false, error: "Missing product id" }, { status: 400 });
   }
   try {
-    const res = await verxorFetch(
-      `/gaming/product?product_id=${encodeURIComponent(productId)}`,
-    );
+    const upstreamUrl = `/gaming/product?product_id=${encodeURIComponent(productId)}${
+      fallbackImage ? `&image=${encodeURIComponent(fallbackImage)}` : ""
+    }`;
+    const res = await verxorFetch(upstreamUrl);
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       error?: string;
@@ -52,7 +54,7 @@ export async function GET(req: NextRequest) {
       product: {
         id: p.id,
         name: p.name,
-        image: p.image || null,
+        image: p.image || fallbackImage || null,
         fields: p.fields || [],
         servers: p.servers || [],
         variations: (p.variations || []).map((v) => ({
